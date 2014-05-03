@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+        <meta charset="utf-8">
+        <title>Tavili pilot</title>
+        <meta name="description" content="Web app for the Tavili pilot">
+        <style>
+            #nojs{
+                position: absolute;
+                top: 0px;
+                left: 0px;
+                width: 100%;
+                background: yellow;
+                color: red;
+            }
+            #map{
+                float: left;
+                width: 45%;
+                height: 20em;
+            }
+            #log{
+                width: 45%;
+                float: right;
+                background: yellow;
+                color: black;
+            }
+        </style>
+        <script type="text/javascript" src="http://openlayers.org/api/OpenLayers.js"></script>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
+        <script type="text/javascript">
+
+function log(msg){
+    console.log(msg);
+    if('string' === typeof msg){
+        $('#log').prepend(
+            $('<div>').text(new Date().toLocaleTimeString() + ' - ' + msg)
+        );
+    }
+};
+
+function get(url, data, callback){
+    $.ajax({
+        url: url,
+        dataType: 'jsonp',
+        data: data,
+        success:function(data){
+            if(null !== data && 'string' === typeof data.error) log(data.error);
+            callback(data);
+        },
+        error:function(){
+            log('Unable to retrieve ' + url);
+        }
+    });
+};
+
+$(function(){
+    $('#nojs').remove();
+    log('js detected');
+
+    // Initialize, center and zoom map
+    var map = new OpenLayers.Map({
+        div: "map",
+        theme: null,
+        layers: [
+            new OpenLayers.Layer.OSM("OpenStreetMap")
+        ],
+        center: new OpenLayers.LonLat(34.7987, 32.0695).transform(
+            new OpenLayers.Projection("EPSG:4326"),
+            new OpenLayers.Projection("EPSG:900913")
+        ),
+        zoom: 14
+    });
+
+    // Get and mark nearby packages
+    var center = prompt('center', '34.7987:32.0695');
+    map.setCenter(new OpenLayers.LonLat(center.split(':')).transform(
+        new OpenLayers.Projection("EPSG:4326"),
+        new OpenLayers.Projection("EPSG:900913")
+    ));
+    var radius = prompt('radius', '0.01');
+    log('getting packages');
+    get('packages.jsonp', {center: center, radius: radius}, function(packages){
+        $.each(packages, function(idx, hash){
+            get('package.jsonp', {id: hash}, function(pos){
+                log('got package ' + hash.substring(0, 10));
+                var markers = new OpenLayers.Layer.Markers("Markers");
+                map.addLayer(markers);
+                var size = new OpenLayers.Size(21,25);
+                var offset = new OpenLayers.Pixel(-(size.w/2), -size.h);
+                var icon = new OpenLayers.Icon(
+                    'http://www.openlayers.org/dev/img/marker.png',
+                    size,
+                    offset
+                );
+                markers.addMarker(new OpenLayers.Marker(
+                    new OpenLayers.LonLat(pos[0], pos[1]).transform(
+                        new OpenLayers.Projection("EPSG:4326"),
+                        new OpenLayers.Projection("EPSG:900913")
+                    ),
+                    icon
+                ));
+            });
+        });
+    });
+});
+        </script>
+    </head>
+    <body>
+        <div id="nojs">Either you have JavaScript disabled, or we have a serious bug.</div>
+        <div id="map"></div>
+        <div id="log"></div>
+    </body>
+</html>
+<!--
+vim: ft=javascript
+-->
