@@ -13,8 +13,8 @@ from time import time
 packages = {
     sha256(''.join((str(o) for o in (time(), lon, lat))).encode('UTF-8')).hexdigest():
         Package((lon / 100, lat / 100))
-        for lon in range(3470, 3490)
-        for lat in range(3195, 3215)
+        for lon in range(3195, 3215)
+        for lat in range(3470, 3490)
 }
 
 #Get packages in a radius around a center
