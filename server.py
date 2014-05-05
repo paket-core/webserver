@@ -7,19 +7,17 @@ class Package(object):
     def distance(self, pos):
         return sum((self.pos[i] - pos[i]) ** 2 for i in (0, 1)) ** .5
 
-# Generate a 100 packages in a grid
+# Generate a 1000 packages in a grid
 from hashlib import sha256
 from time import time
-from random import random
+from random import uniform
 packages = {
-    sha256(''.join((str(o) for o in (time(), lon, lat))).encode('UTF-8')).hexdigest():
-        Package((lon / 100, lat / 100))
-        for lon in range(3195, 3215)
-        for lat in range(3470, 3490) if random() > .6
+    sha256(''.join((str(o) for o in (time(), i))).encode('UTF-8')).hexdigest():
+        Package((
+            uniform(31.95, 32.15),
+            uniform(34.70, 34.90)
+        )) for i in range(200)
 }
-# for p in packages.keys():
-#     if random.random() > .2: packages.pop(p)
-#     print(p, random.randint(1,10))
 
 #Get packages in a radius around a center
 def getpackages(center, radius):
