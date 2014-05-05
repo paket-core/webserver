@@ -10,12 +10,16 @@ class Package(object):
 # Generate a 100 packages in a grid
 from hashlib import sha256
 from time import time
+from random import random
 packages = {
     sha256(''.join((str(o) for o in (time(), lon, lat))).encode('UTF-8')).hexdigest():
         Package((lon / 100, lat / 100))
         for lon in range(3195, 3215)
-        for lat in range(3470, 3490)
+        for lat in range(3470, 3490) if random() > .6
 }
+# for p in packages.keys():
+#     if random.random() > .2: packages.pop(p)
+#     print(p, random.randint(1,10))
 
 #Get packages in a radius around a center
 def getpackages(center, radius):
