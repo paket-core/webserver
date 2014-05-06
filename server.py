@@ -37,7 +37,11 @@ class Transfer(object):
         
 #
 class TransferOrder(object):
-    def __init__(self, transfer, status, pickupWindow, currier):
+    def __init__(self, transfer, pickupWindow, currier):
+        self.transfer = transfer
+        self.pickupWindow = pickupWindow        
+        self.currier = currier
+        self.status = "created"
 
 # A basic package, currently only has a pos tuple and a distance calculator
 class Package(object):
