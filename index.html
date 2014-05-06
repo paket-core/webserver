@@ -73,7 +73,7 @@ $(function(){
     // Get and mark nearby packages
     var center = prompt('center', '32.0695:34.7987');
     map.setView(center.split(':'), 13);
-    var radius = prompt('radius', '0.02');
+    var radius = prompt('radius', '0.05');
     L.circle(center.split(':'), radius * 100000, {
         color: 'red',
         weight: '2',
@@ -81,7 +81,7 @@ $(function(){
         fillOpacity: 0.2
     }).addTo(map).bindPopup('your range');
     log('getting packages');
-    var cMmarkers = new L.MarkerClusterGroup();
+    var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 }); // reduce radius of joining (default is 80)
     get('packages.jsonp', {'center': center, 'radius': radius}, function(packages){
         $.each(packages, function(idx, hash){
             get('package.jsonp', {id: hash}, function(pos){
