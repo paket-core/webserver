@@ -15,13 +15,9 @@
                 color: red;
             }
             #map{
-                width: 45%;
-                float: left;
                 height: 50em;
             }
             #log{
-                width: 45%;
-                float: right;
                 background: yellow;
                 color: black;
             }
@@ -58,40 +54,58 @@ function get(url, data, callback){
     });
 };
 
+var map;
+
+function getpackages(position, range){
+        L.circle(position, range * 110000,{
+            color: 'red',
+            weight: '2',
+            fillColor: '#f03',
+            fillOpacity: 0.2
+        }).addTo(map);
+
+        log('getting packages');
+        var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+        get('packages.jsonp', {'center': position.join(':'), 'radius': range}, function(packages){
+            $.each(packages, function(idx, hash){
+                get('package.jsonp', {id: hash}, function(pos){
+                    log('got package ' + hash);
+                    m = L.marker([pos[0], pos[1]]).bindPopup(pos);
+                    cMmarkers.addLayer(m);
+                });
+            });
+        map.addLayer(cMmarkers);
+        });
+}
+
 $(function(){
     $('#nojs').remove();
     log('js detected');
 
     // Initialize, center and zoom map
-    var map = L.map('map').setView([32.0695, 34.7987], 13);
+    map = L.map('map').setView([32.0695, 34.7987], 13);
     L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png',{
-        maxZoom: 18,
         attribution: '-',//'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' + 'Imagery © <a href="http://mapbox.com">Mapbox</a>',
         id: 'examples.map-9ijuk24y'
     }).addTo(map);
 
     // Get and mark nearby packages
-    var center = prompt('center', '32.0695:34.7987');
-    map.setView(center.split(':'), 13);
-    var radius = prompt('radius', '0.05');
-    L.circle(center.split(':'), radius * 100000, {
-        color: 'red',
-        weight: '2',
-        fillColor: '#f03',
-        fillOpacity: 0.2
-    }).addTo(map).bindPopup('your range');
-    log('getting packages');
-    var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 }); // reduce radius of joining (default is 80)
-    get('packages.jsonp', {'center': center, 'radius': radius}, function(packages){
-        $.each(packages, function(idx, hash){
-            get('package.jsonp', {id: hash}, function(pos){
-                log('got package ' + hash.substring(0, 10));
-                m = L.marker([pos[0], pos[1]]).bindPopup(pos.join(':'));
-                cMmarkers.addLayer(m);
-            });
-        });
-    map.addLayer(cMmarkers);
+    map.on('locationerror', function onLocationError(e){
+        log(e.message, e);
+        var position = prompt('position', '32.0695:34.7987');
+        position = position.split(':');
+        var range = prompt('range', '0.05');
+        getpackages(position, range);
     });
+    map.on('locationfound', function (e){
+        var radius = e.accuracy / 2;
+        L.marker(e.latlng).addTo(map)
+            .bindPopup("You are within " + radius + " meters from this point").openPopup();
+
+        var range = prompt('range', '0.05');
+        getpackages([e.latlng.lat, e.latlng.lng], range);
+    });
+    map.locate({setView: true, maxZoom: 14});
 });
         </script>
     </head>

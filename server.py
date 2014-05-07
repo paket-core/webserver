@@ -14,19 +14,21 @@ class Location(object):
     def distance(self, geoPos):
         return sum((self.geoPos[i] - geoPos[i]) ** 2 for i in (0, 1)) ** .5
 
-# An address is a fixed Location with a helpful description on how to get to it  
+# An address is a fixed Location with a helpful description on how to get to it
 class Address(Location):
-    def __init__(self, loc, desc = "no description provided"):
+    def __init__(self, geoPos, desc = "no description provided"):
+        self.__init__(self, geoPos)
         self.loc = loc
         self.desc = desc
 
-# A shipment is a description of a parcel, it's source and it's destination                
+# TODO shipment and transfer are one - maybe ddelivery, check thesaurus
+# A shipment is a description of a parcel, it's source and it's destination
 class Shipment(object):
     def __init__(self, parcel, sourceLoc, destLoc):
         self.sourceLoc, self.destLoc = sourceLoc, destLoc
 
-# A transfer is the actual transference of a Shipment. It's status, and location. 
-# Each Shipment is performed by a single or several Transfers. 
+# A transfer is the actual transference of a Shipment. It's status, and location.
+# Each Shipment is performed by a single or several Transfers.
 class Transfer(object):
     def __init__(self, shipment, status, currier, lastLocation):
         self.shipment = shipment
@@ -34,13 +36,12 @@ class Transfer(object):
         self.currier = currier
         self.lastLocation = lastLocation
         self.lastLocationTime = time()
-        
+
 #
 class TransferOrder(object):
-    def __init__(self, transfer, pickupWindow, currier):
+    def __init__(self, transfer, pickupWindow):
         self.transfer = transfer
-        self.pickupWindow = pickupWindow        
-        self.currier = currier
+        self.pickupWindow = pickupWindow
         self.status = "created"
 
 # A basic package, currently only has a pos tuple and a distance calculator
@@ -52,7 +53,6 @@ class Package(object):
 
 # Generate a 1000 packages in a grid
 from hashlib import sha256
-from http.server import SimpleHTTPRequestHandler, HTTPServer
 from json import dumps
 from random import uniform
 from time import time
@@ -60,7 +60,7 @@ from urllib.parse import urlparse, parse_qs
 
 
 packages = {
-    sha256(''.join((str(o) for o in (time(), i))).encode('UTF-8')).hexdigest():
+        sha256(''.join((str(o) for o in (time(), i))).encode('UTF-8')).hexdigest()[:5]:
         Package((
             uniform(31.95, 32.15),
             uniform(34.70, 34.90)
@@ -70,7 +70,7 @@ packages = {
 shipments = {
              "s:"+str(i): Shipment( Parcel("env"),
                             Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
-                            Location((uniform(31.95, 32.15), uniform(34.70, 34.90))) 
+                            Location((uniform(31.95, 32.15), uniform(34.70, 34.90)))
                             ) for i in range(20)
 }
 
@@ -83,6 +83,7 @@ def getShipmentSourcesInRange(center, range):
     return [key for key, shipment in shipments.items() if shipment.sourceLoc.distance(center) < range]
 
 # Our jsonp delivering handler
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         url = urlparse(self.path)
@@ -107,7 +108,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 # Run the server on port 8080 till keyboard interrupt
 if __name__ == '__main__':
-    server = HTTPServer(('localhost', 8080), Handler)
+    server = HTTPServer(('10.0.0.3', 8080), Handler)
     sockname = server.socket.getsockname()
     try:
         print("\nServing HTTP on", sockname[0], "port", sockname[1], "...")
