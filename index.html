@@ -56,7 +56,7 @@ function get(url, data, callback){
 
 var map;
 
-function getpackages(position, range){
+function getdeliveries(position, range){
         L.circle(position, range * 110000,{
             color: 'red',
             weight: '2',
@@ -64,12 +64,12 @@ function getpackages(position, range){
             fillOpacity: 0.2
         }).addTo(map);
 
-        log('getting packages');
+        log('getting deliveries');
         var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
-        get('packages.jsonp', {'center': position.join(':'), 'radius': range}, function(packages){
-            $.each(packages, function(idx, hash){
-                get('package.jsonp', {id: hash}, function(pos){
-                    log('got package ' + hash);
+        get('deliveriesinrange.jsonp', {'center': position.join(':'), 'radius': range}, function(deliveries){
+            $.each(deliveries, function(idx, hash){
+                get('delivery.jsonp', {id: hash}, function(pos){
+                    log('got delivery ' + hash);
                     m = L.marker([pos[0], pos[1]]).bindPopup(pos);
                     cMmarkers.addLayer(m);
                 });
@@ -89,13 +89,13 @@ $(function(){
         id: 'examples.map-9ijuk24y'
     }).addTo(map);
 
-    // Get and mark nearby packages
+    // Get and mark nearby deliveries
     map.on('locationerror', function onLocationError(e){
         log(e.message, e);
         var position = prompt('position', '32.0695:34.7987');
         position = position.split(':');
         var range = prompt('range', '0.05');
-        getpackages(position, range);
+        getdeliveries(position, range);
     });
     map.on('locationfound', function (e){
         var radius = e.accuracy / 2;
@@ -103,7 +103,7 @@ $(function(){
             .bindPopup("You are within " + radius + " meters from this point").openPopup();
 
         var range = prompt('range', '0.05');
-        getpackages([e.latlng.lat, e.latlng.lng], range);
+        getdeliveries([e.latlng.lat, e.latlng.lng], range);
     });
     map.locate({setView: true, maxZoom: 14});
 });

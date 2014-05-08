@@ -1,112 +1,104 @@
 #!/usr/bin/python3
 
-# A parcel has info about the physical package and an unlimited number of attribute
+# A Parcel has info about the physical package and an unlimited number of attribute.
 class Parcel(object):
-    def __init__(self, encumbrance):
+    def __init__(self, encumbrance=0):
         self.encumbrance = encumbrance
+        # Place holder
         self.attributes = {}
 
-# A location currently only has a geo pos tuple and a distance calculator
-# Any shipment is from a location and to a location
+# A Location currently only has a geo pos tuple (latitude, longitude) and a
+# distance calculator, soon to rely on the routing module.
+# FIXME Do we really need to separate Location from Address?
 class Location(object):
-    def __init__(self, geoPos):
-        self.geoPos = geoPos
-    def distance(self, geoPos):
-        return sum((self.geoPos[i] - geoPos[i]) ** 2 for i in (0, 1)) ** .5
+    def __init__(self, latlng):
+        self.latlng = latlng
+    def distance(self, latlng):
+        return sum((self.latlng[i] - latlng[i]) ** 2 for i in (0, 1)) ** .5
 
-# An address is a fixed Location with a helpful description on how to get to it
+# An Address is a fixed Location with a helpful description on how to get to it.
 class Address(Location):
-    def __init__(self, geoPos, desc = "no description provided"):
-        self.__init__(self, geoPos)
-        self.loc = loc
+    def __init__(self, latlng, desc=''):
+        Location.__init__(self, latlng)
         self.desc = desc
 
-# TODO shipment and transfer are one - maybe ddelivery, check thesaurus
-# A shipment is a description of a parcel, it's source and it's destination
-class Shipment(object):
-    def __init__(self, parcel, sourceLoc, destLoc):
-        self.sourceLoc, self.destLoc = sourceLoc, destLoc
+# A Delivery is the taking of a Parcel from one Address to another.
+class Delivery(object):
+    STATUSES = {
+        'CREATED': 'created',
+        'OPEN': 'open',
+        'COMMITTED': 'committed',
+        'ENROUTE': 'enroute',
+        'RECEIVED': 'received'
+    }
+    def __init__(self, parcel, source, destination):
+        self.parcel = parcel
+        self.source = source
+        self.destination = destination
+        self.status = self.STATUSES['CREATED']
+    def open(self, pickup):
+        self.pickup = pickup
+        self.status = self.STATUSES['OPEN']
+        return self
+    def commit(self, courier):
+        self.courier = courier
+        self.status = self.STATUSES['COMMITTED']
+        return self
+    def pickup(self, deposit):
+        self.deposit = deposit
+        self.status = self.STATUSES['ENROUTE']
+        return self
+    def receive(self):
+        self.status = self.STATUSES['RECEIVED']
+        return self
 
-# A transfer is the actual transference of a Shipment. It's status, and location.
-# Each Shipment is performed by a single or several Transfers.
-class Transfer(object):
-    def __init__(self, shipment, status, currier, lastLocation):
-        self.shipment = shipment
-        self.status = status
-        self.currier = currier
-        self.lastLocation = lastLocation
-        self.lastLocationTime = time()
-
-#
-class TransferOrder(object):
-    def __init__(self, transfer, pickupWindow):
-        self.transfer = transfer
-        self.pickupWindow = pickupWindow
-        self.status = "created"
-
-# A basic package, currently only has a pos tuple and a distance calculator
-class Package(object):
-    def __init__(self, pos):
-        self.pos = pos
-    def distance(self, pos):
-        return sum((self.pos[i] - pos[i]) ** 2 for i in (0, 1)) ** .5
-
-# Generate a 1000 packages in a grid
-from hashlib import sha256
-from json import dumps
+# Generate a 1000 deliveries in a grid
 from random import uniform
 from time import time
-from urllib.parse import urlparse, parse_qs
-
-
-packages = {
-        sha256(''.join((str(o) for o in (time(), i))).encode('UTF-8')).hexdigest()[:5]:
-        Package((
-            uniform(31.95, 32.15),
-            uniform(34.70, 34.90)
-        )) for i in range(200)
+deliveries = {
+        str(i): Delivery(
+            Parcel(),
+            Address((uniform(31.95, 32.15), uniform(34.70, 34.90))),
+            Address((uniform(31.95, 32.15), uniform(34.70, 34.90))),
+        ).open(None) for i in range(200)
 }
 
-shipments = {
-             "s:"+str(i): Shipment( Parcel("env"),
-                            Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
-                            Location((uniform(31.95, 32.15), uniform(34.70, 34.90)))
-                            ) for i in range(20)
-}
-
-#Get packages in a radius around a center
-def getpackages(center, radius):
-    return [key for key, package in packages.items() if package.distance(center) < radius]
-
-#
-def getShipmentSourcesInRange(center, range):
-    return [key for key, shipment in shipments.items() if shipment.sourceLoc.distance(center) < range]
+# Get deliveries for pickup in a radius around a center.
+def getdeliveries_sourceinrange(center, radius):
+    return [key for key, delivery in deliveries.items() if delivery.source.distance(center) < radius]
 
 # Our jsonp delivering handler
 from http.server import SimpleHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+from json import dumps
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
+
+        # Parse query string, make sure we have a callback.
         url = urlparse(self.path)
         if '.jsonp' != url.path[-6:]: return SimpleHTTPRequestHandler.do_GET(self)
         query = parse_qs(url.query)
         if 'callback' not in query: raise Exception('No callback specified')
         callback = query['callback'][-1]
 
+        # Get data for different calls
         try:
-            if '/package.jsonp' == url.path: data = packages[query['id'][0]].pos
-            elif '/packages.jsonp' == url.path: data = getpackages(
-                [float(i) for i in query['center'][0].split(':')],
-                float(query['radius'][0])
-            )
+            if '/delivery.jsonp' == url.path: data = deliveries[query['id'][0]].source.latlng
+            elif '/deliveriesinrange.jsonp' == url.path:
+                data = getdeliveries_sourceinrange(
+                    [float(i) for i in query['center'][0].split(':')],
+                    float(query['radius'][0])
+                )
             else: data = {'error': 'Did not understand ' + url.path}
         except (KeyError, ValueError): data = {'error': 'Wrong parameters', 'query': query}
 
+        # Send the reply as jsonp
         self.send_response(200)
         self.send_header('Content-type', 'application/javascript')
         self.end_headers()
         self.wfile.write(bytes(callback + '(' + dumps(data) + ');', 'UTF-8'))
 
-# Run the server on port 8080 till keyboard interrupt
+# Run the server on port 8080 till keyboard interrupt.
 if __name__ == '__main__':
     server = HTTPServer(('10.0.0.3', 8080), Handler)
     sockname = server.socket.getsockname()
