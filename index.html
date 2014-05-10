@@ -31,10 +31,10 @@
         <script type="text/javascript">
 
 function log(msg){
-    console.log(msg);
+    console.log(arguments);
     if('string' === typeof msg){
         $('#log').prepend(
-            $('<div>').text(new Date().toLocaleTimeString() + ' - ' + msg)
+            $('<div>').html(new Date().toLocaleTimeString() + ' - ' + msg)
         );
     }
 };
@@ -54,13 +54,13 @@ function get(url, data, callback){
     });
 };
 
-function addmarkertolayer(layer, lat, lng, iconname, text){
+function addmarkertolayer(layer, lat, lng, iconname, text, click){
     var icon =  L.icon({
         iconUrl: 'images/' + iconname + '.png',
         iconSize: [32, 32],
         iconAnchor: [1, 30],
     });
-    var marker = L.marker([lat, lng], {'icon': icon}).bindPopup(text);
+    var marker = L.marker([lat, lng], {'icon': icon}).bindPopup(text).on('click', click);
     layer.addLayer(marker);
 }
 
@@ -82,7 +82,23 @@ function getdeliveries(position, range){
             get('delivery.jsonp', {id: hash}, function(delivery){
                 log('got delivery ' + hash + ':' + delivery);
                 var popuptext = 'id:' + idx + " from\nroute:" + delivery[4] + 'm';
-                addmarkertolayer(cMmarkers, delivery[0], delivery[1], 'green_flag_icon', popuptext);
+                addmarkertolayer(
+                    cMmarkers,
+                    delivery[0],
+                    delivery[1],
+                    'green_flag_icon',
+                    popuptext,
+                    function(e){
+                        log(
+                            '"Oh lawdy I\'ve been clicked!", <span style="color: gray;">said marker '
+                            + hash
+                            + ' (the one with the popup "'
+                            + e.target._popup._content
+                            + '".</span>',
+                            e
+                        );
+                    }
+                );
                 addmarkertolayer(cMmarkersD, delivery[2], delivery[3], 'pink_flag_icon', popuptext);
             });
         });
