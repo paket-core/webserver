@@ -63,7 +63,7 @@ class Router:
         
     def getPath(self):
         if self.jsonRouteData:
-            return self.jsonRouteData['coordinates']
+            return [coordinate[::-1] for coordinate in self.jsonRouteData['coordinates']]
 
 
 # Run a demo
