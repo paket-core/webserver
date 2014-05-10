@@ -66,15 +66,29 @@ function getdeliveries(position, range){
 
         log('getting deliveries');
         var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+        var cMmarkersD = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
         get('deliveriesinrange.jsonp', {'center': position.join(':'), 'radius': range}, function(deliveries){
             $.each(deliveries, function(idx, hash){
                 get('delivery.jsonp', {id: hash}, function(delivery_obj){
                     log('got delivery ' + hash + ":" + delivery_obj);
-                    m = L.marker([delivery_obj[0], delivery_obj[1]]).bindPopup("route:" + delivery_obj[2] + "m");
-                    cMmarkers.addLayer(m);
+                    var fromIcon =  L.icon({
+                    	iconUrl: 'images/green_flag_icon.png',
+                    	iconSize: [32, 32],
+                    	iconAnchor: [1, 30],
+                    	}); 
+                    s = L.marker([delivery_obj[0], delivery_obj[1]], {icon: fromIcon}).bindPopup("id:" + idx + " from\nroute:" + delivery_obj[4] + "m");
+                    cMmarkers.addLayer(s);
+                    var toIcon =  L.icon({
+                    	iconUrl: 'images/pink_flag_icon.png',
+                    	iconSize: [32, 32],
+                    	iconAnchor: [1, 30],
+                    	});  
+                    d = L.marker([delivery_obj[2], delivery_obj[3]], {icon: toIcon}).bindPopup("id:" + idx + " to\nroute:" + delivery_obj[4] + "m");
+                    cMmarkersD.addLayer(d);
                 });
             });
         map.addLayer(cMmarkers);
+        map.addLayer(cMmarkersD);
         });
 }
 
@@ -99,10 +113,16 @@ $(function(){
     });
     map.on('locationfound', function (e){
         var radius = e.accuracy / 2;
-        L.marker(e.latlng).addTo(map)
-            .bindPopup("You are within " + radius + " meters from this point").openPopup();
+        var meIcon =  L.icon({
+        	iconUrl: 'images/pink_pin_icon.png',
+        	iconSize: [32, 32],
+        	iconAnchor: [9, 30],
+        	});  
 
-        var range = prompt('range', '0.05');
+        L.marker(e.latlng, {icon: meIcon}).addTo(map)
+//             .bindPopup("You are within " + radius + " meters from this point").openPopup();
+
+        var range = prompt('range', '0.02');
         getdeliveries([e.latlng.lat, e.latlng.lng], range);
     });
     map.locate({setView: true, maxZoom: 14, timeout: 3000});

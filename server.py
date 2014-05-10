@@ -106,7 +106,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         # Get data for different calls
         try:
-            if '/delivery.jsonp' == url.path: data = deliveries[query['id'][0]].source.latlng + (deliveries[query['id'][0]].getRouteTimeMin(),)
+            if '/delivery.jsonp' == url.path: data = deliveries[query['id'][0]].source.latlng + deliveries[query['id'][0]].destination.latlng + (deliveries[query['id'][0]].getRouteTimeMin(),)
             elif '/deliveriesinrange.jsonp' == url.path:
                 data = getdeliveries_sourceinrange(
                     [float(i) for i in query['center'][0].split(':')],
