@@ -63,10 +63,21 @@ class Delivery(object):
     def receive(self):
         self.status = self.STATUSES['RECEIVED']
         return self
+    # Lazy routing initialization
+    def __initdata(self):
+        self.router = Router(self.source.latlng, self.destination.latlng, 'bicycle')
+        self.path = self.router.getPath()
+        self.time = self.router.getTravelTimeMin()
     def data(self):
-        try: self.route
-        except NameError: self.route = Router(self.source.latlng, self.destination.latlng, 'bicycle')
-        return {'fromLatlng': self.source.latlng, 'toLatlng': self.destination.latlng, 'time': self.route}
+        try: return {
+            'fromLatlng': self.source.latlng,
+            'toLatlng': self.destination.latlng,
+            'time': self.time,
+            'path': self.path
+        }
+        except AttributeError:
+            self.__initdata()
+            return self.data()
 
 # Generate deliveries
 from random import uniform
