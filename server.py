@@ -8,14 +8,16 @@ class Parcel(object):
         # Place holder
         self.attributes = {}
 
-"""Location in the world. soon to rely on the routing module.(?)
-latlng - geo pos tuple
-accuracy - Accuracy indicator in meters. None if unknown.
-FIXME Do we really need to separate Location from Address?
-NOFIX yes, a location is logical - a person, or a Hub may be a location. In 
-addition, a location is more granular - it has floor, a specific person to sign maybe?
-We should give it more thought. Besides, I think location should be a hirarchical structure
-but that's a separate discussion.
+"""Location in the world.
+latlng - geo pos tuple.
+accuracy - Accuracy indicator in meters, None if unknown.
+
+Well, since this is how we communicate now, then:
+a) the bit with the "soon to rely on the routing module" originally said "with a distance calculation function soon to rely on the routing module". Which is what you just did. Also, I think this was my underhanded way of saying "keep up the good work" in regards to the routing module.
+
+b) I totally get the difference between a location and an address, but that wasn't the question. The question was, seeing how location is simply a tuple (all the functions here should really be part of address - e.g. different floors in same latlng take different times to get to), do we really need to make an object out of it. In other words, will we ever have a location that's not an address?
+
+c) Yes, hierarchy there should probably be, but not between addresses and locations. Whichever location object we use, can identify itself as part of another location. This can come in very handy.
 """
 class Location(object):
     def __init__(self, latlng, acc=None):
@@ -70,11 +72,9 @@ class Delivery(object):
     def receive(self):
         self.status = self.STATUSES['RECEIVED']
         return self
-    
     def getRouteTimeMin(self):
         return round(self.source.routeTimeMin(self.destination), 1)
-    
-    
+
 # Generate deliveries
 from random import uniform
 from time import time
@@ -109,7 +109,7 @@ class Handler(SimpleHTTPRequestHandler):
             if '/delivery.jsonp' == url.path: data = deliveries[query['id'][0]].source.latlng + deliveries[query['id'][0]].destination.latlng + (deliveries[query['id'][0]].getRouteTimeMin(),)
             elif '/deliveriesinrange.jsonp' == url.path:
                 data = getdeliveries_sourceinrange(
-                    [float(i) for i in query['center'][0].split(':')],
+                    [float(query['lat'][0]), float(query['lng'][0])],
                     float(query['radius'][0])
                 )
             else: data = {'error': 'Did not understand ' + url.path}
@@ -123,7 +123,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 # Run the server on port 8080 till keyboard interrupt.
 if __name__ == '__main__':
-    server = HTTPServer(('192.168.1.100', 8080), Handler) #yeah! fixit! yeah!
+    server = HTTPServer(('', 8080), Handler)
     sockname = server.socket.getsockname()
     try:
         print("\nServing HTTP on", sockname[0], "port", sockname[1], "...")

@@ -54,9 +54,23 @@ function get(url, data, callback){
     });
 };
 
-var map;
+function addmarkertolayer(layer, lat, lng, iconname, text){
+    var icon =  L.icon({
+        iconUrl: 'images/' + iconname + '.png',
+        iconSize: [32, 32],
+        iconAnchor: [1, 30],
+    });
+    var marker = L.marker([lat, lng], {'icon': icon}).bindPopup(text);
+    layer.addLayer(marker);
+}
 
+var map;
 function getdeliveries(position, range){
+    log('getting deliveries');
+    get('deliveriesinrange.jsonp', {'lat': position.lat, 'lng': position.lng, 'radius': range}, function(deliveries){
+        var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+        var cMmarkersD = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+
         L.circle(position, range * 110000,{
             color: 'red',
             weight: '0.5',
@@ -64,32 +78,35 @@ function getdeliveries(position, range){
             fillOpacity: 0.1
         }).addTo(map);
 
-        log('getting deliveries');
-        var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
-        var cMmarkersD = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
-        get('deliveriesinrange.jsonp', {'center': position.join(':'), 'radius': range}, function(deliveries){
-            $.each(deliveries, function(idx, hash){
-                get('delivery.jsonp', {id: hash}, function(delivery_obj){
-                    log('got delivery ' + hash + ":" + delivery_obj);
-                    var fromIcon =  L.icon({
-                    	iconUrl: 'images/green_flag_icon.png',
-                    	iconSize: [32, 32],
-                    	iconAnchor: [1, 30],
-                    	}); 
-                    s = L.marker([delivery_obj[0], delivery_obj[1]], {icon: fromIcon}).bindPopup("id:" + idx + " from\nroute:" + delivery_obj[4] + "m");
-                    cMmarkers.addLayer(s);
-                    var toIcon =  L.icon({
-                    	iconUrl: 'images/pink_flag_icon.png',
-                    	iconSize: [32, 32],
-                    	iconAnchor: [1, 30],
-                    	});  
-                    d = L.marker([delivery_obj[2], delivery_obj[3]], {icon: toIcon}).bindPopup("id:" + idx + " to\nroute:" + delivery_obj[4] + "m");
-                    cMmarkersD.addLayer(d);
-                });
+        $.each(deliveries, function(idx, hash){
+            get('delivery.jsonp', {id: hash}, function(delivery){
+                log('got delivery ' + hash + ':' + delivery);
+                var popuptext = 'id:' + idx + " from\nroute:" + delivery[4] + 'm';
+                addmarkertolayer(cMmarkers, delivery[0], delivery[1], 'green_flag_icon', popuptext);
+                addmarkertolayer(cMmarkersD, delivery[2], delivery[3], 'pink_flag_icon', popuptext);
             });
+        });
         map.addLayer(cMmarkers);
         map.addLayer(cMmarkersD);
+    });
+}
+
+function getcurrentposition(callback, manual){
+    // Manual prompting for non mobile devices
+    // TODO Should be done with cookie
+    if('undefined' !== typeof(manual) || /i686/i.test(navigator.userAgent)){
+        var position = prompt('position', '32.0695:34.7987').split(':');
+        callback({'lat': position[0], 'lng': position[1]}, 0);
+    }else{
+        map.on('locationerror', function onLocationError(e){
+            log(e.message, e);
+            return getcurrentposition(callback, true);
         });
+        map.on('locationfound', function(e){
+            callback(e.latlng, e.accuracy);
+        });
+        map.locate({setView: true, maxZoom: 14, timeout: 3000});
+    }
 }
 
 $(function(){
@@ -99,33 +116,22 @@ $(function(){
     // Initialize, center and zoom map
     map = L.map('map').setView([32.0695, 34.7987], 13);
     L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png',{
-        attribution: '-',//'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' + 'Imagery © <a href="http://mapbox.com">Mapbox</a>',
+        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' + 'Imagery © <a href="http://mapbox.com">Mapbox</a>',
         id: 'examples.map-9ijuk24y'
     }).addTo(map);
 
-    // Get and mark nearby deliveries
-    map.on('locationerror', function onLocationError(e){
-        log(e.message, e);
-        var position = prompt('position', '32.0695:34.7987');
-        position = position.split(':');
-        var range = prompt('range', '0.05');
-        getdeliveries(position, range);
-    });
-    map.on('locationfound', function (e){
-        var radius = e.accuracy / 2;
+    getcurrentposition(function(latlng, accuracy){
+        var radius = accuracy / 2;
         var meIcon =  L.icon({
-        	iconUrl: 'images/pink_pin_icon.png',
-        	iconSize: [32, 32],
-        	iconAnchor: [9, 30],
-        	});  
+            iconUrl: 'images/pink_pin_icon.png',
+            iconSize: [32, 32],
+            iconAnchor: [9, 30],
+        });
+        L.marker(latlng, {icon: meIcon}).addTo(map).bindPopup('you are ' + radius + ' meters from here');
 
-        L.marker(e.latlng, {icon: meIcon}).addTo(map)
-//             .bindPopup("You are within " + radius + " meters from this point").openPopup();
-
-        var range = prompt('range', '0.02');
-        getdeliveries([e.latlng.lat, e.latlng.lng], range);
+        var range = prompt('range', '0.05');
+        getdeliveries(latlng, range);
     });
-    map.locate({setView: true, maxZoom: 14, timeout: 3000});
 });
         </script>
     </head>
