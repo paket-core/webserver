@@ -82,24 +82,23 @@ function getdeliveries(position, range){
             get('delivery.jsonp', {id: hash}, function(delivery){
                 log('got delivery ' + hash + ':' + delivery['fromLatlng'] + delivery['time']);
                 var popuptext = 'id:' + idx + " from\nroute:" + delivery['time'] + 'min';
-//                 addmarkertolayer(fromMarkers, delivery['fromLatlng'], 'green_flag_icon', popuptext);
                 addmarkertolayer(
-                					fromMarkers,
-                					delivery['fromLatlng'],
-									'green_flag_icon',
-									"from " + popuptext,
-									function(e){
-										log(
-												'"Oh lawdy I\'ve been clicked!", <span style="color: gray;">said marker '
-												+ hash
-												+ ' (the one with the popup "'
-												+ e.target._popup._content
-												+ '".</span>',
-												e
-										);
-									}
-						          );
-
+                    fromMarkers,
+                    delivery['fromLatlng'],
+                    'green_flag_icon',
+                    "from " + popuptext,
+                    function(e){
+                        L.polyline(delivery.path, {color: 'red'}).addTo(map);
+                        log(
+                            '"Oh lawdy I\'ve been clicked!", <span style="color: gray;">said marker '
+                            + hash
+                            + ' (the one with the popup "'
+                            + e.target._popup._content
+                            + '".</span>',
+                            e
+                        );
+                    }
+                );
                 addmarkertolayer(toMarkers, delivery['toLatlng'], 'pink_flag_icon', "to " + popuptext);
             });
         });
@@ -146,7 +145,7 @@ $(function(){
         });
         L.marker(latlng, {icon: meIcon}).addTo(map).bindPopup('you are ' + radius + ' meters from here');
 
-        var range = prompt('range', '0.05');
+        var range = prompt('range', '0.02');
         getdeliveries(latlng, range);
     });
 });
