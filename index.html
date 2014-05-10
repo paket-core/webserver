@@ -54,13 +54,13 @@ function get(url, data, callback){
     });
 };
 
-function addmarkertolayer(layer, lat, lng, iconname, text){
+function addmarkertolayer(layer, latlng, iconname, text){
     var icon =  L.icon({
         iconUrl: 'images/' + iconname + '.png',
         iconSize: [32, 32],
         iconAnchor: [1, 30],
     });
-    var marker = L.marker([lat, lng], {'icon': icon}).bindPopup(text);
+    var marker = L.marker([latlng[0], latlng[1]], {'icon': icon}).bindPopup(text);
     layer.addLayer(marker);
 }
 
@@ -68,8 +68,8 @@ var map;
 function getdeliveries(position, range){
     log('getting deliveries');
     get('deliveriesinrange.jsonp', {'lat': position.lat, 'lng': position.lng, 'radius': range}, function(deliveries){
-        var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
-        var cMmarkersD = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+        var fromMarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+        var toMarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
 
         L.circle(position, range * 110000,{
             color: 'red',
@@ -80,14 +80,14 @@ function getdeliveries(position, range){
 
         $.each(deliveries, function(idx, hash){
             get('delivery.jsonp', {id: hash}, function(delivery){
-                log('got delivery ' + hash + ':' + delivery);
-                var popuptext = 'id:' + idx + " from\nroute:" + delivery[4] + 'm';
-                addmarkertolayer(cMmarkers, delivery[0], delivery[1], 'green_flag_icon', popuptext);
-                addmarkertolayer(cMmarkersD, delivery[2], delivery[3], 'pink_flag_icon', popuptext);
+                log('got delivery ' + hash + ':' + delivery['fromLatlng'] + delivery['time']);
+                var popuptext = 'id:' + idx + " from\nroute:" + delivery['time'] + 'min';
+                addmarkertolayer(fromMarkers, delivery['fromLatlng'], 'green_flag_icon', popuptext);
+                addmarkertolayer(toMarkers, delivery['toLatlng'], 'pink_flag_icon', popuptext);
             });
         });
-        map.addLayer(cMmarkers);
-        map.addLayer(cMmarkersD);
+        map.addLayer(fromMarkers);
+        map.addLayer(toMarkers);
     });
 }
 

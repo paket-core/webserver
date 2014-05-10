@@ -14,6 +14,7 @@ class Router:
     """
     def __init__(self, fromLatLng, toLatLng, transport='motorcar'):
         self.jsonRouteData = None
+        print('create Router with %s->%s'%(fromLatLng, toLatLng))
         conn = http.client.HTTPConnection("www.yournavigation.org")
         params = urllib.parse.urlencode({'format':'geojson', 
                                          'flon':fromLatLng[1], 'flat':fromLatLng[0],
