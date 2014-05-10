@@ -59,18 +59,18 @@ var map;
 function getdeliveries(position, range){
         L.circle(position, range * 110000,{
             color: 'red',
-            weight: '2',
-            fillColor: '#f03',
-            fillOpacity: 0.2
+            weight: '0.5',
+            fillColor: '#f00',
+            fillOpacity: 0.1
         }).addTo(map);
 
         log('getting deliveries');
         var cMmarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
         get('deliveriesinrange.jsonp', {'center': position.join(':'), 'radius': range}, function(deliveries){
             $.each(deliveries, function(idx, hash){
-                get('delivery.jsonp', {id: hash}, function(pos){
-                    log('got delivery ' + hash);
-                    m = L.marker([pos[0], pos[1]]).bindPopup(pos);
+                get('delivery.jsonp', {id: hash}, function(delivery_obj){
+                    log('got delivery ' + hash + ":" + delivery_obj);
+                    m = L.marker([delivery_obj[0], delivery_obj[1]]).bindPopup("route:" + delivery_obj[2] + "m");
                     cMmarkers.addLayer(m);
                 });
             });
@@ -105,7 +105,7 @@ $(function(){
         var range = prompt('range', '0.05');
         getdeliveries([e.latlng.lat, e.latlng.lng], range);
     });
-    map.locate({setView: true, maxZoom: 14});
+    map.locate({setView: true, maxZoom: 14, timeout: 3000});
 });
         </script>
     </head>

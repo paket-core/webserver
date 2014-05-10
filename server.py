@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+from router import Router
 
 # A Parcel has info about the physical package and an unlimited number of attribute.
 class Parcel(object):
@@ -7,19 +8,37 @@ class Parcel(object):
         # Place holder
         self.attributes = {}
 
-# A Location currently only has a geo pos tuple (latitude, longitude) and a
-# distance calculator, soon to rely on the routing module.
-# FIXME Do we really need to separate Location from Address?
+"""Location in the world. soon to rely on the routing module.(?)
+latlng - geo pos tuple
+accuracy - Accuracy indicator in meters. None if unknown.
+FIXME Do we really need to separate Location from Address?
+NOFIX yes, a location is logical - a person, or a Hub may be a location. In 
+addition, a location is more granular - it has floor, a specific person to sign maybe?
+We should give it more thought. Besides, I think location should be a hirarchical structure
+but that's a separate discussion.
+"""
 class Location(object):
-    def __init__(self, latlng):
+    def __init__(self, latlng, acc=None):
         self.latlng = latlng
+        self.accuracy = acc
+    def __str__(self, *args, **kwargs):
+        return "<Location in %s>" % (self.latlng,)
     def distance(self, latlng):
         return sum((self.latlng[i] - latlng[i]) ** 2 for i in (0, 1)) ** .5
+    def routeDistance(self, location):
+        print("calc route distance from %s to %s" % (self, location))
+        r = Router(self.latlng,location.latlng, 'motorcar')
+        return r.getDistance() 
+    def routeTimeMin(self, location):
+        print("calc route time from %s to %s" % (self.latlng, location))
+        r = Router(self.latlng,location.latlng, 'motorcar')
+        return r.getTravelTimeMin() 
+
 
 # An Address is a fixed Location with a helpful description on how to get to it.
 class Address(Location):
     def __init__(self, latlng, desc=''):
-        Location.__init__(self, latlng)
+        Location.__init__(self, latlng, acc=1)
         self.desc = desc
 
 # A Delivery is the taking of a Parcel from one Address to another.
@@ -51,15 +70,19 @@ class Delivery(object):
     def receive(self):
         self.status = self.STATUSES['RECEIVED']
         return self
-
-# Generate a 1000 deliveries in a grid
+    
+    def getRouteTimeMin(self):
+        return round(self.source.routeTimeMin(self.destination), 1)
+    
+    
+# Generate deliveries
 from random import uniform
 from time import time
 deliveries = {
         str(i): Delivery(
             Parcel(),
-            Address((uniform(31.95, 32.15), uniform(34.70, 34.90))),
-            Address((uniform(31.95, 32.15), uniform(34.70, 34.90))),
+            Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
+            Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
         ).open(None) for i in range(200)
 }
 
@@ -83,7 +106,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         # Get data for different calls
         try:
-            if '/delivery.jsonp' == url.path: data = deliveries[query['id'][0]].source.latlng
+            if '/delivery.jsonp' == url.path: data = deliveries[query['id'][0]].source.latlng + (deliveries[query['id'][0]].getRouteTimeMin(),)
             elif '/deliveriesinrange.jsonp' == url.path:
                 data = getdeliveries_sourceinrange(
                     [float(i) for i in query['center'][0].split(':')],
@@ -100,7 +123,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 # Run the server on port 8080 till keyboard interrupt.
 if __name__ == '__main__':
-    server = HTTPServer(('10.0.0.3', 8080), Handler)
+    server = HTTPServer(('192.168.1.100', 8080), Handler) #yeah! fixit! yeah!
     sockname = server.socket.getsockname()
     try:
         print("\nServing HTTP on", sockname[0], "port", sockname[1], "...")
