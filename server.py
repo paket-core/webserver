@@ -13,18 +13,24 @@ latlng - geo pos tuple.
 accuracy - Accuracy indicator in meters, None if unknown.
 """
 class Location(object):
-    def __init__(self, latlng, acc=None):
+    def __init__(self, latlng, acc=None, address=None):
         self.latlng = latlng
         self.accuracy = acc
+        if address:
+            self.address = address
+        else:
+            addrsjson = Router.addresslookup(latlng)
+            print(addrsjson)
+            self.address = addrsjson['display_name']
     def __str__(self, *args, **kwargs):
         return "<Location in %s>" % (self.latlng,)
     def distance(self, latlng):
         return sum((self.latlng[i] - latlng[i]) ** 2 for i in (0, 1)) ** .5
     def routeDistance(self, location):
-        r = Router(self.latlng,location.latlng, 'bicycle') # switch to bicycle for clearer differece on farther routes
+        r = Router(self.latlng,location.latlng, 'bicycle') # switch to bicycle for clearer difference on farther routes
         return r.getDistance()
     def routeTimeMin(self, location):
-        r = Router(self.latlng,location.latlng, 'bicycle') # switch to bicycle for clearer differece on farther routes
+        r = Router(self.latlng,location.latlng, 'bicycle') # switch to bicycle for clearer difference on farther routes
         return r.getTravelTimeMin()
 
 
@@ -73,7 +79,8 @@ class Delivery(object):
             'fromLatlng': self.source.latlng,
             'toLatlng': self.destination.latlng,
             'time': self.time,
-            'path': self.path
+            'path': self.path,
+            'address': self.source.address
         }
         except AttributeError:
             self.__initdata()
@@ -86,8 +93,8 @@ deliveries = {
         str(i): Delivery(
             Parcel(),
             Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
-            Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
-        ).open(None) for i in range(200)
+            Location((uniform(31.95, 32.15), uniform(34.70, 34.90)), address=""),
+        ).open(None) for i in range(20)
 }
 
 # Get deliveries for pickup in a radius around a center.

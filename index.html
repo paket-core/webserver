@@ -81,7 +81,8 @@ function getdeliveries(position, range){
         $.each(deliveries, function(idx, hash){
             get('delivery.jsonp', {id: hash}, function(delivery){
                 log('got delivery ' + hash + ':' + delivery['fromLatlng'] + delivery['time']);
-                var popuptext = 'id:' + idx + " from\nroute:" + delivery['time'] + 'min';
+                var popuptext = 'id:' + idx + " from<br>route:" + delivery['time'] + 'min';
+                popuptext += '<br>' + delivery['address']
                 addmarkertolayer(
                     fromMarkers,
                     delivery['fromLatlng'],
