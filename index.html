@@ -96,7 +96,9 @@ function getdeliveries(position, range){
                         log(
                             '"Oh lawdy I\'ve been clicked!", <span style="color: gray;">said marker '
                             + hash
-                            + ' (the one with the popup "'
+                            + ' (the one at '
+                            + delivery['fromLatlng']
+                            + ' with the popup "'
                             + e.target._popup._content
                             + '".</span>',
                             e
