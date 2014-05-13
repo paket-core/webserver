@@ -89,7 +89,10 @@ function getdeliveries(position, range){
                     'green_flag_icon',
                     "from " + popuptext,
                     function(e){
-                        L.polyline(delivery.path, {color: 'red'}).addTo(map);
+                        L.polyline(delivery.path, { color: 'red',
+                                                    dashArray: "5, 6, 2, 6",
+                                                    weight: '2',
+                                                    }).addTo(map);
                         log(
                             '"Oh lawdy I\'ve been clicked!", <span style="color: gray;">said marker '
                             + hash
@@ -103,6 +106,7 @@ function getdeliveries(position, range){
                 addmarkertolayer(toMarkers, delivery['toLatlng'], 'pink_flag_icon', "to " + popuptext);
             });
         });
+
         map.addLayer(fromMarkers);
         map.addLayer(toMarkers);
     });
@@ -140,7 +144,7 @@ $(function(){
     getcurrentposition(function(latlng, accuracy){
         var radius = accuracy / 2;
         var meIcon =  L.icon({
-            iconUrl: 'images/pink_pin_icon.png',
+            iconUrl: 'images/cyan_pin_icon.png',
             iconSize: [32, 32],
             iconAnchor: [9, 30],
         });
