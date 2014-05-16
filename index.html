@@ -138,9 +138,15 @@ $(function(){
 
     // Initialize, center and zoom map
     map = L.map('map').setView([32.0695, 34.7987], 13);
-    L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png',{
+    source_mapbox = 'https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png'
+    source_openstreetmap = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+    source_opencyclemap = 'http://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png'
+
+    //TODO review https://gist.github.com/mourner/1804938 - it should be a better solution.
+
+    L.tileLayer(source_mapbox,{
         attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' + 'Imagery © <a href="http://mapbox.com">Mapbox</a>',
-        id: 'examples.map-9ijuk24y'
+        id: 'examples.map-zr0njcqy' // original value:map-9ijuk24y <- I have no idea what's this
     }).addTo(map);
 
     getcurrentposition(function(latlng, accuracy){
