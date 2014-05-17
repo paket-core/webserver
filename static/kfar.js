@@ -1,35 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
-        <meta charset="utf-8">
-        <title>Tavili pilot</title>
-        <meta name="description" content="Web app for the Tavili pilot">
-        <style>
-            #nojs{
-                position: absolute;
-                top: 0px;
-                left: 0px;
-                width: 100%;
-                background: yellow;
-                color: red;
-            }
-            #map{
-                height: 50em;
-            }
-            #log{
-                background: yellow;
-                color: black;
-            }
-        </style>
-        <script type="text/javascript" src="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.js"></script>
-        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.css">
-        <link rel="stylesheet" href="MarkerCluster.css">
-        <link rel="stylesheet" href="MarkerCluster.Default.css">
-        <script src="leaflet.markercluster.js"></script>
-        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
-        <script type="text/javascript">
-
 function log(msg){
     console.log(arguments);
     if('string' === typeof msg){
@@ -56,7 +24,7 @@ function get(url, data, callback){
 
 function addmarkertolayer(layer, latlng, iconname, text, click){
     var icon =  L.icon({
-        iconUrl: 'images/' + iconname + '.png',
+        iconUrl: '/static/images/' + iconname + '.png',
         iconSize: [32, 32],
         iconAnchor: [1, 30],
     });
@@ -89,10 +57,11 @@ function getdeliveries(position, range){
                     'green_flag_icon',
                     "from " + popuptext,
                     function(e){
-                        L.polyline(delivery.path, { color: 'red',
-                                                    dashArray: "5, 6, 2, 6",
-                                                    weight: '2',
-                                                    }).addTo(map);
+                        L.polyline(delivery.path, {
+                            color: 'red',
+                            dashArray: "5, 6, 2, 6",
+                            weight: '2',
+                        }).addTo(map);
                         log(
                             '"Oh lawdy I\'ve been clicked!", <span style="color: gray;">said marker '
                             + hash
@@ -108,7 +77,6 @@ function getdeliveries(position, range){
                 addmarkertolayer(toMarkers, delivery['toLatlng'], 'pink_flag_icon', "to " + popuptext);
             });
         });
-
         map.addLayer(fromMarkers);
         map.addLayer(toMarkers);
     });
@@ -146,13 +114,13 @@ $(function(){
 
     L.tileLayer(source_mapbox,{
         attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' + 'Imagery © <a href="http://mapbox.com">Mapbox</a>',
-        id: 'examples.map-zr0njcqy' // original value:map-9ijuk24y <- I have no idea what's this
+        id: 'examples.map-zr0njcqy'
     }).addTo(map);
 
     getcurrentposition(function(latlng, accuracy){
         var radius = accuracy / 2;
         var meIcon =  L.icon({
-            iconUrl: 'images/cyan_pin_icon.png',
+            iconUrl: '/static/images/cyan_pin_icon.png',
             iconSize: [32, 32],
             iconAnchor: [9, 30],
         });
@@ -162,14 +130,3 @@ $(function(){
         getdeliveries(latlng, range);
     });
 });
-        </script>
-    </head>
-    <body>
-        <div id="nojs">Either you have JavaScript disabled, or we have a serious bug.</div>
-        <div id="map"></div>
-        <div id="log"></div>
-    </body>
-</html>
-<!--
-vim: ft=javascript
--->

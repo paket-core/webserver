@@ -1,149 +1,172 @@
-#!/usr/bin/python3
-from router import Router
+#!./py2/bin/python
 
-# A Parcel has info about the physical package and an unlimited number of attribute.
-class Parcel(object):
-    def __init__(self, encumbrance=0):
-        self.encumbrance = encumbrance
-        # Place holder
-        self.attributes = {}
+import db
 
-"""Location in the world.
-latlng - geo pos tuple.
-accuracy - Accuracy indicator in meters, None if unknown.
-"""
-class Location(object):
-    def __init__(self, latlng, acc=None, address=None):
-        self.latlng = latlng
-        self.accuracy = acc
-        if address:
-            self.address = address
+from flask import(
+        Flask,
+        render_template,
+        request,
+        g,
+        session,
+        flash,
+        redirect,
+        url_for,
+        abort,
+        current_app
+)
+app = Flask(__name__)
+app.config.update(
+    SECRET_KEY = 'botavibi',
+    DEBUG = True
+)
+
+# Openid handling, directly lifted from the flask-openid repo.
+from flask.ext.openid import OpenID
+from openid.extensions import pape
+oid = OpenID(app, safe_roots=[], extension_responses=[pape.Response])
+
+@app.before_request
+def before_request():
+    g.user = None
+    if 'openid' in session:
+        g.user = db.User.query.filter_by(openid=session['openid']).first()
+
+@app.after_request
+def after_request(response):
+    db.session.remove()
+    return response
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+@oid.loginhandler
+def login():
+    """Does the login via OpenID.  Has to call into `oid.try_login`
+    to start the OpenID machinery.
+    """
+    # if we are already logged in, go back to were we came from
+    if g.user is not None:
+        return redirect(oid.get_next_url())
+    if request.method == 'POST':
+        openid = request.form.get('openid')
+        if openid:
+            pape_req = pape.Request([])
+            return oid.try_login(openid, ask_for=['email', 'nickname'],
+                                         ask_for_optional=['fullname'],
+                                         extensions=[pape_req])
+    return render_template('login.html', next=oid.get_next_url(),
+                           error=oid.fetch_error())
+
+@oid.after_login
+def create_or_login(resp):
+    """This is called when login with OpenID succeeded and it's not
+    necessary to figure out if this is the users's first login or not.
+    This function has to redirect otherwise the user will be presented
+    with a terrible URL which we certainly don't want.
+    """
+    session['openid'] = resp.identity_url
+    if 'pape' in resp.extensions:
+        pape_resp = resp.extensions['pape']
+        session['auth_time'] = pape_resp.auth_time
+    user = db.User.query.filter_by(openid=resp.identity_url).first()
+    if user is not None:
+        flash(u'Successfully signed in')
+        g.user = user
+        return redirect(oid.get_next_url())
+    return redirect(url_for('create_profile', next=oid.get_next_url(),
+                            name=resp.fullname or resp.nickname,
+                            email=resp.email))
+
+@app.route('/create-profile', methods=['GET', 'POST'])
+def create_profile():
+    """If this is the user's first login, the create_or_login function
+    will redirect here so that the user can set up his profile.
+    """
+    if g.user is not None or 'openid' not in session:
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        if not name:
+            flash(u'Error: you have to provide a name')
+        elif '@' not in email:
+            flash(u'Error: you have to enter a valid email address')
         else:
-            addrsjson = Router.addresslookup(latlng)
-            print(addrsjson)
-            self.address = addrsjson['display_name']
-    def __str__(self, *args, **kwargs):
-        return "<Location in %s>" % (self.latlng,)
-    def distance(self, latlng):
-        return sum((self.latlng[i] - latlng[i]) ** 2 for i in (0, 1)) ** .5
-    def routeDistance(self, location):
-        r = Router(self.latlng,location.latlng, 'bicycle') # switch to bicycle for clearer difference on farther routes
-        return r.getDistance()
-    def routeTimeMin(self, location):
-        r = Router(self.latlng,location.latlng, 'bicycle') # switch to bicycle for clearer difference on farther routes
-        return r.getTravelTimeMin()
+            flash(u'Profile successfully created')
+            db.session.add(db.User(name, email, session['openid']))
+            db.session.commit()
+            return redirect(oid.get_next_url())
+    return render_template('create_profile.html', next_url=oid.get_next_url())
 
+@app.route('/profile', methods=['GET', 'POST'])
+def edit_profile():
+    """Updates a profile"""
+    if g.user is None:
+        abort(401)
+    form = dict(name=g.user.name, email=g.user.email)
+    if request.method == 'POST':
+        if 'delete' in request.form:
+            db.session.delete(g.user)
+            db.session.commit()
+            session['openid'] = None
+            flash(u'Profile deleted')
+            return redirect(url_for('index'))
+        form['name'] = request.form['name']
+        form['email'] = request.form['email']
+        if not form['name']:
+            flash(u'Error: you have to provide a name')
+        elif '@' not in form['email']:
+            flash(u'Error: you have to enter a valid email address')
+        else:
+            flash(u'Profile successfully created')
+            g.user.name = form['name']
+            g.user.email = form['email']
+            db.session.commit()
+            return redirect(url_for('edit_profile'))
+    return render_template('edit_profile.html', form=form)
 
-# An Address is a fixed Location with a helpful description on how to get to it.
-class Address(Location):
-    def __init__(self, latlng, desc=''):
-        Location.__init__(self, latlng, acc=1)
-        self.desc = desc
+@app.route('/logout')
+def logout():
+    session.pop('openid', None)
+    flash(u'You have been signed out')
+    return redirect(oid.get_next_url())
 
-# A Delivery is the taking of a Parcel from one Address to another.
-class Delivery(object):
-    STATUSES = {
-        'CREATED': 'created',
-        'OPEN': 'open',
-        'COMMITTED': 'committed',
-        'ENROUTE': 'enroute',
-        'RECEIVED': 'received'
-    }
-    def __init__(self, parcel, source, destination):
-        self.parcel = parcel
-        self.source = source
-        self.destination = destination
-        self.status = self.STATUSES['CREATED']
-    def open(self, pickup):
-        self.pickup = pickup
-        self.status = self.STATUSES['OPEN']
-        return self
-    def commit(self, courier):
-        self.courier = courier
-        self.status = self.STATUSES['COMMITTED']
-        return self
-    def pickup(self, deposit):
-        self.deposit = deposit
-        self.status = self.STATUSES['ENROUTE']
-        return self
-    def receive(self):
-        self.status = self.STATUSES['RECEIVED']
-        return self
-    # Lazy routing initialization
-    def __initdata(self):
-        self.router = Router(self.source.latlng, self.destination.latlng, 'bicycle')
-        self.path = self.router.getPath()
-        self.time = self.router.getTravelTimeMin()
-    def data(self):
-        try: return {
-            'fromLatlng': self.source.latlng,
-            'toLatlng': self.destination.latlng,
-            'time': self.time,
-            'path': self.path,
-            'address': self.source.address
-        }
-        except AttributeError:
-            self.__initdata()
-            return self.data()
+# JSONp handler decorator
+from functools import wraps
+from json import dumps
+def support_jsonp(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        callback = request.args.get('callback', False)
+        if callback:
+            content = str(callback) + '(' + dumps(f(*args, **kwargs)) + ')'
+            return current_app.response_class(content, mimetype='application/json')
+        else:
+            return f(*args, **kwargs)
+    return decorated_function
 
-# Generate deliveries
-from random import uniform
-from time import time
-deliveries = {
-        str(i): Delivery(
-            Parcel(),
-            Location((uniform(31.95, 32.15), uniform(34.70, 34.90))),
-            Location((uniform(31.95, 32.15), uniform(34.70, 34.90)), address=""),
-        ).open(None) for i in range(20)
-}
+# JSONp methods
+
+# Get specific delivery.
+@app.route('/delivery.jsonp', methods=['GET', 'POST'])
+@support_jsonp
+def getdelivery():
+    return db.deliveries[request.args.get('id')].data()
 
 # Get deliveries for pickup in a radius around a center.
-def getdeliveries_sourceinrange(center, radius):
-    return [key for key, delivery in deliveries.items() if delivery.source.distance(center) < radius]
+@app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
+@support_jsonp
+def getdeliveries_sourceinrange():
+    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
+    return [
+        key for key, delivery in db.deliveries.items()
+        if delivery.source.distance([
+            float(request.args.get('lat')),
+            float(request.args.get('lng'))
+        ]) < float(request.args.get('radius'))
+    ]
 
-# Our jsonp delivering handler
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
-from json import dumps
-class Handler(SimpleHTTPRequestHandler):
-    def do_GET(self):
-
-        # Parse query string, make sure we have a callback.
-        url = urlparse(self.path)
-        if '.jsonp' != url.path[-6:]: return SimpleHTTPRequestHandler.do_GET(self)
-        query = parse_qs(url.query)
-        if 'callback' not in query: raise Exception('No callback specified')
-        callback = query['callback'][-1]
-
-        # Get data for different calls
-        try:
-            if '/delivery.jsonp' == url.path:
-                delivery = deliveries[query['id'][0]]
-                data = delivery.data()
-            elif '/deliveriesinrange.jsonp' == url.path:
-                data = getdeliveries_sourceinrange(
-                    [float(query['lat'][0]), float(query['lng'][0])],
-                    float(query['radius'][0]) )
-            else:
-                data = {'error': 'Did not understand ' + url.path}
-
-        except (KeyError, ValueError): data = {'error': 'Wrong parameters', 'query': query}
-
-        # Send the reply as jsonp
-        self.send_response(200)
-        self.send_header('Content-type', 'application/javascript')
-        self.end_headers()
-        self.wfile.write(bytes(callback + '(' + dumps(data) + ');', 'UTF-8'))
-
-# Run the server on port 8080 till keyboard interrupt.
 if __name__ == '__main__':
-    server = HTTPServer(('', 8080), Handler)
-    sockname = server.socket.getsockname()
-    try:
-        print("\nServing HTTP on", sockname[0], "port", sockname[1], "...")
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nKeyboard interrupt received, exiting.")
-        server.server_close()
-        from sys import exit
-        exit(0)
+    app.run(host='0.0.0.0')
