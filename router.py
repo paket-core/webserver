@@ -1,7 +1,8 @@
-#!/usr/bin/python3
+#!./py2/bin/python
+# -*- coding: utf-8 -*-
 
-import http.client
-import urllib.parse
+import httplib
+import urllib
 import json
 
 
@@ -33,8 +34,8 @@ class Router:
     def __init__(self, fromlatlng, tolatlng, transport='motorcar'):
         self.jsonroutedata = None
         print('create Router with %s->%s' % (fromlatlng, tolatlng))
-        conn = http.client.HTTPConnection("www.yournavigation.org")
-        params = urllib.parse.urlencode({'format': 'geojson',
+        conn = httplib.HTTPConnection("www.yournavigation.org")
+        params = urllib.urlencode({'format': 'geojson',
                                          'flon': fromlatlng[1], 'flat': fromlatlng[0],
                                          'tlon': tolatlng[1], 'tlat': tolatlng[0],
                                          'v': transport, 'fast': '1',
@@ -93,8 +94,8 @@ class Router:
         :param lang: accepted languages for reply
         """
         print('getgoecode of: %s' % (textaddress,))
-        conn = http.client.HTTPConnection("nominatim.openstreetmap.org")
-        params = urllib.parse.urlencode({
+        conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
+        params = urllib.urlencode({
             'q': textaddress,
             'countrycodes': 'il',
             'limit': str(limit), # max results
@@ -114,7 +115,6 @@ class Router:
         conn.close()
         return json.loads(d1.decode('utf8'))
 
-
     @staticmethod
     def addresslookup(latlng, zoom=18, lang='he,en'):
         """Return json object with address of latlng
@@ -124,38 +124,23 @@ class Router:
         :param lang: accepted languages
         """
         print('addresslookup of: %s' % (latlng,))
-        return {'address':
-                    {'house_number': '22',
-                     'state': 'מחוז תל אביב',
-                     'suburb': 'גבעת הרצל',
-                     'country_code': 'il',
-                     'postcode': '64739',
-                     'city': 'תל אביב-יפו',
-                     'road': 'רבנו חננאל',
-                     'country': 'ישראל'},
-                'display_name': '22, רבנו חננאל, גבעת הרצל, תל אביב-יפו, מחוז תל אביב, 64739, ישראל',
-                'place_id': '3672610890',
-                'osm_type': 'node',
-                'osm_id': '2079016475',
-                'lat': '32.053237',
-                'lon': '34.768979'}
-        # conn = http.client.HTTPConnection("nominatim.openstreetmap.org")
-        # params = urllib.parse.urlencode({
-        #     'lat': latlng[0], 'lon': latlng[1],
-        #     'zoom': str(zoom), 'email': 'oren@orengampel.com',
-        #     'accept-language': lang,
-        #     'format': 'json'})
-        #
-        # try:
-        #     conn.request("GET", "/reverse?" + params)
-        # except IOError as IOe:
-        #     print("connection to server failed: " + str(IOe))
-        #
-        # response = conn.getresponse()
-        # print(response.status, response.reason)
-        # d1 = response.read()
-        # conn.close()
-        # return json.loads(d1.decode('utf8'))
+        conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
+        params = urllib.urlencode({
+            'lat': latlng[0], 'lon': latlng[1],
+            'zoom': str(zoom), 'email': 'oren@orengampel.com',
+            'accept-language': lang,
+            'format': 'json'})
+
+        try:
+            conn.request("GET", "/reverse?" + params)
+        except IOError as IOe:
+            print("connection to server failed: " + str(IOe))
+
+        response = conn.getresponse()
+        print(response.status, response.reason)
+        d1 = response.read()
+        conn.close()
+        return json.loads(d1.decode('utf8'))
 
 
 # Run a demo
