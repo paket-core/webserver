@@ -21,6 +21,7 @@ app.config.update(
 )
 
 # Openid handling, directly lifted from the flask-openid repo.
+# TODO move this shit to another file.
 from flask.ext.openid import OpenID
 from openid.extensions import pape
 oid = OpenID(app, safe_roots=[], extension_responses=[pape.Response])

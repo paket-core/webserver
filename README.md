@@ -18,4 +18,4 @@ pip install sqlalchemy
 
 I modified the shabangs to use the virtualenv, so from that poing on you can
 simply run server.py and browse to:
-http://localhost:8080
+http://localhost:5000

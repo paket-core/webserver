@@ -1,4 +1,7 @@
 Initiate delivery
+User wallet
+Exposure
 Recursive deliveries - hubs (auto offer)
 Recursive address / latlng
-commitment
+Commitment
+Karma for free deliveries

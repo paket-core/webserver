@@ -61,6 +61,7 @@ class Location(object):
         return r.getTravelTimeMin()
 
 # An Address is a fixed Location with a helpful description on how to get to it.
+# TODO Just add a description to the Location class and remove Address.
 class Address(Location):
     def __init__(self, latlng, desc=''):
         Location.__init__(self, latlng, acc=1)
@@ -107,16 +108,13 @@ class Delivery(object):
             self.time = self.router.getTravelTimeMin()
             return self.time
     def data(self):
-        try: return {
+        return {
             'fromLatlng': self.source.latlng,
             'toLatlng': self.destination.latlng,
             'time': self.time,
             'path': self.path,
             'address': self.source.address
         }
-        except AttributeError:
-            self.__initdata()
-            return self.data()
 
 # Generate deliveries
 from random import uniform
