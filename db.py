@@ -61,7 +61,6 @@ class Location(Base):
     def __repr__(self, *args, **kwargs):
         return "<Location in %s>" % (self.latlng,)
     def distance(self, latlng):
-        print(self.latlng, latlng)
         return sum((float(self.latlng[i]) - float(latlng[i])) ** 2 for i in (0, 1)) ** .5
     def routeDistance(self, location):
         r = Router(self.latlng, location.latlng, 'bicycle')

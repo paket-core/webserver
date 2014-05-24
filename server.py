@@ -20,26 +20,27 @@ app.config.update(
     DEBUG = True
 )
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 # Openid handling, directly lifted from the flask-openid repo.
 # TODO move this shit to another file.
 from flask.ext.openid import OpenID
 from openid.extensions import pape
+
 oid = OpenID(app, safe_roots=[], extension_responses=[pape.Response])
 
 @app.before_request
 def before_request():
     g.user = None
     if 'openid' in session:
-        g.user = db.User.query.filter_by(openid=session['openid']).one()
+        g.user = db.User.query.filter_by(openid=session['openid']).first()
 
 @app.after_request
 def after_request(response):
     db.session.remove()
     return response
-
-@app.route('/')
-def index():
-    return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 @oid.loginhandler
@@ -71,7 +72,7 @@ def create_or_login(resp):
     if 'pape' in resp.extensions:
         pape_resp = resp.extensions['pape']
         session['auth_time'] = pape_resp.auth_time
-    user = db.User.query.filter_by(openid=resp.identity_url).one()
+    user = db.User.query.filter_by(openid=resp.identity_url).first()
     if user is not None:
         flash(u'Successfully signed in')
         g.user = user
@@ -154,7 +155,6 @@ def support_jsonp(f):
 @app.route('/delivery.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdelivery():
-    #return db.Delivery.query.filter_by(id=[request.args.get('id')]).one().data()
     return db.Delivery.query.filter_by(id=request.args.get('id')).one().data()
 
 # Get deliveries for pickup in a radius around a center.
