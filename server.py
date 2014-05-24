@@ -30,7 +30,7 @@ oid = OpenID(app, safe_roots=[], extension_responses=[pape.Response])
 def before_request():
     g.user = None
     if 'openid' in session:
-        g.user = db.User.query.filter_by(openid=session['openid']).first()
+        g.user = db.User.query.filter_by(openid=session['openid']).one()
 
 @app.after_request
 def after_request(response):
@@ -71,7 +71,7 @@ def create_or_login(resp):
     if 'pape' in resp.extensions:
         pape_resp = resp.extensions['pape']
         session['auth_time'] = pape_resp.auth_time
-    user = db.User.query.filter_by(openid=resp.identity_url).first()
+    user = db.User.query.filter_by(openid=resp.identity_url).one()
     if user is not None:
         flash(u'Successfully signed in')
         g.user = user
@@ -154,16 +154,17 @@ def support_jsonp(f):
 @app.route('/delivery.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdelivery():
-    return db.deliveries[request.args.get('id')].data()
+    #return db.Delivery.query.filter_by(id=[request.args.get('id')]).one().data()
+    return db.Delivery.query.filter_by(id=request.args.get('id')).one().data()
 
 # Get deliveries for pickup in a radius around a center.
 @app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveries_sourceinrange():
-    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
     return [
-        key for key, delivery in db.deliveries.items()
-        if delivery.source.distance([
+        delivery.id for delivery in db.Delivery.query.all()
+
+        if delivery.from_.distance([
             float(request.args.get('lat')),
             float(request.args.get('lng'))
         ]) < float(request.args.get('radius'))
