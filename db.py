@@ -24,8 +24,10 @@ class User(Base):
     openid = Column(String(200))
     def __init__(self, name, email, openid):
         self.name, self.email, self.openid = name, email, openid
+    def __repr__(self):
+        return '<User %i %r %r %r>' % (self.id, self.name, self.email, self.openid)
 
-# Funtions
+# Functions
 def init_db():
     Base.metadata.create_all(bind=engine)
 
