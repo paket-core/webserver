@@ -161,6 +161,7 @@ def getdelivery():
 @app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveries_sourceinrange():
+    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
     return [
         delivery.id for delivery in db.Delivery.query.all()
 
@@ -170,5 +171,15 @@ def getdeliveries_sourceinrange():
         ]) < float(request.args.get('radius'))
     ]
 
-if __name__ == '__main__':
+
+@app.route('/verify', methods=['GET', 'POST'])
+@support_jsonp
+def verifyuser():
+    return str(
+               db.User.query.filter_by(email=request.args.get('email')).first() 
+               is not None
+               )
+
+
+if __name__=='__main__':
     app.run(host='0.0.0.0')
