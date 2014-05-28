@@ -1,4 +1,4 @@
-package ore.gampel.kloomalerter;
+package oren.gampel.kloomalerter;
 
 import android.app.Service;
 import android.content.Intent;

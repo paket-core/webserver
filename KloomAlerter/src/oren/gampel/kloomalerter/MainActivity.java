@@ -1,6 +1,8 @@
-package ore.gampel.kloomalerter;
+package oren.gampel.kloomalerter;
 
 import java.io.IOException;
+
+import oren.gampel.kloomalerter.R;
 
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -12,11 +14,14 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,13 +36,20 @@ public class MainActivity extends Activity {
 
     private TextView accontNameView;
     private CheckBox checkBoxAlerts;
-    private Intent serviceInetnt;
+//    private Intent serviceInetnt;
+    private AlarmManager alarmMgr;
+    private PendingIntent CheckStatusIntent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-//	setStrictMode();
+	// setStrictMode();
 	super.onCreate(savedInstanceState);
 	setContentView(R.layout.fragment_main);
+
+//	alarmMgr = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+//	Intent intent = new Intent(getBaseContext(), CheckStatusActivity.class);
+//	CheckStatusIntent = PendingIntent.getBroadcast(getBaseContext(), 0, intent, 0);
+
     }
 
     @Override
@@ -56,15 +68,29 @@ public class MainActivity extends Activity {
 	    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 		Log.i(TAG, "onCheckedChanged " + isChecked);
 		if (isChecked) {
-		    serviceInetnt = new Intent(MainActivity.this, AlertsService.class);
-		    serviceInetnt.putExtra("email", accontNameView.getText().toString());
-		    startService(serviceInetnt);
+		    // serviceInetnt = new Intent(MainActivity.this,
+		    // AlertsService.class);
+		    // serviceInetnt.putExtra("email",
+		    // accontNameView.getText().toString());
+		    // startService(serviceInetnt);
+		    alarmMgr = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+		    Intent intent = new Intent(getBaseContext(),
+			    CheckStatusActivity.class);
+		    CheckStatusIntent = PendingIntent.getBroadcast(getBaseContext(), 0,
+			    intent, 0);
+
+		    alarmMgr.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+			    SystemClock.elapsedRealtime() + 3 * 1000, 7 * 1000,
+			    CheckStatusIntent);
+
 		} else {
-		    if (serviceInetnt == null) {
-			Log.e(TAG, "trying to stop unstarted service");
-		    } else {
-			stopService(serviceInetnt);
-		    }
+		    // if (serviceInetnt == null) {
+		    // Log.e(TAG, "trying to stop unstarted service");
+		    // } else {
+		    // stopService(serviceInetnt);
+		    // }
+
+		    alarmMgr.cancel(CheckStatusIntent);
 		}
 	    }
 
@@ -73,11 +99,11 @@ public class MainActivity extends Activity {
 	accontNameView.setText("wait...");
 	new GetValidAccounts().execute(this);
 
-	// Start the service
-	Intent i = new Intent(this, AlertsService.class);
-	// potentially add data to the intent
-	i.putExtra("KEY1", "Value to be used by the service");
-	this.startService(i);
+//	// Start the service
+//	Intent i = new Intent(this, AlertsService.class);
+//	// potentially add data to the intent
+//	i.putExtra("KEY1", "Value to be used by the service");
+//	this.startService(i);
 
     }
 
