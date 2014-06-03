@@ -33,7 +33,6 @@ class Router:
     """
     def __init__(self, fromlatlng, tolatlng, transport='motorcar'):
         self.jsonroutedata = None
-        print('create Router with %s->%s' % (fromlatlng, tolatlng))
         conn = httplib.HTTPConnection("www.yournavigation.org")
         params = urllib.urlencode({'format': 'geojson',
                                          'flon': fromlatlng[1], 'flat': fromlatlng[0],
@@ -50,7 +49,6 @@ class Router:
             print("connection to server failed: " + str(IOe))
 
         response = conn.getresponse()
-        print(response.status, response.reason)
         d1 = response.read()
         self.jsonroutedata = json.loads(d1.decode('utf8'))
         conn.close()
@@ -86,14 +84,13 @@ class Router:
             return [coordinate[::-1] for coordinate in self.jsonroutedata['coordinates']]
 
     @staticmethod
-    def getgoecode(textaddress, limit=5, lang='he,en'):
+    def getgeocode(textaddress, limit=5, lang='he,en'):
         """Return latlng of a textual address.
 
         :rtype : json
         :param textaddress: the address to lookup
         :param lang: accepted languages for reply
         """
-        print('getgoecode of: %s' % (textaddress,))
         conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
         params = urllib.urlencode({
             'q': textaddress,
@@ -110,7 +107,6 @@ class Router:
             print("connection to server failed: " + str(IOe))
 
         response = conn.getresponse()
-        print(response.status, response.reason)
         d1 = response.read()
         conn.close()
         return json.loads(d1.decode('utf8'))
@@ -123,7 +119,6 @@ class Router:
         :param zoom: level of info - 18 is building level
         :param lang: accepted languages
         """
-        print('addresslookup of: %s' % (latlng,))
         conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
         params = urllib.urlencode({
             'lat': latlng[0], 'lon': latlng[1],
@@ -137,7 +132,6 @@ class Router:
             print("connection to server failed: " + str(IOe))
 
         response = conn.getresponse()
-        print(response.status, response.reason)
         d1 = response.read()
         conn.close()
         return json.loads(d1.decode('utf8'))
@@ -162,4 +156,4 @@ if __name__ == '__main__':
     addrs = ["נמל, תל אביב", "ביצרון 38 תל אביב", "כיכר השעון יפו"]
     for addr in addrs:
         print("\n"+"where is: %s\n============" % (addr,))
-        pprint(Router.getgoecode(addr, 1))
+        pprint(Router.getgeocode(addr, 1))
