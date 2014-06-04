@@ -158,18 +158,22 @@ def getdelivery():
     return db.Delivery.query.filter_by(id=request.args.get('id')).one().data()
 
 # Get deliveries for pickup in a radius around a center.
-@app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
-@support_jsonp
-def getdeliveries_sourceinrange():
-    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
+def getdeliveriesarrayinrange(lat, lng, radius):
     return [
         delivery.id for delivery in db.Delivery.query.all()
 
         if delivery.from_.distance([
-            float(request.args.get('lat')),
-            float(request.args.get('lng'))
-        ]) < float(request.args.get('radius'))
+            float(lat),
+            float(lng)
+        ]) < float(radius)
     ]
+
+
+@app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
+@support_jsonp
+def getdeliveries_sourceinrange():
+    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
+    return getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius'))
 
 
 @app.route('/verify', methods=['GET', 'POST'])
