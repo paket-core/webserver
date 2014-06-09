@@ -2,8 +2,6 @@ package oren.gampel.kloomalerter;
 
 import java.io.IOException;
 
-import oren.gampel.kloomalerter.R;
-
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.ResponseHandler;
@@ -18,6 +16,8 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.StrictMode;
@@ -36,9 +36,10 @@ public class MainActivity extends Activity {
 
     private TextView accontNameView;
     private CheckBox checkBoxAlerts;
-    // private Intent serviceInetnt;
     private AlarmManager alarmMgr;
-    private PendingIntent CheckStatusIntent;
+    private PendingIntent checkStatusIntent;
+
+    private static ConnectivityManager connectivityManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,10 +47,11 @@ public class MainActivity extends Activity {
 	super.onCreate(savedInstanceState);
 	setContentView(R.layout.fragment_main);
 
-	alarmMgr = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-	Intent intent = new Intent(getBaseContext(), CheckStatusActivity.class);
-	CheckStatusIntent = PendingIntent.getBroadcast(getBaseContext(), 0, intent, 0);
+	connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
+	alarmMgr = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+	Intent intent = new Intent(getBaseContext(), CheckStatusReceiver.class);
+	checkStatusIntent = PendingIntent.getBroadcast(getBaseContext(), 0, intent, 0);
     }
 
     @Override
@@ -70,9 +72,9 @@ public class MainActivity extends Activity {
 		if (isChecked) {
 		    alarmMgr.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
 			    SystemClock.elapsedRealtime() + 3 * 1000, 7 * 1000,
-			    CheckStatusIntent);
+			    checkStatusIntent);
 		} else {
-		    alarmMgr.cancel(CheckStatusIntent);
+		    alarmMgr.cancel(checkStatusIntent);
 		}
 	    }
 
@@ -162,6 +164,10 @@ public class MainActivity extends Activity {
 		return false;
 	    }
 
+	    if (isNetworkConnected() == false) {
+		Log.d(TAG, "No connection");
+		return false;
+	    }
 	    HttpClient client = new DefaultHttpClient();
 	    HttpGet request = new HttpGet("http://192.168.1.100:5000/verify?email="
 		    + accountName);
@@ -182,7 +188,7 @@ public class MainActivity extends Activity {
 	    accontNameView.setText(accountName);
 	    if (accountName.equals(NO_ACCOUNT_FOUND)) {
 		checkBoxAlerts.setChecked(false);
-		checkBoxAlerts.setEnabled(false);
+		checkBoxAlerts.setEnabled(true); // FIXME just for debug
 	    } else {
 		checkBoxAlerts.setChecked(true);
 		checkBoxAlerts.setEnabled(true);
@@ -198,6 +204,7 @@ public class MainActivity extends Activity {
 
     }
 
+    @SuppressWarnings("unused")
     private void setStrictMode() {
 	StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
 		.detectDiskReads().detectDiskWrites().detectNetwork() // or
@@ -208,4 +215,11 @@ public class MainActivity extends Activity {
 								      // problems
 		.penaltyLog().build());
     }
+
+    // Check network connection
+    static boolean isNetworkConnected() {
+	NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+	return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
 }
