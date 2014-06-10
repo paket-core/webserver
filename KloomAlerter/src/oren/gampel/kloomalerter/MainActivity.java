@@ -16,12 +16,14 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.os.SystemClock;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -32,6 +34,10 @@ import android.widget.TextView;
 
 public class MainActivity extends Activity {
 
+    private static final int CHECK_STATUS_INTERVAL_MILLIS = 10 * 1000;
+
+    private static final String USER_ID_PREF = "userID";
+
     private static final String TAG = MainActivity.class.getSimpleName();
 
     private TextView accontNameView;
@@ -39,12 +45,16 @@ public class MainActivity extends Activity {
     private AlarmManager alarmMgr;
     private PendingIntent checkStatusIntent;
 
+    public static final String PREFS_NAME = "KloomPrefsFile";
+    private String userID;
+
     private static ConnectivityManager connectivityManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 	// setStrictMode();
 	super.onCreate(savedInstanceState);
+	Log.i(TAG, "onCreate");
 	setContentView(R.layout.fragment_main);
 
 	connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -52,6 +62,13 @@ public class MainActivity extends Activity {
 	alarmMgr = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 	Intent intent = new Intent(getBaseContext(), CheckStatusReceiver.class);
 	checkStatusIntent = PendingIntent.getBroadcast(getBaseContext(), 0, intent, 0);
+
+	// Restore preferences
+	SharedPreferences settings = getSharedPreferences(
+		PREFS_NAME, MODE_PRIVATE);
+
+	userID = settings.getString(USER_ID_PREF, null);
+
     }
 
     @Override
@@ -71,7 +88,7 @@ public class MainActivity extends Activity {
 		Log.i(TAG, "onCheckedChanged " + isChecked);
 		if (isChecked) {
 		    alarmMgr.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-			    SystemClock.elapsedRealtime() + 3 * 1000, 7 * 1000,
+			    SystemClock.elapsedRealtime() + 3 * 1000, CHECK_STATUS_INTERVAL_MILLIS,
 			    checkStatusIntent);
 		} else {
 		    alarmMgr.cancel(checkStatusIntent);
@@ -80,14 +97,16 @@ public class MainActivity extends Activity {
 
 	});
 
-	accontNameView.setText("wait...");
-	new GetValidAccounts().execute(this);
-
-	// // Start the service
-	// Intent i = new Intent(this, AlertsService.class);
-	// // potentially add data to the intent
-	// i.putExtra("KEY1", "Value to be used by the service");
-	// this.startService(i);
+	if (userID == null || userID == GetValidAccounts.NO_ACCOUNT_FOUND) {
+	    Log.w(TAG, "no valid userID available");
+	    accontNameView.setText("wait...");
+	    new GetValidAccounts().execute(this);
+	} else {
+	    Log.w(TAG, "found userID: " + userID);
+	    accontNameView.setText(userID);
+	    checkBoxAlerts.setChecked(true);
+	    checkBoxAlerts.setEnabled(true);
+	}
 
     }
 
@@ -109,6 +128,25 @@ public class MainActivity extends Activity {
 	    return true;
 	}
 	return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onPause() {
+	super.onPause();
+	Log.d(TAG, "onPause");
+    }
+
+    @Override
+    protected void onStop() {
+	super.onStop();
+	Log.d(TAG, "onStop");
+
+	SharedPreferences settings = getSharedPreferences(
+		PREFS_NAME, MODE_PRIVATE);
+	Log.d(TAG, "settings:" + settings);
+	SharedPreferences.Editor editor = settings.edit();
+	editor.putString(USER_ID_PREF, userID);
+	editor.commit();
     }
 
     /**
@@ -184,7 +222,8 @@ public class MainActivity extends Activity {
 
 	@Override
 	protected void onPostExecute(String accountName) {
-	    Log.i(TAG, "onPostExecute:" + accountName);
+	    userID = accountName;
+	    Log.i(TAG, "onPostExecute set userID:" + userID);
 	    accontNameView.setText(accountName);
 	    if (accountName.equals(NO_ACCOUNT_FOUND)) {
 		checkBoxAlerts.setChecked(false);
