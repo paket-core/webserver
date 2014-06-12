@@ -35,7 +35,7 @@ function addmarkertolayer(layer, latlng, iconname, text, click){
 var map;
 function getdeliveries(position, range){
     log('getting deliveries');
-    get('deliveriesinrange.jsonp', {'lat': position.lat, 'lng': position.lng, 'radius': range}, function(deliveries){
+    get('deliveriesinrange', {'lat': position.lat, 'lng': position.lng, 'radius': range}, function(deliveries){
         var fromMarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
         var toMarkers = new L.MarkerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
 
@@ -47,7 +47,7 @@ function getdeliveries(position, range){
         }).addTo(map);
 
         $.each(deliveries, function(idx, hash){
-            get('delivery.jsonp', {id: hash}, function(delivery){
+            get('delivery', {id: hash}, function(delivery){
                 log('got delivery ' + hash + ':' + delivery['fromLatlng'] + delivery['time']);
                 var popuptext = 'id:' + idx + " from<br>route:" + delivery['time'] + 'min';
                 popuptext += '<br>' + delivery['address']

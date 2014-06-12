@@ -146,13 +146,13 @@ def support_jsonp(f):
             content = str(callback) + '(' + dumps(f(*args, **kwargs)) + ')'
             return current_app.response_class(content, mimetype='application/json')
         else:
-            return f(*args, **kwargs)
+            return dumps(f(*args, **kwargs))
     return decorated_function
 
 # JSONp methods
 
 # Get specific delivery.
-@app.route('/delivery.jsonp', methods=['GET', 'POST'])
+@app.route('/delivery', methods=['GET', 'POST'])
 @support_jsonp
 def getdelivery():
     return db.Delivery.query.filter_by(id=request.args.get('id')).one().data()
@@ -169,21 +169,16 @@ def getdeliveriesarrayinrange(lat, lng, radius):
     ]
 
 
-@app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
+@app.route('/deliveriesinrange', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveries_sourceinrange():
     print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
     return getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius'))
 
-
 @app.route('/verify', methods=['GET', 'POST'])
 @support_jsonp
 def verifyuser():
-    return str(
-               db.User.query.filter_by(email=request.args.get('email')).first() 
-               is not None
-               )
-
+    return db.User.query.filter_by(email=request.args.get('email')).first()
 
 if __name__=='__main__':
     app.run(host='0.0.0.0')
