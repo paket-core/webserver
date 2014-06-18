@@ -22,7 +22,7 @@ def gettraveltime(address):
         else:
             raise
     #     print("calculating for %s from %s to %s" % (addr, src, dst))
-    return (addr, Router(src, dst, 'bicycle').getTravelTimeMin())
+    return (addr, Router(src, dst, 'car').getTravelTimeMin())
 
 if __name__ == '__main__':
     from sys import argv, stdout
@@ -31,7 +31,7 @@ if __name__ == '__main__':
         from csv import writer, reader
         out = writer(stdout)
         for row in reader(f):
-            if row[15] == '':
+            if row[16] == '':
                 r = gettraveltime(row[4])
                 row[15], row[16] = r
 

@@ -169,6 +169,12 @@ def getdeliveriesarrayinrange(lat, lng, radius):
     ]
 
 
+@app.route('/deliveriescountinrange.jsonp', methods=['GET', 'POST'])
+@support_jsonp
+def getdeliveriescount_sourceinrange():
+    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
+    return len(getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius')))
+
 @app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveries_sourceinrange():
