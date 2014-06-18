@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% block body %}
+<h1>Make a delivery</h2>
+{% if from_ and to_ %}
+    Created a delivery from {{ from_ }} to {{ to_ }}.
+{% endif %}
+<form id=makedelivery>
+    <input name=from class=fromaddress placeholder=from autofocus>
+    <input name=to class=toaddress placeholder=to>
+    <input type=submit class=submit value=send>
+</div>
+{% endblock %}

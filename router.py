@@ -23,6 +23,14 @@ class Address(object):
                                  self.dictaddress['city'] )
         return addrstr
 
+def getlatlng(address):
+    latlngs = Router.getgeocode(address)
+    if len(latlngs) > 0:
+        return (address, (latlngs[0][u'lat'], latlngs[0][u'lon']))
+    words = address.split(' ')[1:]
+    if len(words) < 3:
+        raise ValueError('invalid address')
+    return getlatlng(' '.join(words))
 
 class Router:
     """Returns a rout between to points on a map
@@ -93,13 +101,13 @@ class Router:
         """
         conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
         params = urllib.urlencode({
-            'q': textaddress,
+            'q': unicode(textaddress).encode('utf-8'),
             'countrycodes': 'il',
             'limit': str(limit), # max results
             'polygon': '0', #Output polygon outlines for items found  (deprecated, use one of the polygon_* parameters instead)
             'email': 'oren@orengampel.com',
             'accept-language': lang,
-            'format': 'json'}) #TODO check what jsonv2 means
+            'format': 'json'}) #TODO check what jsonv2 means - it means JSON version 2.
 
         try:
             conn.request("GET", "/search?" + params)
