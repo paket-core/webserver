@@ -165,6 +165,19 @@ def sendpackage():
         )
     return render_template('send.html')
 
+# Package grabber.
+@app.route('/deliver')
+def deliverpackage():
+    if g.user is None: abort(401)
+    if(
+        'from' in request.args and
+        'from' in request.args and
+        'to' in request.args and
+        len(request.args.get('from')) > 0 and
+        len(request.args.get('to')) > 0
+    ):
+    return render_template('deliver.html')
+
 # JSONp handler decorator.
 from functools import wraps
 from json import dumps
@@ -199,10 +212,10 @@ def getdeliveriesinrange():
     else:
         pointofinterest = lambda d: d.from_
 
-    return [
-        delivery.id for delivery in db.Delivery.query.all()
+    return {
+        delivery.id: delivery.data() for delivery in db.Delivery.query.all()
         if pointofinterest(delivery).distance([lat, lng]) < float(radius)
-    ]
+    }
 
 @app.route('/verify', methods=['GET', 'POST'])
 @support_jsonp

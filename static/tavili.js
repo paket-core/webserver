@@ -50,6 +50,10 @@ function addmarkertolayer(latlng, iconname, iconanchor, text, click, layer){
     layer.addLayer(marker);
 }
 
+function grabdeliverydiv(deliveryid){
+    return '<div><a href="deliver?id=' + deliveryid + '">Deliver</a></div>'
+}
+
 function clickroute(delivery){
     L.polyline(delivery.path, {
         color: 'red',
@@ -86,33 +90,31 @@ function getdeliveries(position, range, pointofinterest){
                 fillOpacity: 0.1
             }).addTo(map);
 
-            $.each(deliveries, function(idx, hash){
-                jsonp('delivery', {id: hash}, function(delivery){
-                    var popuptext = 'id:' + idx + ' time:' + delivery['time'];
-                    addmarkertolayer(
-                        delivery['fromLatlng'],
-                        'green_flag_icon',
-                        [1, 30],
-                        popuptext + '<br>from',
-                        function(e){clickroute(delivery)},
-                        fromMarkers
-                    );
-                    addmarkertolayer(
-                        delivery['toLatlng'],
-                        'pink_flag_icon',
-                        [1, 30],
-                        popuptext + '<br>to',
-                        function(e){clickroute(delivery)},
-                        toMarkers
-                    );
-
-                    // TODO move this to popup.
-                    $('select.deliveryid').append(
-                        $('<option>').val(idx).text(popuptext)
-                    ).change(function(e) {
-                        $('#takediv').find('.fromaddress').val(delivery['fromLatlng']).end().find('.toaddress').val(delivery['toLatlng']);
-                    });
-                });
+            $.each(deliveries, function(id, delivery){
+                addmarkertolayer(
+                    delivery['fromlatlng'],
+                    'green_flag_icon',
+                    [1, 30],
+                    'from here to ' + (
+                        delivery['toaddress'] ?
+                        delivery['toaddress'] :
+                        delivery['tolatlng']
+                    ) + grabdeliverydiv(id),
+                    function(e){clickroute(delivery)},
+                    fromMarkers
+                );
+                addmarkertolayer(
+                    delivery['tolatlng'],
+                    'pink_flag_icon',
+                    [1, 30],
+                    'from ' + (
+                        delivery['fromaddress'] ?
+                        delivery['fromaddress'] :
+                        delivery['fromlatlng']
+                    ) + ' to here' + grabdeliverydiv(id),
+                    function(e){clickroute(delivery)},
+                    toMarkers
+                );
             });
             map.addLayer(fromMarkers);
             map.addLayer(toMarkers);

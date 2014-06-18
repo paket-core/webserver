@@ -140,11 +140,12 @@ class Delivery(Base):
         return Base.__getattr__(self, key)
     def data(self):
         return {
-            'fromLatlng': self.from_.latlng,
-            'toLatlng': self.to_.latlng,
+            'fromlatlng': self.from_.latlng,
+            'tolatlng': self.to_.latlng,
+            'fromaddress': self.from_.address,
+            'toaddress': self.to_.address,
             'time': self.time,
             'path': self.path,
-            'address': self.from_.address
         }
 
 def init_db():
