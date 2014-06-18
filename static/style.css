@@ -1,40 +1,37 @@
 #nojs{
     position: absolute;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
     width: 100%;
     background: yellow;
     color: red;
-}
-#map{
-    height: 50em;
 }
 #log{
     background: yellow;
     color: black;
 }
-
-body {
-    font-family: 'Georgia', serif;
-    font-size: 16px;
-    margin: 30px;
-    padding: 0;
-}
-
-a {
-    color: #335E79;
-}
-
 p.message {
     color: #335E79;
-    padding: 10px;
+    padding: 1em;
     background: #CADEEB;
 }
-
 p.error {
     color: #783232;
-    padding: 10px;
+    padding: 1em;
     background: #EBCACA;
+}
+
+ul.navigation{
+  position: fixed;
+  top: 0;
+  right: 0;
+  background: #eeeeff;
+  margin: 0;
+  padding: 2em;
+}
+
+#map{
+    height: 50em;
 }
 
 input {
@@ -54,8 +51,4 @@ input[type="submit"] {
 input[name="openid"] {
     background: url(openid.png) 4px no-repeat;
     padding-left: 24px;
-}
-
-h1, h2 {
-    font-weight: normal;
 }

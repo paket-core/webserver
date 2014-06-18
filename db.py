@@ -36,7 +36,7 @@ class User(Base):
         self.balance = 100
 
 # A Location is just that, but in the future it will have hierarchy as well
-from router import Router
+from router import Router, getlatlng
 class Location(Base):
     __tablename__ = 'locations'
     id = Column(Integer, primary_key=True)
@@ -45,11 +45,16 @@ class Location(Base):
     accuracy = Column(Float)
     address = Column(String(200))
     description = Column(String(200))
-    # FIXME I don't like all those Nones
-    def __init__(self, latlng, acc=None, address=None):
-        self.lat, self.lng = latlng
-        if not acc is None: self.accuracy = acc
-        if not address is None: self.address = address
+    def __init__(self, **kwargs):
+        if 'latlng' in kwargs:
+            self.lat, self.lng = kwargs['latlng']
+        elif 'address' in kwargs:
+            self.lat, self.lng = self.latlng = getlatlng(kwargs['address'])[1]
+            self.address = kwargs['address']
+        else:
+            raise ValueError('Can\'t create location without latlng or address')
+        if 'accuracy' in kwargs:
+            self.accuracy = kwargs['accuracy']
     @reconstructor
     def reconstruct(self):
         self.latlng = self.lat, self.lng
@@ -58,7 +63,7 @@ class Location(Base):
             self.address = Router.addresslookup(self.latlng)['display_name']
             return self.address
         return Base.__getattr__(self, key)
-    def __repr__(self, *args, **kwargs):
+    def __repr__(self):
         return "<Location in %s>" % (self.latlng,)
     def distance(self, latlng):
         return sum((float(self.latlng[i]) - float(latlng[i])) ** 2 for i in (0, 1)) ** .5
@@ -86,8 +91,8 @@ class Delivery(Base):
     id = Column(Integer, primary_key=True)
 
     parcelid = Column(Integer, ForeignKey('parcels.id'))
-    fromid = Column(Integer, ForeignKey('locations.id'))
     toid = Column(Integer, ForeignKey('locations.id'))
+    fromid = Column(Integer, ForeignKey('locations.id'))
 
     status = Column(Integer)
     STATUSES = {
@@ -98,8 +103,8 @@ class Delivery(Base):
         'RECEIVED': 4
     }
 
-    def __init__(self, parcelid, fromid, toid):
-        self.parcelid, self.fromid, self.toid = parcelid, fromid, toid
+    def __init__(self, parcel, from_, to_):
+        self.parcelid, self.fromid, self.toid = parcel.id, from_.id, to_.id
         self.status = self.STATUSES['CREATED']
     @reconstructor
     def reconstruct(self):
@@ -154,13 +159,13 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
     from random import uniform, sample
-    locations = [Location((uniform(31.95, 32.15), uniform(34.70, 34.90))) for i in range(100)]
+    locations = [Location(latlng=(uniform(31.95, 32.15), uniform(34.70, 34.90))) for i in range(100)]
     parcels = [Parcel() for i in range(100)]
     session.commit()
     deliveries = []
     for parcel in parcels:
         from_, to_ = sample(locations, 2)
-        deliveries.append(Delivery(parcel.id, from_.id, to_.id))
+        deliveries.append(Delivery(parcel, from_, to_))
     session.commit()
 
 if __name__ == '__main__':
