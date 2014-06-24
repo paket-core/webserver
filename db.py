@@ -93,6 +93,8 @@ class Delivery(Base):
     parcelid = Column(Integer, ForeignKey('parcels.id'))
     toid = Column(Integer, ForeignKey('locations.id'))
     fromid = Column(Integer, ForeignKey('locations.id'))
+    reward = Column(Integer, default=0)
+    penalty = Column(Integer, default=0)
 
     status = Column(Integer)
     STATUSES = {
@@ -103,8 +105,9 @@ class Delivery(Base):
         'RECEIVED': 4
     }
 
-    def __init__(self, parcel, from_, to_):
+    def __init__(self, parcel, from_, to_, reward, penalty):
         self.parcelid, self.fromid, self.toid = parcel.id, from_.id, to_.id
+        self.reward, self.penalty = reward, penalty
         self.status = self.STATUSES['CREATED']
     @reconstructor
     def reconstruct(self):
@@ -140,6 +143,8 @@ class Delivery(Base):
         return Base.__getattr__(self, key)
     def data(self):
         return {
+            'id': self.id,
+            'status': self.status,
             'fromlatlng': self.from_.latlng,
             'tolatlng': self.to_.latlng,
             'fromaddress': self.from_.address,
@@ -166,7 +171,7 @@ def init_db():
     deliveries = []
     for parcel in parcels:
         from_, to_ = sample(locations, 2)
-        deliveries.append(Delivery(parcel, from_, to_))
+        deliveries.append(Delivery(parcel, from_, to_, 0, 0))
     session.commit()
 
 if __name__ == '__main__':

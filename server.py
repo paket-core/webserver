@@ -2,6 +2,8 @@
 
 import db
 
+from sqlalchemy import exc
+
 from flask import(
         Flask,
         render_template,
@@ -146,6 +148,8 @@ def sendpackage():
         len(request.args.get('from')) > 0 and
         len(request.args.get('to')) > 0
     ):
+        reward = request.args.get('reward') or 0
+        penalty = request.args.get('penalty') or 0
         from_ = db.Location(address=request.args.get('from'))
         to_ = db.Location(address=request.args.get('to'))
         parcel = db.Parcel()
@@ -154,7 +158,7 @@ def sendpackage():
         db.session.add(parcel)
         db.session.commit()
 
-        delivery = db.Delivery(parcel, from_, to_)
+        delivery = db.Delivery(parcel, from_, to_, reward, penalty)
         db.session.add(delivery)
         db.session.commit()
         flash(
@@ -166,17 +170,34 @@ def sendpackage():
     return render_template('send.html')
 
 # Package grabber.
-@app.route('/deliver')
-def deliverpackage():
+@app.route('/take')
+def takepackage():
     if g.user is None: abort(401)
-    if(
-        'from' in request.args and
-        'from' in request.args and
-        'to' in request.args and
-        len(request.args.get('from')) > 0 and
-        len(request.args.get('to')) > 0
-    ):
-    return render_template('deliver.html')
+
+    try:
+        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
+    except exc.SQLAlchemyError:
+        flash('no such delivery')
+        return render_template('index.html')
+
+    if delivery.status != db.Delivery.STATUSES['CREATED']:
+        flash('delivery no longer available')
+        return render_template('index.html')
+
+    # This is a user's second request of this page, after confirmation.
+    if 'ok' in request.args:
+        g.user.balance -= delivery.penalty
+        delivery.commit(g.user)
+
+        db.session.add(g.user)
+        db.session.add(delivery)
+        db.session.commit()
+
+        flash('Commitment made, you best be on your way.')
+        return render_template('index.html')
+
+    # This is the user's first request of this page, ask for confirmation.
+    return render_template('take.html', delivery=delivery)
 
 # JSONp handler decorator.
 from functools import wraps

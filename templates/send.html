@@ -2,8 +2,10 @@
 {% block body %}
 <h1>Make a delivery</h1>
 <form id=makedelivery>
-    <input name=from class=fromaddress placeholder=from autofocus>
-    <input name=to class=toaddress placeholder=to>
+    <input name=from placeholder=from autofocus>
+    <input name=to placeholder=to>
+    <input name=reward placeholder=for autofocus>
+    <input name=penalty placeholder=deposit>
     <input type=submit class=submit value=send>
 </div>
 {% endblock %}

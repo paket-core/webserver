@@ -51,7 +51,7 @@ function addmarkertolayer(latlng, iconname, iconanchor, text, click, layer){
 }
 
 function grabdeliverydiv(deliveryid){
-    return '<div><a href="deliver?id=' + deliveryid + '">Deliver</a></div>'
+    return '<div><a href="take?id=' + deliveryid + '">take delivery</a></div>'
 }
 
 function clickroute(delivery){
@@ -91,6 +91,9 @@ function getdeliveries(position, range, pointofinterest){
             }).addTo(map);
 
             $.each(deliveries, function(id, delivery){
+
+                // TODO: Here I filter out commited deliveries, but better to find a nice way to show them.
+                if(0 < delivery.status) return true;
                 addmarkertolayer(
                     delivery['fromlatlng'],
                     'green_flag_icon',

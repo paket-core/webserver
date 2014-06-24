@@ -22,9 +22,7 @@ p.error {
 }
 
 ul.navigation{
-  position: fixed;
-  top: 0;
-  right: 0;
+  float: left;
   background: #eeeeff;
   margin: 0;
   padding: 2em;
