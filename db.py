@@ -1,4 +1,5 @@
 #!./py2/bin/python
+# -*- coding: utf-8 -*-
 
 # This module, oddly enough, takes care of all the database related shite.
 
@@ -6,7 +7,7 @@ dbfilename = 'tavili.db'
 dbscheme = 'sqlite'
 
 from sqlalchemy import create_engine, event, Column, Integer, String, ForeignKey
-from sqlalchemy.types import PickleType, Float
+from sqlalchemy.types import PickleType, Float, LargeBinary
 from sqlalchemy.orm import scoped_session, sessionmaker, mapper, reconstructor
 from sqlalchemy.ext.declarative import declarative_base
 engine = create_engine("%s:///%s" % (dbscheme, dbfilename))
@@ -90,22 +91,25 @@ class Delivery(Base):
     __tablename__ = 'deliveries'
     id = Column(Integer, primary_key=True)
 
+    senderid = Column(Integer, ForeignKey('users.id'))
     parcelid = Column(Integer, ForeignKey('parcels.id'))
     toid = Column(Integer, ForeignKey('locations.id'))
     fromid = Column(Integer, ForeignKey('locations.id'))
     reward = Column(Integer, default=0)
     penalty = Column(Integer, default=0)
 
+    courierid = Column(Integer, ForeignKey('users.id'))
+    proof = Column(LargeBinary)
+
     status = Column(Integer)
     STATUSES = {
         'CREATED': 0,
-        'OPEN': 1,
-        'COMMITTED': 2,
-        'ENROUTE': 3,
-        'RECEIVED': 4
+        'TAKEN': 1,
+        'RECEIVED': 2
     }
 
-    def __init__(self, parcel, from_, to_, reward, penalty):
+    def __init__(self, sender, parcel, from_, to_, reward, penalty):
+        self.senderid = sender.id
         self.parcelid, self.fromid, self.toid = parcel.id, from_.id, to_.id
         self.reward, self.penalty = reward, penalty
         self.status = self.STATUSES['CREATED']
@@ -114,19 +118,15 @@ class Delivery(Base):
         # FIXME This should be done with relationship, I think
         self.from_ = Location.query.filter_by(id=self.fromid).one()
         self.to_ = Location.query.filter_by(id=self.toid).one()
-    def open(self, pickup):
-        self.pickup = pickup
-        self.status = self.STATUSES['OPEN']
-        return self
-    def commit(self, courier):
+        if self.courierid:
+            self.courier = User.query.filter_by(id=self.courierid).one()
+    def take(self, courier):
         self.courier = courier
-        self.status = self.STATUSES['COMMITTED']
+        self.courierid = courier.id
+        self.status = self.STATUSES['TAKEN']
         return self
-    def pickup(self, deposit):
-        self.deposit = deposit
-        self.status = self.STATUSES['ENROUTE']
-        return self
-    def receive(self):
+    def receive(self, proof):
+        self.proof = proof
         self.status = self.STATUSES['RECEIVED']
         return self
     # Lazy routing initialization
@@ -143,7 +143,6 @@ class Delivery(Base):
         return Base.__getattr__(self, key)
     def data(self):
         return {
-            'id': self.id,
             'status': self.status,
             'fromlatlng': self.from_.latlng,
             'tolatlng': self.to_.latlng,
@@ -165,14 +164,24 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
     from random import uniform, sample
-    locations = [Location(latlng=(uniform(31.95, 32.15), uniform(34.70, 34.90))) for i in range(100)]
-    parcels = [Parcel() for i in range(100)]
+    locations = [
+        Location(address=u'ביצרון 8, תל אביב'),
+        Location(address=u'מגדלי עזריאלי'),
+        Location(address=u'רבי נחמן מברסלב 6, יפו'),
+        Location(address=u'הרב אלנקווה 6, תל אביב'),
+        Location(address=u'הברזל 32, תל אביב'),
+    ]
+    parcels = [Parcel() for i in range(10)]
     session.commit()
     deliveries = []
     for parcel in parcels:
         from_, to_ = sample(locations, 2)
-        deliveries.append(Delivery(parcel, from_, to_, 0, 0))
+        deliveries.append(Delivery(type('mockuser', (object,), {'id': 1})(), parcel, from_, to_, 0, 0))
     session.commit()
+
+    if isfile('me.sql'):
+        from subprocess import call
+        call(['sqlite3', '-init', 'me.sql', 'tavili.db', '.exit'])
 
 if __name__ == '__main__':
     init_db()

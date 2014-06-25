@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+{% block title %}Your deliveries{% endblock %}
+{% block body %}
+
+<h2>Your balance: {{ g.user.balance }}</h2>
+
+<h2>Your deliveries</h2>
+
+{% if taken %}
+<h3>Taken by you</h3>
+<ul>
+    {% for delivery in taken %}
+    <li><a href="give?id={{ delivery.id }}">From {{ delivery.from_.address }} to {{ delivery.to_.address }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if waiting %}
+<h3>Waiting pickup from you</h3>
+<ul>
+    {% for delivery in waiting %}
+    <li><a href="delivery?id={{ delivery.id }}">From {{ delivery.from_.address }} to {{ delivery.to_.address }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if enroute %}
+<h3>En route from you</h3>
+<ul>
+    {% for delivery in enroute %}
+    <li><a href="delivery?id={{ delivery.id }}">From {{ delivery.from_.address }} to {{ delivery.to_.address }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if delivered %}
+<h3>Successfully delivered from you</h3>
+<ul>
+    {% for delivery in delivered %}
+    <li><a href="delivery?id={{ delivery.id }}">From {{ delivery.from_.address }} to {{ delivery.to_.address }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% endblock %}

@@ -1,11 +1,12 @@
 {% extends "layout.html" %}
+{% block title %}send something{% endblock %}
 {% block body %}
 <h1>Make a delivery</h1>
 <form id=makedelivery>
-    <input name=from placeholder=from autofocus>
-    <input name=to placeholder=to>
-    <input name=reward placeholder=for autofocus>
-    <input name=penalty placeholder=deposit>
+    <input name=from placeholder=from value="{{ request.args['from'] }}" autofocus>
+    <input name=to placeholder=to value="{{ request.args['to'] }}">
+    <input name=reward placeholder=for value="{{ request.args['reward'] }}">
+    <input name=penalty placeholder=deposit value="{{ request.args['penalty'] }}">
     <input type=submit class=submit value=send>
 </div>
 {% endblock %}

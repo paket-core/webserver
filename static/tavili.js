@@ -130,7 +130,7 @@ function getdeliveries(position, range, pointofinterest){
 function getcurrentposition(callback, manual){
     // Manual prompting for non mobile devices
     if('undefined' !== typeof(manual) || /i686/i.test(navigator.userAgent)){
-        var position = prompt('position', '32.0695:34.7987').split(':');
+        var position = '32.0695:34.7987'.split(':');
         callback({'lat': position[0], 'lng': position[1]}, 0);
     }else{
         map.on('locationerror', function onLocationError(e){
@@ -148,7 +148,7 @@ $(function(){
     $('#nojs').remove();
 
     // Initialize, center and zoom map
-    map = L.map('map').setView([32.0695, 34.7987], 13);
+    map = L.map('map');
     source_mapbox = 'https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png'
     source_openstreetmap = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
     source_opencyclemap = 'http://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png'
@@ -161,7 +161,8 @@ $(function(){
     }).addTo(map);
 
     getcurrentposition(function(latlng, accuracy){
-        var range = prompt('range', '0.02');
+        map.setView([latlng.lat, latlng.lng], 13);
+        var range = '0.02';
         getdeliveries(latlng, range);
         addmarkertolayer(
             [latlng.lat, latlng.lng],

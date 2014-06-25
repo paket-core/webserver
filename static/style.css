@@ -15,11 +15,6 @@ p.message {
     padding: 1em;
     background: #CADEEB;
 }
-p.error {
-    color: #783232;
-    padding: 1em;
-    background: #EBCACA;
-}
 
 ul.navigation{
   float: left;
