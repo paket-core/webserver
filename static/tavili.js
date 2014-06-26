@@ -50,6 +50,10 @@ function addmarkertolayer(latlng, iconname, iconanchor, text, click, layer){
     layer.addLayer(marker);
 }
 
+function grabdeliverydiv(deliveryid){
+    return '<div><a href="take?id=' + deliveryid + '">take delivery</a></div>'
+}
+
 function clickroute(delivery){
     L.polyline(delivery.path, {
         color: 'red',
@@ -86,33 +90,34 @@ function getdeliveries(position, range, pointofinterest){
                 fillOpacity: 0.1
             }).addTo(map);
 
-            $.each(deliveries, function(idx, hash){
-                jsonp('delivery', {id: hash}, function(delivery){
-                    var popuptext = 'id:' + idx + ' time:' + delivery['time'];
-                    addmarkertolayer(
-                        delivery['fromLatlng'],
-                        'green_flag_icon',
-                        [1, 30],
-                        popuptext + '<br>from',
-                        function(e){clickroute(delivery)},
-                        fromMarkers
-                    );
-                    addmarkertolayer(
-                        delivery['toLatlng'],
-                        'pink_flag_icon',
-                        [1, 30],
-                        popuptext + '<br>to',
-                        function(e){clickroute(delivery)},
-                        toMarkers
-                    );
+            $.each(deliveries, function(id, delivery){
 
-                    // TODO move this to popup.
-                    $('select.deliveryid').append(
-                        $('<option>').val(idx).text(popuptext)
-                    ).change(function(e) {
-                        $('#takediv').find('.fromaddress').val(delivery['fromLatlng']).end().find('.toaddress').val(delivery['toLatlng']);
-                    });
-                });
+                // TODO: Here I filter out commited deliveries, but better to find a nice way to show them.
+                if(0 < delivery.status) return true;
+                addmarkertolayer(
+                    delivery['fromlatlng'],
+                    'green_flag_icon',
+                    [1, 30],
+                    'from here to ' + (
+                        delivery['toaddress'] ?
+                        delivery['toaddress'] :
+                        delivery['tolatlng']
+                    ) + grabdeliverydiv(id),
+                    function(e){clickroute(delivery)},
+                    fromMarkers
+                );
+                addmarkertolayer(
+                    delivery['tolatlng'],
+                    'pink_flag_icon',
+                    [1, 30],
+                    'from ' + (
+                        delivery['fromaddress'] ?
+                        delivery['fromaddress'] :
+                        delivery['fromlatlng']
+                    ) + ' to here' + grabdeliverydiv(id),
+                    function(e){clickroute(delivery)},
+                    toMarkers
+                );
             });
             map.addLayer(fromMarkers);
             map.addLayer(toMarkers);
@@ -125,7 +130,7 @@ function getdeliveries(position, range, pointofinterest){
 function getcurrentposition(callback, manual){
     // Manual prompting for non mobile devices
     if('undefined' !== typeof(manual) || /i686/i.test(navigator.userAgent)){
-        var position = prompt('position', '32.0695:34.7987').split(':');
+        var position = '32.0695:34.7987'.split(':');
         callback({'lat': position[0], 'lng': position[1]}, 0);
     }else{
         map.on('locationerror', function onLocationError(e){
@@ -143,7 +148,7 @@ $(function(){
     $('#nojs').remove();
 
     // Initialize, center and zoom map
-    map = L.map('map').setView([32.0695, 34.7987], 13);
+    map = L.map('map');
     source_mapbox = 'https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png'
     source_openstreetmap = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
     source_opencyclemap = 'http://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png'
@@ -156,7 +161,8 @@ $(function(){
     }).addTo(map);
 
     getcurrentposition(function(latlng, accuracy){
-        var range = prompt('range', '0.02');
+        map.setView([latlng.lat, latlng.lng], 13);
+        var range = '0.2';
         getdeliveries(latlng, range);
         addmarkertolayer(
             [latlng.lat, latlng.lng],

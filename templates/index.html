@@ -1,11 +1,13 @@
 {% extends "layout.html" %}
-{% block body %}
+{% block head %}
 <link rel=stylesheet href="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.css">
 <link rel=stylesheet href="{{ url_for('static', filename='MarkerCluster.css') }}">
 <link rel=stylesheet href="{{ url_for('static', filename='MarkerCluster.Default.css') }}">
 <script src="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.js"></script>
 <script src="{{ url_for('static', filename='leaflet.markercluster.js') }}"></script>
 <script src="{{ url_for('static', filename='tavili.js') }}"></script>
+{% endblock %}
+{% block body %}
 <div id=nojs>Either you are not conected, or you have JavaScript disabled, or we have a showstopping bug.</div>
 <div id="map"></div>
 {% endblock %}
