@@ -22,16 +22,45 @@ The encoding is based on limited set of latin characters and numeral digits to t
 alphabet = '123456789ABCDEFGHJKMNPRSTVWXYZ'
 
 
+def str2phonetic(src, useLAPD=False):
+    NATO_phonetic_alphabet = \
+        {"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo", "f": "foxtrot", "g": "golf",
+         "h": "hotel", "i": "india", "j": "juliett", "k": "kilo", "l": "lima", "m": "mike", "n": "november",
+         "o": "oscar", "p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform",
+         "v": "victor", "w": "whiskey", "x": "x-ray", "y": "yankee", "z": "zulu", "-": "dash", "0": "Zero", "1": "One",
+         "2": "Two", "3": "Three", "4": "Four", "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Nine"}
+    NATO_phonetic_alphabet = dict((k.upper(), v.upper()) for k, v in NATO_phonetic_alphabet.iteritems())
+
+    LAPD_phonetic_alphabet = \
+        {"a": "Adam", "b": "Bravo", "c": "Charles", "d": "David", "e": "Edward", "f": "Frank", "g": "George",
+         "h": "Henry", "i": "Ida", "j": "John", "k": "Karen", "l": "Lincoln", "m": "Mary", "n": "Nancy", "o": "Ocean",
+         "p": "Paul", "q": "Queen", "r": "Robert", "s": "Sam", "t": "Tom", "u": "Union", "v": "Victor", "w": "William",
+         "x": "X-ray", "y": "Young", "z": "Zebra", "-": "dash", "0": "Zero", "1": "One", "2": "Two", "3": "Three",
+         "4": "Four", "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Niner"}
+    LAPD_phonetic_alphabet = dict((k.upper(), v) for k, v in LAPD_phonetic_alphabet.iteritems())
+
+    srcStr = str(src).upper()
+    if useLAPD:
+        d = LAPD_phonetic_alphabet
+    else:
+        d = NATO_phonetic_alphabet
+
+    try:
+        return ', '.join(d[ch] for ch in srcStr)
+    except KeyError:
+        return '"' + src + '"'
+
+
 def baseKinfo():
     """print info about the decoder."""
-    print "baseK info:\n--------------"
-    print "alphabet used:", alphabet
+    print "baseK info:\n-----------"
+    print "characters used:", alphabet
     print "characters", len(alphabet)
     print "scale:"
-    for i in range(1, 10): print "possible numbers for %d character: %d" % (i, len(alphabet) ** i)
+    for i in range(1, 10): print "possible numbers for %d character: %u" % (i, len(alphabet) ** i)
 
 
-def baseKencode(number):  #TODO add call signs param
+def baseKencode(number, phonetic=False):
     """Converts positive integer or long to a baseK string."""
     if not isinstance(number, (int, long)):
         raise TypeError('number must be an integer or long')
@@ -48,7 +77,10 @@ def baseKencode(number):  #TODO add call signs param
         number, i = divmod(number, len(alphabet))
         base = alphabet[i] + base
 
-    return base
+    if phonetic:
+        return str2phonetic(base)
+    else:
+        return base
 
 
 def baseKdecode(val):
@@ -84,9 +116,10 @@ def baseKencodeRC(number):
 if __name__ == '__main__':
     import random
 
+    print '\n' * 2
     baseKinfo()
 
-    print "\ncheck encoding and decoding for random numbers"
+    print "\ncheck encoding and decoding for random numbers\n" + "-" * 47
 
     v = 0
     for i in range(0, 20):
@@ -96,18 +129,21 @@ if __name__ == '__main__':
             raise ValueError('encoder and decoder do not match!')
         v += random.randint(1, 1 + v * 50)  # this grows rapidly!
 
-    print "check encoding (some may fail)"
+    print "\ncheck encoding (some may fail)\n" + "-" * 30
     all = alphabet * 3 + "abcdefghijklmnopqrstuvwxy0123456789*"
     for i in range(30):
-        s = ""
+        s = ''
         length = random.randint(1, 5)
         for c in range(0, length):
             s += all[random.randint(0, len(all)) - 1]
 
-        # s = s.upper()
-
         try:
-            print i, s, "=>", baseKdecode(s), "rc:", baseKrc(s)
+            print i, s, "=>", baseKdecode(s), "rc:", baseKrc(s), "[%s]" % (str2phonetic(s),)
         except ValueError, e:
             print "got", e
 
+    print "\ncheck phonetic\n" + "-" * 15
+    print "unknown chars:", str2phonetic("234@#")
+    print "shalom:", str2phonetic("shalom")
+    print "shalom:", str2phonetic("shalom", useLAPD=True)
+    print "12**4=", str2phonetic(12 ** 4, useLAPD=True)
