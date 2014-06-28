@@ -30,10 +30,13 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(80))
     email = Column(String(200))
+    phone = Column(String(20))
     openid = Column(String(200))
     balance = Column(Integer)
-    def __init__(self, name, email, openid):
-        self.name, self.email, self.openid = name, email, openid
+    def __init__(self, name, email, phone, openid):
+        self.name, self.email, self.phone, self.openid = (
+            name, email, phone, openid
+        )
         self.balance = 100
 
 # A Location is just that, but in the future it will have hierarchy as well
@@ -109,8 +112,8 @@ class Delivery(Base):
     }
 
     def __init__(self, sender, parcel, from_, to_, reward, penalty):
-        self.senderid = sender.id
-        self.parcelid, self.fromid, self.toid = parcel.id, from_.id, to_.id
+        self.senderid, self.parcelid = sender.id, parcel.id
+        self.fromid, self.toid = from_.id, to_.id
         self.reward, self.penalty = reward, penalty
         self.status = self.STATUSES['CREATED']
     @reconstructor
@@ -118,6 +121,7 @@ class Delivery(Base):
         # FIXME This should be done with relationship, I think
         self.from_ = Location.query.filter_by(id=self.fromid).one()
         self.to_ = Location.query.filter_by(id=self.toid).one()
+        self.sender = User.query.filter_by(id=self.senderid).one()
         if self.courierid:
             self.courier = User.query.filter_by(id=self.courierid).one()
     def take(self, courier):
