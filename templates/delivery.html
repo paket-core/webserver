@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% block title %}send something{% endblock %}
+{% block title %}Delivery #{{ delivery.id }}{% endblock %}
 {% block body %}
 <h1>Delivery Details</h1>
 <img style="float: right;" src="http://earn-bitcoins.com/images/earn-bitcoins-donations-qr-code.png">
@@ -47,6 +47,5 @@ or
     <input type=submit class=submit value="הדפס">
     <input type=submit class=submit value="הדפס בלי מפות">
 </form>
-
 
 {% endblock %}
