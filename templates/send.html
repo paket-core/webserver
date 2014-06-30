@@ -3,10 +3,10 @@
 {% block body %}
 <h1>Make a delivery</h1>
 <form id=makedelivery>
-    <input name=from placeholder=from value="{{ request.args['from'] }}" autofocus>
-    <input name=to placeholder=to value="{{ request.args['to'] }}">
-    <input name=reward placeholder=for value="{{ request.args['reward'] }}">
-    <input name=penalty placeholder=deposit value="{{ request.args['penalty'] }}">
+    <input name=from placeholder=from value="{{ form['from'] }}" autofocus>
+    <input name=to placeholder=to value="{{ form['to'] }}">
+    <input name=reward placeholder=for value="{{ form['reward'] }}">
+    <input name=penalty placeholder=deposit value="{{ form['penalty'] }}">
     <input type=submit class=submit value=send>
 </form>
 

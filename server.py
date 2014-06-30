@@ -81,10 +81,11 @@ if True:
         if user is not None:
             flash(u'Successfully signed in')
             g.user = user
-            return render_template('index.html')
+            return redirect(oid.get_next_url())
         return redirect(url_for('create_profile', next=oid.get_next_url(),
                                 name=resp.fullname or resp.nickname,
-                                email=resp.email))
+                                email=resp.email,
+                                phone=resp.phone))
 
     @app.route('/create-profile', methods=['GET', 'POST'])
     def create_profile():
@@ -96,13 +97,14 @@ if True:
         if request.method == 'POST':
             name = request.form['name']
             email = request.form['email']
+            phone = request.form['phone']
             if not name:
                 flash(u'Error: you have to provide a name')
             elif '@' not in email:
                 flash(u'Error: you have to enter a valid email address')
             else:
                 flash(u'Profile successfully created')
-                db.session.add(db.User(name, email, session['openid']))
+                db.session.add(db.User(name, email, phone, session['openid']))
                 db.session.commit()
                 return redirect(oid.get_next_url())
         return render_template('create_profile.html', next_url=oid.get_next_url())
@@ -112,10 +114,11 @@ if True:
         """Updates a profile"""
         if g.user is None:
             abort(401)
-        form = dict(name=g.user.name, email=g.user.email)
+        form = dict(name=g.user.name, email=g.user.email, phone=g.user.phone)
         if request.method == 'POST':
             form['name'] = request.form['name']
             form['email'] = request.form['email']
+            form['phone'] = request.form['phone']
             if not form['name']:
                 flash(u'Error: you have to provide a name')
             elif '@' not in form['email']:
@@ -124,6 +127,7 @@ if True:
                 flash(u'Profile successfully created')
                 g.user.name = form['name']
                 g.user.email = form['email']
+                g.user.phone = form['phone']
                 db.session.commit()
                 return redirect(url_for('edit_profile'))
         return render_template('edit_profile.html', form=form)
@@ -132,20 +136,18 @@ if True:
     def logout():
         session.pop('openid', None)
         flash(u'You have been signed out')
-        return render_template('index.html')
+        return redirect(url_for('index'))
 
-# Package sender.
+# Create a delivery.
 @app.route('/send', methods=['GET', 'POST'])
-def sendpackage():
-    if g.user is None: abort(401)
+def createdelivery():
+    if g.user is None: return redirect(url_for('login'))
 
     # If the form was not filled, show it.
     if not (
-        'from' in request.args and
-        'to' in request.args and
-        len(request.args.get('from')) > 0 and
-        len(request.args.get('to')) > 0
-    ): return render_template('send.html')
+        ('from' in request.args and len(request.args.get('from')) > 0) or
+        ('to' in request.args and len(request.args.get('to')) > 0)
+    ): return render_template('send.html', form=None)
 
     # Always save valid locations in the DB.
     try: from_ = db.Location(address=request.args.get('from'))
@@ -155,17 +157,23 @@ def sendpackage():
     except ValueError: flash('Could not resolve to address')
     else: db.session.add(to_)
     db.session.commit()
-    try: from_, to_
-    except UnboundLocalError: return render_template('send.html')
 
-    try: reward = int(request.args.get('reward'))
+    try:
+        reward = int(request.args.get('reward'))
+        # Make sure the sender has enough money.
+        if reward > g.user.balance:
+            flash('Ha ha! You are too poor to send this.')
+            # Mark delivery as invalid.
+            del reward
     except ValueError: reward = 0
-    # Make sure the sender has enough money.
-    if reward > g.user.balance:
-        flash('Ha ha! You are too poor to send this.')
-        return render_template('send.html')
     try: penalty = int(request.args.get('penalty'))
     except ValueError: penalty = 0
+
+    try: from_, to_, reward
+    except UnboundLocalError: return render_template(
+        'send.html',
+        form=request.args
+    )
 
     # TODO: Create parcels more carefully.
     parcel = db.Parcel()
@@ -183,33 +191,50 @@ def sendpackage():
             request.args.get('to')
         )
     )
-    return render_template('send.html', delivery=delivery)
+    return render_template('send.html', form=None)
 
-# Package id.
-@app.route('/id', methods=['GET', 'POST'])
-def packageid():
-    return render_template('id.html')
+# Delivery details.
+@app.route('/delivery')
+def showdelivery():
+    if g.user is None: return redirect(url_for('login'))
+
+    try:
+        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
+
+        if delivery.status == db.Delivery.STATUSES['CREATED']:
+            if g.user is not delivery.sender: op = 'take'
+        elif g.user is delivery.courier: op = 'give'
+        elif g.user is not delivery.sender:
+            raise SQLAlchemyError('Unauthorized delivery')
+
+        try: op
+        except UnboundLocalError: op = None
+        return render_template('delivery.html', delivery=delivery, op=op)
+
+    except exc.SQLAlchemyError:
+        flash('Delivery no longer available')
+        return redirect(url_for('index'))
 
 # Package grabber.
 @app.route('/take', methods=['GET', 'POST'])
-def takepackage():
-    if g.user is None: abort(401)
+def takedelivery():
+    if g.user is None: return redirect(url_for('login'))
 
     try:
         delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
     except exc.SQLAlchemyError:
         flash('no such delivery')
-        return render_template('index.html')
+        return redirect(url_for('index'))
 
     if delivery.status != db.Delivery.STATUSES['CREATED']:
         flash('delivery no longer available')
-        return render_template('index.html')
+        return redirect(url_for('index'))
 
     # This is a user's second request of this page, after confirmation.
     if 'ok' in request.args:
         if delivery.penalty > g.user.balance:
             flash('Ha ha! You are too poor to take this, consider joining the klan.')
-            return render_template('index.html')
+            return redirect(url_for('index'))
         g.user.balance -= delivery.penalty
         delivery.take(g.user)
 
@@ -227,20 +252,20 @@ def takepackage():
 from os import remove
 @app.route('/give', methods=['GET', 'POST'])
 def givepackage():
-    if g.user is None: abort(401)
+    if g.user is None: return redirect(url_for('login'))
 
     try:
         delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
     except exc.SQLAlchemyError:
         flash('no such delivery')
-        return render_template('index.html')
+        return redirect(url_for('index'))
 
     if(
         delivery.status != db.Delivery.STATUSES['TAKEN'] or
         delivery.courier != g.user
     ):
         flash('This delivery is not yours to deliver')
-        return render_template('index.html')
+        return redirect(url_for('index'))
 
     # This is a user's second request of this page, after confirmation.
     if 'ok' in request.form:
@@ -268,7 +293,7 @@ def givepackage():
 # Package shower.
 @app.route('/deliveries')
 def deliveries():
-    if g.user is None: abort(401)
+    if g.user is None: return redirect(url_for('login'))
     taken = db.Delivery.query.filter_by(
         courierid=g.user.id,
         status=db.Delivery.STATUSES['TAKEN']
