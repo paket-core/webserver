@@ -73,7 +73,15 @@ $(function(){
             },
             function(deliveries){
                 $.each(deliveries, function(id, delivery){
-                    log('!!!', delivery);
+                    if(
+                        delivery['timetopoint'] < 20 &&
+                        delivery['reward'] > 9 &&
+                        delivery['penalty'] < 500
+                    ){
+                        log('<a href="delivery?id=' + id + '">delivery</a> taken', delivery);
+                    }else{
+                        log('<a href="delivery?id=' + id + '">delivery</a> rejected', delivery);
+                    }
                 });
             }
         );

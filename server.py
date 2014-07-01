@@ -2,10 +2,6 @@
 
 import db
 
-from sqlalchemy import exc
-
-from werkzeug.utils import secure_filename
-
 from flask import(
         Flask,
         render_template,
@@ -199,98 +195,57 @@ def showdelivery():
     if g.user is None: return redirect(url_for('login'))
 
     try:
-        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
+        op, delivery = db.Delivery.Get(request.args.get('id')).show(g.user)
+        return render_template('delivery.html', op=op, delivery=delivery)
+    except ValueError as e: flash(u'Error: ' + str(e))
+    return redirect(url_for('index'))
 
-        if delivery.status == db.Delivery.STATUSES['CREATED']:
-            if g.user is not delivery.sender: op = 'take'
-        elif g.user is delivery.courier: op = 'give'
-        elif g.user is not delivery.sender:
-            raise SQLAlchemyError('Unauthorized delivery')
+# Pull a delivery to you. FIXME tmp stub.
+@app.route('/pull', methods=['GET', 'POST'])
+def pulldelivery():
+    if g.user is None: return redirect(url_for('login'))
 
-        try: op
-        except UnboundLocalError: op = None
-        return render_template('delivery.html', delivery=delivery, op=op)
+    try: db.Delivery.Get(request.args.get('id')).pull(g.user)
+    except ValueError as e: flash(u'Error: ' + str(e))
+    else: flash(u'Delivery created, you best be on your way.')
+    return redirect(url_for('deliveries'))
 
-    except exc.SQLAlchemyError:
-        flash('Delivery no longer available')
-        return redirect(url_for('index'))
-
-# Package grabber.
+# Take a delivery.
 @app.route('/take', methods=['GET', 'POST'])
 def takedelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try:
-        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
-    except exc.SQLAlchemyError:
-        flash('no such delivery')
-        return redirect(url_for('index'))
+    try: db.Delivery.Get(request.args.get('id')).take(g.user)
+    except ValueError as e: flash(u'Error: ' + str(e))
+    else: flash(u'Delivery taken, you best be on your way.')
+    return redirect(url_for('deliveries'))
 
-    if delivery.status != db.Delivery.STATUSES['CREATED']:
-        flash('delivery no longer available')
-        return redirect(url_for('index'))
-
-    # This is a user's second request of this page, after confirmation.
-    if 'ok' in request.args:
-        if delivery.penalty > g.user.balance:
-            flash('Ha ha! You are too poor to take this, consider joining the klan.')
-            return redirect(url_for('index'))
-        g.user.balance -= delivery.penalty
-        delivery.take(g.user)
-
-        db.session.add(g.user)
-        db.session.add(delivery)
-        db.session.commit()
-
-        flash('Delivery taken, you best be on your way.')
-        return redirect(url_for('deliveries'))
-
-    # This is the user's first request of this page, ask for confirmation.
-    return render_template('take.html', delivery=delivery)
-
-# Package depositer.
+# Drop a delivery.
+from werkzeug.utils import secure_filename
 from os import remove
-@app.route('/give', methods=['GET', 'POST'])
-def givepackage():
+@app.route('/drop', methods=['POST'])
+def dropdelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try:
-        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
-    except exc.SQLAlchemyError:
-        flash('no such delivery')
-        return redirect(url_for('index'))
+    proof = request.files['proof']
+    if proof:
+        filename = secure_filename(proof.filename)
+        proof.save(filename)
+        with open(filename, 'rb', buffering=0) as proof:
+            try:
+                db.Delivery.Get(
+                    request.form.get('id')).drop(g.user, proof.read()
+                )
+            except ValueError as e: flash(u'Error: ' + str(e))
+            else: flash(u'Delivery dumped, carry on with your life.')
+        remove(filename)
+    else:
+        flash(u'Please attach proof of delivery.')
+        return redirect(url_for('showdelivery', id=request.form.get('id')))
 
-    if(
-        delivery.status != db.Delivery.STATUSES['TAKEN'] or
-        delivery.courier != g.user
-    ):
-        flash('This delivery is not yours to deliver')
-        return redirect(url_for('index'))
+    return redirect(url_for('deliveries'))
 
-    # This is a user's second request of this page, after confirmation.
-    if 'ok' in request.form:
-        proof = request.files['proof']
-        if proof:
-            filename = secure_filename(proof.filename)
-            proof.save(filename)
-            with open(filename, 'rb', buffering=0) as proof:
-                delivery.receive(proof.read())
-                g.user.balance += delivery.penalty + delivery.reward
-
-                db.session.add(g.user)
-                db.session.add(delivery)
-                db.session.commit()
-
-                flash('Delivery received, you are now rich.')
-
-            remove(filename)
-            return redirect(url_for('deliveries'))
-        else: flash('Please attach proof of delivery.')
-
-    # This is the user's first request of this page, ask for confirmation.
-    return render_template('give.html', delivery=delivery)
-
-# Package shower.
+# See deliveries related to you.
 @app.route('/deliveries')
 def deliveries():
     if g.user is None: return redirect(url_for('login'))
@@ -339,13 +294,18 @@ def getdeliveriesinrange():
     lat = float(request.args.get('lat'))
     lng = float(request.args.get('lng'))
     radius = float(request.args.get('radius'))
+    curloc = db.Location(latlng=[lat, lng])
     if u'to' == request.args.get('pointofinterest'):
         pointofinterest = lambda d: d.to_
     else:
         pointofinterest = lambda d: d.from_
 
     return {
-        delivery.id: delivery.data() for delivery in db.Delivery.query.all()
+        delivery.id: dict(
+            delivery.jsonable,
+            **{'timetopoint': curloc.routeTimeMin(pointofinterest(delivery))}
+        )
+        for delivery in db.Delivery.query.all()
         if pointofinterest(delivery).distance([lat, lng]) < float(radius)
     }
 
