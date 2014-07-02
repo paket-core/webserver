@@ -71,7 +71,10 @@ def baseKencode(number, phonetic=False):
         raise TypeError('number must be positive')
 
     if number < len(alphabet):
-        return alphabet[number]
+        if phonetic:
+            return str2phonetic(alphabet[number])
+        else:
+            return alphabet[number]
 
     while number != 0:
         number, i = divmod(number, len(alphabet))
