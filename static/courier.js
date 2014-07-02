@@ -1,4 +1,5 @@
-function grabdeliverydiv(deliveryid){
+function grabdeliverydiv(deliveryid, delivery){
+    log(delivery);
     return '<div><a href="delivery?id=' + deliveryid + '">take delivery</a></div>'
 }
 
@@ -47,7 +48,7 @@ function getdeliveries(position, range, pointofinterest){
                         delivery['toaddress'] ?
                         delivery['toaddress'] :
                         delivery['tolatlng']
-                    ) + grabdeliverydiv(id),
+                    ) + grabdeliverydiv(id, delivery),
                     function(e){clickroute(delivery)},
                     fromMarkers
                 );
