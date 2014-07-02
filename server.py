@@ -140,22 +140,36 @@ def createdelivery():
     if g.user is None: return redirect(url_for('login'))
 
     # If the form was not filled, show it.
-    if not (
-        ('from' in request.values and len(request.values.get('from')) > 0) or
-        ('to' in request.values and len(request.values.get('to')) > 0)
-    ): return render_template('send.html', form=None)
+    if 'from' not in request.values: return render_template('send.html', form=None)
 
-    # Validate reward and penalty.
-    try: reward = float(request.values.get('reward', 0))
-    except ValueError: flash('Price has to be a number or empty')
-    try: penalty = float(request.values.get('penalty', 0))
-    except ValueError: flash('Deposit has to be a number or empty')
-    try: reward, penalty
-    except UnboundLocalError: return render_template(
-        'send.html',
-        form=request.values
-    )
+    # Validate form.
+    # TODO Unite form validation and use flask wtf for it.
+    errors = []
+    try:
+        reward = request.values.get('reward')
+        reward = int(reward) if reward else 0
+    except ValueError:
+        errors.append('Price has to be a number or empty')
+    else:
+        if reward < 0: errors.append('Price has to be positive')
 
+    try:
+        penalty = request.values.get('penalty')
+        penalty = int(penalty) if penalty else 0
+    except ValueError:
+        errors.append('Deposit has to be a number or empty')
+    else:
+        if penalty < 0: errors.append('Deposit has to be positive')
+
+    if errors:
+        for error in errors: flash(error)
+        return render_template(
+            'send.html',
+            form=request.values
+        )
+
+    from_ = request.values.get('from')
+    to_ = request.values.get('to')
     try:
         db.Delivery.Create(
             g.user,
@@ -195,15 +209,26 @@ def pulldelivery():
     if g.user is None: return redirect(url_for('login'))
 
     # Validate reward and addedpenalty.
-    try: reward = float(request.values.get('reward', 0))
-    except ValueError: flash('Price has to be a number or empty')
-    try: addedpenalty = float(request.values.get('addedpenalty', 0))
-    except ValueError: flash('Added deposit has to be a number or empty')
-    try: reward, addedpenalty
-    except UnboundLocalError: return render_template(
-        'send.html',
-        form=request.values
-    )
+    errors = []
+    try:
+        reward = request.values.get('reward')
+        reward = int(reward) if reward else 0
+    except ValueError:
+        errors.append('Price has to be a number or empty')
+    else:
+        if reward < 0: errors.append('Price has to be positive')
+
+    try:
+        addedpenalty = request.values.get('addedpenalty')
+        addedpenalty = int(addedpenalty) if addedpenalty else 0
+    except ValueError:
+        errors.append('Added deposit has to be a number or empty')
+    else:
+        if addedpenalty < 0: errors.append('Added deposit has to be positive')
+
+    if errors:
+        for error in errors: flash(error)
+        return redirect(url_for('showdelivery', id=request.values.get('id')))
 
     try: db.Delivery.Get(request.values.get('id')).pull(
         g.user,
@@ -214,6 +239,7 @@ def pulldelivery():
     except ValueError as e: flash(u'Error: ' + str(e))
     else: flash(u'Delivery created, let\'s hope someone takes it.')
     return redirect(url_for('index'))
+
 
 # Take a delivery.
 @app.route('/take', methods=['GET', 'POST'])

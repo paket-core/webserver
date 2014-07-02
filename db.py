@@ -152,7 +152,6 @@ class Delivery(Base):
         self, sender, parcel, from_, to_, reward, penalty
     ):
         if reward > sender.balance: raise ValueError(Delivery.ERRORS['FUNDS'])
-        print("taking %i from %s" % (reward, sender.name))
         sender.balance -= reward
         session.add(sender)
         session.commit()
@@ -225,7 +224,7 @@ class Delivery(Base):
 
     # Get pullee, or None
     def pullee(self):
-        try: return Pulls.query.filter_by(pullerid=self.id).one()
+        try: return Pulls.query.filter_by(pullerid=self.id).one().pullee
         except exc.SQLAlchemyError: return None
 
     # Give user appropriate delivery data and recommend possible operation.
@@ -270,6 +269,14 @@ class Delivery(Base):
         if self.penalty > courier.balance:
             raise ValueError(Delivery.ERRORS['FUNDS'])
 
+        courier.balance -= self.penalty
+        session.add(courier)
+
+        self.courier = courier
+        self.courierid = courier.id
+        self.status = Delivery.STATUSES['TAKEN']
+        session.add(self)
+
         # If self has a pullee, take it.
         try: self.pullee().take(self.sender, courier)
         except AttributeError: pass
@@ -278,15 +285,6 @@ class Delivery(Base):
         for puller in self.pullers():
             if puller.status == Delivery.STATUSES['CREATED']:
                 puller.cancel()
-
-        print("taking %i from %s" % (self.penalty, courier.name))
-        courier.balance -= self.penalty
-        session.add(courier)
-
-        self.courier = courier
-        self.courierid = courier.id
-        self.status = Delivery.STATUSES['TAKEN']
-        session.add(self)
 
         session.commit()
         return self
@@ -307,7 +305,6 @@ class Delivery(Base):
         self.status = Delivery.STATUSES['RECEIVED']
         session.add(self)
 
-        print("giving %i from %s" % (self.penalty + self.reward, courier.name))
         courier.balance += self.penalty + self.reward
         session.add(courier)
 
@@ -322,7 +319,6 @@ class Delivery(Base):
         for puller in self.pullers():
             puller.cancel()
 
-        print("giving %i from %s" % (self.reward, self.sender.name))
         self.sender.balance += self.reward
         session.add(self.sender)
 
