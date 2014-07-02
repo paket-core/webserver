@@ -4,6 +4,8 @@ import httplib
 
 import json
 from pprint import pprint
+import urllib
+import urllib2
 import os.path
 
 
@@ -39,8 +41,7 @@ def streetsfromjson(jsondata, limit=None):
         except KeyError:
             continue
         streetname = tags['name']
-        streets_dict[streetname] = {'name': streetname}
-        # print "name: %s" % (streetname,)
+        streets_dict[streetname] = {'name': streetname, 'id': element['id']}
         for tag, val in tags.items():
             if tag.startswith('name:'):
                 nametype = tag.split(':')[1]
@@ -105,6 +106,49 @@ def getcities():
     return getcitiesfromfile(citiesfilename)
 
 
+def getnodeinfo(node_id):
+    conn = httplib.HTTPConnection("open.mapquestapi.com")
+    params = urllib.urlencode({
+        'zoom': '18',
+        'osm_id': str(node_id),
+        'osm_type': 'W',
+        'accept-language': 'he',
+        'format': 'json'})
+    try:
+        conn.request("GET", "/nominatim/v1/reverse.php?" + params)
+    except IOError as IOe:
+        print("connection to server failed: " + str(IOe))
+    response = conn.getresponse()
+    d1 = response.read()
+    conn.close()
+    jsondata = json.loads(d1.decode('utf8'))
+    return jsondata
+
+def getzonestreets(zone):
+    print 'get streets in', zone['name']
+    zonestreets = getstreetsofcity(zone['id'])
+    for street in zonestreets.values():
+        print 'check st:', street['id']
+        info = getnodeinfo(street['id'])
+        if 'address' not in info:
+            continue
+        city = info['address'].get('city', info['address'].get('village', '-----'))
+        road_name = info['address'].get('road', info['address'].get('pedestrian',  info['address'].get('pedestrian', '-----')))
+        print info['osm_id'], city, road_name, '      ', info['address'].keys()
+
+
+def getareas():
+    """get areas."""
+    country_data = getadminlevelinname("מדינת ישראל", 8)
+    zones = {}
+    for country_element in country_data['elements']:
+        if 'name' in country_element['tags']:
+            zone_name = country_element['tags']['name']
+            zones[zone_name] = {'id':country_element['id'], 'name': zone_name}
+
+    return zones
+
+
 def getOSMdata(params):
     print "getting:", params
     conn = httplib.HTTPConnection("overpass-api.de")
@@ -116,6 +160,28 @@ def getOSMdata(params):
     d1 = response.read()
     conn.close()
     jsondata = json.loads(d1.decode('utf8'))
+    return jsondata
+
+
+def getinterpreterdata(data):
+    print 'DATA=', data
+    conn = httplib.HTTPConnection("overpass-api.de")
+    try:
+        conn.request("GET", "/api/interpreter?data=" + data)
+    except IOError as IOe:
+        print("connection to server failed: " + str(IOe))
+    response = conn.getresponse()
+    d1 = response.read()
+    conn.close()
+    jsondata = json.loads(d1.decode('utf8'))
+    return jsondata
+
+
+def getadminlevelinname(name, admin_level):
+    data = '%5Bout%3Ajson%5D%3Barea%5B"name"%3D"' + name + \
+           '"%5D%3B%28relation%5B"admin_level"~"' + str(admin_level) + '"%5D%28area%29%3B%29%3Bout%20body%3B'
+    data = data.replace(' ', '%20')
+    jsondata = getinterpreterdata(data)
     return jsondata
 
 
@@ -136,6 +202,16 @@ def ensurefolderready(directory):
 
 
 if __name__ == '__main__':
+
+    # Another way - get all coutry codes, get streets in each, find each street hierarchy.
+    # This is very likely to be blocked after a while.
+    #
+    # zones = getareas()
+    #
+    # for zone in zones.values():
+    #     print 'zone:', zone
+    #     getzonestreets(zone)
+    #
 
     cities = getcities()
 
