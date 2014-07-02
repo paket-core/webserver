@@ -24,6 +24,10 @@ app.config.update(
 def index():
     return render_template('index.html')
 
+@app.route('/hub')
+def hub():
+    return render_template('index.html', hub=True)
+
 # Openid handling, directly lifted from the flask-openid repo #
 # TODO move this shit to another file (currently indented for foldout).
 if True:

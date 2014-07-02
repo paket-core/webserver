@@ -342,9 +342,6 @@ def init_db():
         from subprocess import call
         call(['sqlite3', '-init', 'me.sql', 'tavili.db', '.exit'])
 
-    session.commit()
-    return
-
     from random import sample, randrange
     locations = [
         Location(address=u'ביצרון 8, תל אביב'),

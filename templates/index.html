@@ -6,6 +6,11 @@
 <script src="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.js"></script>
 <script src="{{ url_for('static', filename='leaflet.markercluster.js') }}"></script>
 <script src="{{ url_for('static', filename='tavili.js') }}"></script>
+{% if hub %}
+<script src="{{ url_for('static', filename='hub.js') }}"></script>
+{% else %}
+<script src="{{ url_for('static', filename='courier.js') }}"></script>
+{% endif %}
 {% endblock %}
 {% block body %}
 <div id=nojs>Either you are not conected, or you have JavaScript disabled, or we have a showstopping bug.</div>
