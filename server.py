@@ -1,6 +1,7 @@
 #!./py2/bin/python
 
 import db
+from encoder import baseKencode
 
 from flask import(
         Flask,
@@ -203,7 +204,7 @@ def showdelivery():
 
     try:
         op, delivery = db.Delivery.Get(request.args.get('id')).show(g.user)
-        return render_template('delivery.html', op=op, delivery=delivery)
+        return render_template('delivery.html', op=op, delivery=delivery, kTag=baseKencode(6))
     except ValueError as e: flash(u'Error: ' + str(e))
     return redirect(url_for('index'))
 
