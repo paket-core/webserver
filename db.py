@@ -104,11 +104,20 @@ class Parcel(Base):
         self.encumbrance = encumbrance
         # Place holder. TODO add encoder and QR and shit.
         self.attributes = {}
-    @reconstructor
-    def reconstruct(self):
-        self.location = Location.query.filter_by(id=self.locationid).one()
 
 # TODO Pickup windows and all that shit should be in DB as well.
+
+# An indexed table of delivery pull relationships.
+class Pulls(Base):
+    __tablename__ = 'pulls'
+    pullerid = Column(Integer, ForeignKey('deliveries.id'), primary_key=True)
+    pulleeid = Column(Integer, ForeignKey('deliveries.id'), index=True)
+    def __init__(self, puller, pullee):
+        self.pullerid, self.pulleeid = puller.id, pullee.id
+    @reconstructor
+    def reconstruct(self):
+        self.puller = Delivery.query.filter_by(id=self.pullerid).one()
+        self.pullee = Delivery.query.filter_by(id=self.pulleeid).one()
 
 # A Delivery is the taking of a Parcel from one Location to another.
 class Delivery(Base):
@@ -121,7 +130,6 @@ class Delivery(Base):
     fromid = Column(Integer, ForeignKey('locations.id'))
     reward = Column(Integer, default=0)
     penalty = Column(Integer, default=0)
-    masterid = Column(Integer, ForeignKey('deliveries.id'))
 
     courierid = Column(Integer, ForeignKey('users.id'))
     proof = Column(LargeBinary)
@@ -130,29 +138,29 @@ class Delivery(Base):
     STATUSES = {
         'CREATED': 0,
         'TAKEN': 1,
-        'RECEIVED': 2
+        'RECEIVED': 2,
+        'CANCELED': 3
     }
 
     ERRORS = {
         'NOTFOUND': 'Delivery not found',
         'AUTH': 'User unauthorized to view delivery',
-        'FUNDS': 'User has insufficient funds to take delivery'
+        'FUNDS': 'User has insufficient funds'
     }
 
-    @staticmethod
-    def Get(deliveryid):
-        try: return Delivery.query.filter_by(id=deliveryid).one()
-        except exc.SQLAlchemyError:
-            raise ValueError(Delivery.ERRORS['NOTFOUND'])
-
     def __init__(
-        self, sender, parcel, from_, to_, reward, penalty, master=None
+        self, sender, parcel, from_, to_, reward, penalty
     ):
+        if reward > sender.balance: raise ValueError(Delivery.ERRORS['FUNDS'])
+        print("taking %i from %s" % (reward, sender.name))
+        sender.balance -= reward
+        session.add(sender)
+        session.commit()
+
         self.senderid, self.parcelid = sender.id, parcel.id
         self.fromid, self.toid = from_.id, to_.id
         self.reward, self.penalty = reward, penalty
         self.status = Delivery.STATUSES['CREATED']
-        if master is not None: self.masterid = master.id
 
     @reconstructor
     def reconstruct(self):
@@ -160,24 +168,23 @@ class Delivery(Base):
         self.from_ = Location.query.filter_by(id=self.fromid).one()
         self.to_ = Location.query.filter_by(id=self.toid).one()
         self.sender = User.query.filter_by(id=self.senderid).one()
+        self.parcel = Parcel.query.filter_by(id=self.parcelid).one()
         if self.courierid:
             self.courier = User.query.filter_by(id=self.courierid).one()
-        if self.masterid:
-            self.master = Delivery.query.filter_by(id=self.masterid).one()
 
         self.jsonable = {
-            'status': self.status,
-            'fromlatlng': self.from_.latlng,
-            'tolatlng': self.to_.latlng,
-            'fromaddress': self.from_.address,
-            'toaddress': self.to_.address,
-            'time': self.time,
-            'path': self.path,
-            'reward': self.reward,
-            'penalty': self.penalty
-        }
+                'status': self.status,
+                'fromlatlng': self.from_.latlng,
+                'tolatlng': self.to_.latlng,
+                'fromaddress': self.from_.address,
+                'toaddress': self.to_.address,
+                'time': self.time,
+                'path': self.path,
+                'reward': self.reward,
+                'penalty': self.penalty
+                }
 
-    # Lazy routing initialization
+        # Lazy routing initialization
     def __getattr__(self, name):
         if 'router' == name:
             self.router = Router(self.from_.latlng, self.to_.latlng, 'bicycle')
@@ -190,47 +197,91 @@ class Delivery(Base):
             return self.time
         return Base.__getattr__(self, key)
 
+    @staticmethod
+    def Create(sender, parcel, from_, to_, reward, penalty):
+        from_ = Location(address=from_)
+        to_ = Location(address=to_)
+
+        if parcel is None:
+            parcel = Parcel()
+
+        delivery = Delivery(sender, parcel, from_, to_, reward, penalty)
+        session.commit()
+
+        return delivery
+
+    @staticmethod
+    def Get(deliveryid):
+        try: return Delivery.query.filter_by(id=deliveryid).one()
+        except exc.SQLAlchemyError:
+            raise ValueError(Delivery.ERRORS['NOTFOUND'])
+
+    # Get list of pullers
+    def pullers(self):
+        return(
+            pull.puller
+            for pull in Pulls.query.filter_by(pulleeid=self.id).all()
+        )
+
+    # Get pullee, or None
+    def pullee(self):
+        try: return Pulls.query.filter_by(pullerid=self.id).one()
+        except exc.SQLAlchemyError: return None
+
     # Give user appropriate delivery data and recommend possible operation.
     def show(self, user):
         if self.status == Delivery.STATUSES['CREATED']:
             if user is not self.sender: op = 'take'
             else: op = 'cancel'
-        elif user is self.courier: op = 'drop'
+        elif user is self.courier:
+            if self.status == Delivery.STATUSES['TAKEN']:
+                # If self has a TAKEN puller, it can't be dropped
+                for puller in self.pullers():
+                    if puller.status == Delivery.STATUSES['TAKEN']:
+                        return None, self
+                op = 'drop'
         elif user is not self.sender:
             raise ValueError(Delivery.ERRORS['AUTH'])
-        return op, self
+        try: return op, self
+        except UnboundLocalError: return None, self
 
     # Create a delivery that will bring self to you.
     def pull(self, courier, to_, reward, addedpenalty):
         if self.status != Delivery.STATUSES['CREATED']:
             raise ValueError(Delivery.ERRORS['AUTH'])
-        Delivery(
-            courier,
-            self.parcel,
-            self.from_,
-            to_,
-            reward,
-            self.penalty + addedpenalty,
-            self
-        )
+
+        to_ = Location(address=to_)
+
+        delivery = Delivery(
+                courier,
+                self.parcel,
+                self.from_,
+                to_,
+                reward,
+                self.penalty + addedpenalty,
+                )
+        Pulls(delivery, self)
         session.commit()
 
     # Take a delivery from a location.
-    def take(self, courier):
+    def take(self, courier, proxy=None):
         if self.status != Delivery.STATUSES['CREATED']:
             raise ValueError(Delivery.ERRORS['AUTH'])
         if self.penalty > courier.balance:
             raise ValueError(Delivery.ERRORS['FUNDS'])
 
+        # If self has a pullee, take it.
+        try: self.pullee().take(self.sender, courier)
+        except AttributeError: pass
+
+        # Cancel open deliveries that pull self.
+        for puller in self.pullers():
+            if puller.status == Delivery.STATUSES['CREATED']:
+                puller.cancel()
+
+        print("taking %i from %s" % (self.penalty, courier.name))
         courier.balance -= self.penalty
         session.add(courier)
-
-        try:
-            self.master.courier = self.sender
-            self.master.courierid = self.senderid
-            self.master.status = Delivery.STATUSES['TAKEN']
-            session.add(self.master)
-        except AttributeError: pass
 
         self.courier = courier
         self.courierid = courier.id
@@ -247,17 +298,36 @@ class Delivery(Base):
             self.courier != courier
         ): raise ValueError(Delivery.ERRORS['AUTH'])
 
-        try:
-            self.sender.balance -= self.master.penalty
-            session.add(self.sender)
-        except AttributeError: pass
+        # If self has a TAKEN puller, it can't be dropped
+        for puller in self.pullers():
+            if puller.status == Delivery.STATUSES['TAKEN']:
+                raise ValueError(Delivery.ERRORS['AUTH'])
 
         self.proof = proof
         self.status = Delivery.STATUSES['RECEIVED']
         session.add(self)
 
+        print("giving %i from %s" % (self.penalty + self.reward, courier.name))
         courier.balance += self.penalty + self.reward
         session.add(courier)
+
+        session.commit()
+
+    # Cancel a delivery.
+    def cancel(self):
+        if self.status != Delivery.STATUSES['CREATED']:
+            raise ValueError(Delivery.ERRORS['AUTH'])
+
+        # Cancel pullers.
+        for puller in self.pullers():
+            puller.cancel()
+
+        print("giving %i from %s" % (self.reward, self.sender.name))
+        self.sender.balance += self.reward
+        session.add(self.sender)
+
+        self.status = Delivery.STATUSES['CANCELED']
+        session.add(self)
 
         session.commit()
 
@@ -272,32 +342,39 @@ def init_db():
 
     Base.metadata.create_all(bind=engine)
 
-    from random import uniform, sample
+    if isfile('me.sql'):
+        from subprocess import call
+        call(['sqlite3', '-init', 'me.sql', 'tavili.db', '.exit'])
+
+    session.commit()
+    return
+
+    from random import sample, randrange
     locations = [
         Location(address=u'ביצרון 8, תל אביב'),
         Location(address=u'מגדלי עזריאלי'),
         Location(address=u'רבי נחמן מברסלב 6, יפו'),
         Location(address=u'הרב אלנקווה 6, תל אביב'),
-        Location(address=u'הברזל 32, תל אביב'),
+        Location(address=u'הברזל 32, תל אביב')
     ]
-    parcels = [Parcel() for i in range(10)]
-    session.commit()
-    deliveries = []
-    for parcel in parcels:
+
+    sender = User.query.first()
+    if sender is None:
+        sender = User('stam', 'stam@blam', '111', 'none')
+        sender.balance = 10000
+
+    for parcel in [Parcel() for i in range(10)]:
         from_, to_ = sample(locations, 2)
-        deliveries.append(Delivery(
-            type('mockuser', (object,), {'id': 1})(),
+        Delivery(
+            sender,
             parcel,
             from_,
             to_,
-            uniform(5, 50),
-            uniform(100, 1000)
-        ))
+            randrange(5, 50),
+            randrange(100, 200)
+        )
     session.commit()
 
-    if isfile('me.sql'):
-        from subprocess import call
-        call(['sqlite3', '-init', 'me.sql', 'tavili.db', '.exit'])
-
 if __name__ == '__main__':
+    #test()
     init_db()

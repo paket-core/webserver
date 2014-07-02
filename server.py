@@ -141,53 +141,42 @@ def createdelivery():
 
     # If the form was not filled, show it.
     if not (
-        ('from' in request.args and len(request.args.get('from')) > 0) or
-        ('to' in request.args and len(request.args.get('to')) > 0)
+        ('from' in request.values and len(request.values.get('from')) > 0) or
+        ('to' in request.values and len(request.values.get('to')) > 0)
     ): return render_template('send.html', form=None)
 
-    # Always save valid locations in the DB.
-    try: from_ = db.Location(address=request.args.get('from'))
-    except ValueError: flash('Could not resolve from address')
-    else: db.session.add(from_)
-    try: to_ = db.Location(address=request.args.get('to'))
-    except ValueError: flash('Could not resolve to address')
-    else: db.session.add(to_)
-    db.session.commit()
-
-    try:
-        reward = int(request.args.get('reward'))
-        # Make sure the sender has enough money.
-        if reward > g.user.balance:
-            flash('Ha ha! You are too poor to send this.')
-            # Mark delivery as invalid.
-            del reward
-    except ValueError: reward = 0
-    try: penalty = int(request.args.get('penalty'))
-    except ValueError: penalty = 0
-
-    try: from_, to_, reward
+    # Validate reward and penalty.
+    try: reward = float(request.values.get('reward', 0))
+    except ValueError: flash('Price has to be a number or empty')
+    try: penalty = float(request.values.get('penalty', 0))
+    except ValueError: flash('Deposit has to be a number or empty')
+    try: reward, penalty
     except UnboundLocalError: return render_template(
         'send.html',
-        form=request.args
+        form=request.values
     )
 
-    # TODO: Create parcels more carefully.
-    parcel = db.Parcel()
-    db.session.add(parcel)
-    db.session.commit()
-
-    delivery = db.Delivery(g.user, parcel, from_, to_, reward, penalty)
-    g.user.balance -= reward
-    db.session.add(delivery)
-    db.session.add(g.user)
-    db.session.commit()
-    flash(
-        "sending parcel from %s to %s" % (
-            request.args.get('from'),
-            request.args.get('to')
+    try:
+        db.Delivery.Create(
+            g.user,
+            # TODO Create a parcel.
+            None,
+            request.values.get('from'),
+            request.values.get('to'),
+            reward,
+            penalty
         )
-    )
-    return render_template('send.html', form=None)
+        flash(
+            "sending parcel from %s to %s" % (
+                request.values.get('from'),
+                request.values.get('to')
+            )
+        )
+        form = None
+    except ValueError as e:
+        flash(u'Error: ' + str(e))
+        form = request.values
+    return render_template('send.html', form=form)
 
 # Delivery details.
 @app.route('/delivery')
@@ -205,17 +194,33 @@ def showdelivery():
 def pulldelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try: db.Delivery.Get(request.args.get('id')).pull(g.user)
+    # Validate reward and addedpenalty.
+    try: reward = float(request.values.get('reward', 0))
+    except ValueError: flash('Price has to be a number or empty')
+    try: addedpenalty = float(request.values.get('addedpenalty', 0))
+    except ValueError: flash('Added deposit has to be a number or empty')
+    try: reward, addedpenalty
+    except UnboundLocalError: return render_template(
+        'send.html',
+        form=request.values
+    )
+
+    try: db.Delivery.Get(request.values.get('id')).pull(
+        g.user,
+        request.values.get('to'),
+        reward,
+        addedpenalty
+    )
     except ValueError as e: flash(u'Error: ' + str(e))
-    else: flash(u'Delivery created, you best be on your way.')
-    return redirect(url_for('deliveries'))
+    else: flash(u'Delivery created, let\'s hope someone takes it.')
+    return redirect(url_for('index'))
 
 # Take a delivery.
 @app.route('/take', methods=['GET', 'POST'])
 def takedelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try: db.Delivery.Get(request.args.get('id')).take(g.user)
+    try: db.Delivery.Get(request.values.get('id')).take(g.user)
     except ValueError as e: flash(u'Error: ' + str(e))
     else: flash(u'Delivery taken, you best be on your way.')
     return redirect(url_for('deliveries'))
@@ -271,7 +276,7 @@ from json import dumps
 def support_jsonp(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        callback = request.args.get('callback', False)
+        callback = request.values.get('callback', False)
         if callback:
             content = str(callback) + '(' + dumps(f(*args, **kwargs)) + ')'
             return current_app.response_class(content, mimetype='application/json')
@@ -285,17 +290,17 @@ def support_jsonp(f):
 @app.route('/getdelivery', methods=['GET', 'POST'])
 @support_jsonp
 def getdelivery():
-    return db.Delivery.query.filter_by(id=request.args.get('id')).one().data()
+    return db.Delivery.query.filter_by(id=request.values.get('id')).one().data()
 
 # Get deliveries with point of interest for pickup in a radius around a center.
 @app.route('/deliveriesinrange', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveriesinrange():
-    lat = float(request.args.get('lat'))
-    lng = float(request.args.get('lng'))
-    radius = float(request.args.get('radius'))
+    lat = float(request.values.get('lat'))
+    lng = float(request.values.get('lng'))
+    radius = float(request.values.get('radius'))
     curloc = db.Location(latlng=[lat, lng])
-    if u'to' == request.args.get('pointofinterest'):
+    if u'to' == request.values.get('pointofinterest'):
         pointofinterest = lambda d: d.to_
     else:
         pointofinterest = lambda d: d.from_
@@ -312,20 +317,20 @@ def getdeliveriesinrange():
 @app.route('/deliveriescountinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveriescount_sourceinrange():
-    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
-    return len(getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius')))
+    print(float(request.values.get('lat')), float(request.values.get('lng')), float(request.values.get('radius')))
+    return len(getdeliveriesarrayinrange(request.values.get('lat'), request.values.get('lng'), request.values.get('radius')))
 
 @app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveries_sourceinrange():
-    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
-    return getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius'))
+    print(float(request.values.get('lat')), float(request.values.get('lng')), float(request.values.get('radius')))
+    return getdeliveriesarrayinrange(request.values.get('lat'), request.values.get('lng'), request.values.get('radius'))
 
 
 @app.route('/verify', methods=['GET', 'POST'])
 @support_jsonp
 def verifyuser():
-    return db.User.query.filter_by(email=request.args.get('email')).first()
+    return db.User.query.filter_by(email=request.values.get('email')).first()
 
 if __name__=='__main__':
     app.run(host='0.0.0.0')

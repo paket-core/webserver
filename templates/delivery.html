@@ -33,11 +33,13 @@
     Commitment: {{ delivery.penalty }}
 </pre>
 
-{% if delivery.courier %}
+{% if 1 == delivery.status %}
 <h4>In transit</h4>
-<h3>Curried by user: {{ delivery.courier.name }}</h3>
-<h4>history of locations</h4>
+<h3>Courier: {{ delivery.courier.name }}</h3>
+{% elif 2 == delivery.status %}
+<h4>Completed</h4>
 {% endif %}
+<h4>history of locations</h4>
 
 <input type=submit class=submit value="הדפס">
 <input type=submit class=submit value="הדפס בלי מפות">
