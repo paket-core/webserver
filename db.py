@@ -5,6 +5,8 @@
 
 dbfilename = 'tavili.db'
 dbscheme = 'sqlite'
+from os import environ
+dburl = environ.get('DATABASE_URL', "%s:///%s" % (dbscheme, dbfilename))
 
 from sqlalchemy import(
     Column, create_engine, event, exc, ForeignKey, Integer, String
@@ -12,7 +14,7 @@ from sqlalchemy import(
 from sqlalchemy.types import PickleType, Float, LargeBinary
 from sqlalchemy.orm import scoped_session, sessionmaker, mapper, reconstructor
 from sqlalchemy.ext.declarative import declarative_base
-engine = create_engine("%s:///%s" % (dbscheme, dbfilename))
+engine = create_engine(dburl)
 session = scoped_session(sessionmaker(
     autocommit = False,
     autoflush = False,
@@ -328,13 +330,13 @@ class Delivery(Base):
         session.commit()
 
 def init_db():
+    if 'y' != raw_input('Delete database and create a new one? (y/N): '):
+        from sys import exit
+        exit(0)
+
     from os.path import isfile
-    if isfile(dbfilename):
-        if 'y' != raw_input('Delete database and create a new one? (y/N): '):
-            from sys import exit
-            exit(0)
-        from os import remove
-        remove(dbfilename)
+    from os import remove
+    if isfile(dbfilename): remove(dbfilename)
 
     Base.metadata.create_all(bind=engine)
 
@@ -369,5 +371,4 @@ def init_db():
     session.commit()
 
 if __name__ == '__main__':
-    #test()
     init_db()
