@@ -39,7 +39,7 @@ function jsonp(method, data, callback){
     });
 };
 
-// Mark a spot in the map
+// Mark a spot in the map.
 function addmarkertolayer(latlng, iconname, iconanchor, text, click, layer){
     var icon =  L.icon({
         iconUrl: '/static/images/' + iconname + '.png',
@@ -50,80 +50,7 @@ function addmarkertolayer(latlng, iconname, iconanchor, text, click, layer){
     layer.addLayer(marker);
 }
 
-function grabdeliverydiv(deliveryid){
-    return '<div><a href="take?id=' + deliveryid + '">take delivery</a></div>'
-}
-
-function clickroute(delivery){
-    L.polyline(delivery.path, {
-        color: 'red',
-        dashArray: '5, 6, 2, 6',
-        weight: '2',
-    }).addTo(map);
-}
-
-
 var map;
-
-// Show all deliveries originating (default) or arriving within a circle.
-function getdeliveries(position, range, pointofinterest){
-    jsonp(
-        'deliveriesinrange',
-        {
-            'lat': position.lat,
-            'lng': position.lng,
-            'radius': range,
-            'pointofinterest': pointofinterest
-        },
-        function(deliveries){
-            var fromMarkers = new L.MarkerClusterGroup({
-                showCoverageOnHover: false, maxClusterRadius: 50
-            });
-            var toMarkers = new L.MarkerClusterGroup({
-                showCoverageOnHover: false, maxClusterRadius: 50
-            });
-
-            L.circle(position, range * 110000,{
-                color: 'red',
-                weight: '0.5',
-                fillColor: '#f00',
-                fillOpacity: 0.1
-            }).addTo(map);
-
-            $.each(deliveries, function(id, delivery){
-
-                // TODO: Here I filter out commited deliveries, but better to find a nice way to show them.
-                if(0 < delivery.status) return true;
-                addmarkertolayer(
-                    delivery['fromlatlng'],
-                    'green_flag_icon',
-                    [1, 30],
-                    'from here to ' + (
-                        delivery['toaddress'] ?
-                        delivery['toaddress'] :
-                        delivery['tolatlng']
-                    ) + grabdeliverydiv(id),
-                    function(e){clickroute(delivery)},
-                    fromMarkers
-                );
-                addmarkertolayer(
-                    delivery['tolatlng'],
-                    'pink_flag_icon',
-                    [1, 30],
-                    'from ' + (
-                        delivery['fromaddress'] ?
-                        delivery['fromaddress'] :
-                        delivery['fromlatlng']
-                    ) + ' to here' + grabdeliverydiv(id),
-                    function(e){clickroute(delivery)},
-                    toMarkers
-                );
-            });
-            map.addLayer(fromMarkers);
-            map.addLayer(toMarkers);
-        }
-    );
-}
 
 // Call a callback with current position.
 // TODO The should be a cookie that remembers your last position or something.
@@ -144,10 +71,11 @@ function getcurrentposition(callback, manual){
     }
 }
 
+// General startup.
 $(function(){
     $('#nojs').remove();
 
-    // Initialize, center and zoom map
+    // Initialize, center and zoom map.
     map = L.map('map');
     source_mapbox = 'https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png'
     source_openstreetmap = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -159,17 +87,5 @@ $(function(){
             'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
         id: 'examples.map-zr0njcqy'
     }).addTo(map);
-
-    getcurrentposition(function(latlng, accuracy){
-        map.setView([latlng.lat, latlng.lng], 13);
-        var range = '0.2';
-        getdeliveries(latlng, range);
-        addmarkertolayer(
-            [latlng.lat, latlng.lng],
-            'cyan_pin_icon',
-            [9, 30], 'you are ' + accuracy / 2 + ' meters from here',
-            function(e){;},
-            map
-        );
-    });
+    map.setView([0, 0], 1);
 });

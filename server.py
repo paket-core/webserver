@@ -1,10 +1,7 @@
 #!./py2/bin/python
 
 import db
-
-from sqlalchemy import exc
-
-from werkzeug.utils import secure_filename
+from encoder import baseKencode
 
 from flask import(
         Flask,
@@ -27,6 +24,10 @@ app.config.update(
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/hub')
+def hub():
+    return render_template('index.html', hub=True)
 
 # Openid handling, directly lifted from the flask-openid repo #
 # TODO move this shit to another file (currently indented for foldout).
@@ -144,54 +145,57 @@ def createdelivery():
     if g.user is None: return redirect(url_for('login'))
 
     # If the form was not filled, show it.
-    if not (
-        ('from' in request.args and len(request.args.get('from')) > 0) or
-        ('to' in request.args and len(request.args.get('to')) > 0)
-    ): return render_template('send.html', form=None)
+    if 'from' not in request.values: return render_template('send.html', form=None)
 
-    # Always save valid locations in the DB.
-    try: from_ = db.Location(address=request.args.get('from'))
-    except ValueError: flash('Could not resolve from address')
-    else: db.session.add(from_)
-    try: to_ = db.Location(address=request.args.get('to'))
-    except ValueError: flash('Could not resolve to address')
-    else: db.session.add(to_)
-    db.session.commit()
+    # Validate form.
+    # TODO Unite form validation and use flask wtf for it.
+    errors = []
+    try:
+        reward = request.values.get('reward')
+        reward = int(reward) if reward else 0
+    except ValueError:
+        errors.append('Price has to be a number or empty')
+    else:
+        if reward < 0: errors.append('Price has to be positive')
 
     try:
-        reward = int(request.args.get('reward'))
-        # Make sure the sender has enough money.
-        if reward > g.user.balance:
-            flash('Ha ha! You are too poor to send this.')
-            # Mark delivery as invalid.
-            del reward
-    except ValueError: reward = 0
-    try: penalty = int(request.args.get('penalty'))
-    except ValueError: penalty = 0
+        penalty = request.values.get('penalty')
+        penalty = int(penalty) if penalty else 0
+    except ValueError:
+        errors.append('Deposit has to be a number or empty')
+    else:
+        if penalty < 0: errors.append('Deposit has to be positive')
 
-    try: from_, to_, reward
-    except UnboundLocalError: return render_template(
-        'send.html',
-        form=request.args
-    )
-
-    # TODO: Create parcels more carefully.
-    parcel = db.Parcel()
-    db.session.add(parcel)
-    db.session.commit()
-
-    delivery = db.Delivery(g.user, parcel, from_, to_, reward, penalty)
-    g.user.balance -= reward
-    db.session.add(delivery)
-    db.session.add(g.user)
-    db.session.commit()
-    flash(
-        "sending parcel from %s to %s" % (
-            request.args.get('from'),
-            request.args.get('to')
+    if errors:
+        for error in errors: flash(error)
+        return render_template(
+            'send.html',
+            form=request.values
         )
-    )
-    return render_template('send.html', form=None)
+
+    from_ = request.values.get('from')
+    to_ = request.values.get('to')
+    try:
+        db.Delivery.Create(
+            g.user,
+            # TODO Create a parcel.
+            None,
+            request.values.get('from'),
+            request.values.get('to'),
+            reward,
+            penalty
+        )
+        flash(
+            "sending parcel from %s to %s" % (
+                request.values.get('from'),
+                request.values.get('to')
+            )
+        )
+        form = None
+    except ValueError as e:
+        flash(u'Error: ' + str(e))
+        form = request.values
+    return render_template('send.html', form=form)
 
 # Delivery details.
 @app.route('/delivery')
@@ -199,98 +203,85 @@ def showdelivery():
     if g.user is None: return redirect(url_for('login'))
 
     try:
-        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
+        op, delivery = db.Delivery.Get(request.args.get('id')).show(g.user)
+        return render_template('delivery.html', op=op, delivery=delivery, kTag=baseKencode(delivery.id))
+    except ValueError as e: flash(u'Error: ' + str(e))
+    return redirect(url_for('index'))
 
-        if delivery.status == db.Delivery.STATUSES['CREATED']:
-            if g.user is not delivery.sender: op = 'take'
-        elif g.user is delivery.courier: op = 'give'
-        elif g.user is not delivery.sender:
-            raise SQLAlchemyError('Unauthorized delivery')
+# Pull a delivery to you. FIXME tmp stub.
+@app.route('/pull', methods=['GET', 'POST'])
+def pulldelivery():
+    if g.user is None: return redirect(url_for('login'))
 
-        try: op
-        except UnboundLocalError: op = None
-        return render_template('delivery.html', delivery=delivery, op=op)
+    # Validate reward and addedpenalty.
+    errors = []
+    try:
+        reward = request.values.get('reward')
+        reward = int(reward) if reward else 0
+    except ValueError:
+        errors.append('Price has to be a number or empty')
+    else:
+        if reward < 0: errors.append('Price has to be positive')
 
-    except exc.SQLAlchemyError:
-        flash('Delivery no longer available')
-        return redirect(url_for('index'))
+    try:
+        addedpenalty = request.values.get('addedpenalty')
+        addedpenalty = int(addedpenalty) if addedpenalty else 0
+    except ValueError:
+        errors.append('Added deposit has to be a number or empty')
+    else:
+        if addedpenalty < 0: errors.append('Added deposit has to be positive')
 
-# Package grabber.
+    if errors:
+        for error in errors: flash(error)
+        return redirect(url_for('showdelivery', id=request.values.get('id')))
+
+    try: db.Delivery.Get(request.values.get('id')).pull(
+        g.user,
+        request.values.get('to'),
+        reward,
+        addedpenalty
+    )
+    except ValueError as e: flash(u'Error: ' + str(e))
+    else: flash(u'Delivery created, let\'s hope someone takes it.')
+    return redirect(url_for('index'))
+
+
+# Take a delivery.
 @app.route('/take', methods=['GET', 'POST'])
 def takedelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try:
-        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
-    except exc.SQLAlchemyError:
-        flash('no such delivery')
-        return redirect(url_for('index'))
+    try: db.Delivery.Get(request.values.get('id')).take(g.user)
+    except ValueError as e: flash(u'Error: ' + str(e))
+    else: flash(u'Delivery taken, you best be on your way.')
+    return redirect(url_for('deliveries'))
 
-    if delivery.status != db.Delivery.STATUSES['CREATED']:
-        flash('delivery no longer available')
-        return redirect(url_for('index'))
-
-    # This is a user's second request of this page, after confirmation.
-    if 'ok' in request.args:
-        if delivery.penalty > g.user.balance:
-            flash('Ha ha! You are too poor to take this, consider joining the klan.')
-            return redirect(url_for('index'))
-        g.user.balance -= delivery.penalty
-        delivery.take(g.user)
-
-        db.session.add(g.user)
-        db.session.add(delivery)
-        db.session.commit()
-
-        flash('Delivery taken, you best be on your way.')
-        return redirect(url_for('deliveries'))
-
-    # This is the user's first request of this page, ask for confirmation.
-    return render_template('take.html', delivery=delivery)
-
-# Package depositer.
+# Drop a delivery.
+from werkzeug.utils import secure_filename
 from os import remove
-@app.route('/give', methods=['GET', 'POST'])
-def givepackage():
+@app.route('/drop', methods=['POST'])
+def dropdelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try:
-        delivery = delivery=db.Delivery.query.filter_by(id=request.args.get('id')).one()
-    except exc.SQLAlchemyError:
-        flash('no such delivery')
-        return redirect(url_for('index'))
+    proof = request.files['proof']
+    if proof:
+        filename = secure_filename(proof.filename)
+        proof.save(filename)
+        with open(filename, 'rb', buffering=0) as proof:
+            try:
+                db.Delivery.Get(
+                    request.form.get('id')).drop(g.user, proof.read()
+                )
+            except ValueError as e: flash(u'Error: ' + str(e))
+            else: flash(u'Delivery dumped, carry on with your life.')
+        remove(filename)
+    else:
+        flash(u'Please attach proof of delivery.')
+        return redirect(url_for('showdelivery', id=request.form.get('id')))
 
-    if(
-        delivery.status != db.Delivery.STATUSES['TAKEN'] or
-        delivery.courier != g.user
-    ):
-        flash('This delivery is not yours to deliver')
-        return redirect(url_for('index'))
+    return redirect(url_for('deliveries'))
 
-    # This is a user's second request of this page, after confirmation.
-    if 'ok' in request.form:
-        proof = request.files['proof']
-        if proof:
-            filename = secure_filename(proof.filename)
-            proof.save(filename)
-            with open(filename, 'rb', buffering=0) as proof:
-                delivery.receive(proof.read())
-                g.user.balance += delivery.penalty + delivery.reward
-
-                db.session.add(g.user)
-                db.session.add(delivery)
-                db.session.commit()
-
-                flash('Delivery received, you are now rich.')
-
-            remove(filename)
-            return redirect(url_for('deliveries'))
-        else: flash('Please attach proof of delivery.')
-
-    # This is the user's first request of this page, ask for confirmation.
-    return render_template('give.html', delivery=delivery)
-
-# Package shower.
+# See deliveries related to you.
 @app.route('/deliveries')
 def deliveries():
     if g.user is None: return redirect(url_for('login'))
@@ -316,7 +307,7 @@ from json import dumps
 def support_jsonp(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        callback = request.args.get('callback', False)
+        callback = request.values.get('callback', False)
         if callback:
             content = str(callback) + '(' + dumps(f(*args, **kwargs)) + ')'
             return current_app.response_class(content, mimetype='application/json')
@@ -330,42 +321,47 @@ def support_jsonp(f):
 @app.route('/getdelivery', methods=['GET', 'POST'])
 @support_jsonp
 def getdelivery():
-    return db.Delivery.query.filter_by(id=request.args.get('id')).one().data()
+    return db.Delivery.query.filter_by(id=request.values.get('id')).one().data()
 
 # Get deliveries with point of interest for pickup in a radius around a center.
 @app.route('/deliveriesinrange', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveriesinrange():
-    lat = float(request.args.get('lat'))
-    lng = float(request.args.get('lng'))
-    radius = float(request.args.get('radius'))
-    if u'to' == request.args.get('pointofinterest'):
+    lat = float(request.values.get('lat'))
+    lng = float(request.values.get('lng'))
+    radius = float(request.values.get('radius'))
+    curloc = db.Location(latlng=[lat, lng])
+    if u'to' == request.values.get('pointofinterest'):
         pointofinterest = lambda d: d.to_
     else:
         pointofinterest = lambda d: d.from_
 
     return {
-        delivery.id: delivery.data() for delivery in db.Delivery.query.all()
+        delivery.id: dict(
+            delivery.jsonable,
+            **{'timetopoint': curloc.routeTimeMin(pointofinterest(delivery))}
+        )
+        for delivery in db.Delivery.query.all()
         if pointofinterest(delivery).distance([lat, lng]) < float(radius)
     }
 
 @app.route('/deliveriescountinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveriescount_sourceinrange():
-    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
-    return len(getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius')))
+    print(float(request.values.get('lat')), float(request.values.get('lng')), float(request.values.get('radius')))
+    return len(getdeliveriesarrayinrange(request.values.get('lat'), request.values.get('lng'), request.values.get('radius')))
 
 @app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveries_sourceinrange():
-    print(float(request.args.get('lat')), float(request.args.get('lng')), float(request.args.get('radius')))
-    return getdeliveriesarrayinrange(request.args.get('lat'), request.args.get('lng'), request.args.get('radius'))
+    print(float(request.values.get('lat')), float(request.values.get('lng')), float(request.values.get('radius')))
+    return getdeliveriesarrayinrange(request.values.get('lat'), request.values.get('lng'), request.values.get('radius'))
 
 
 @app.route('/verify', methods=['GET', 'POST'])
 @support_jsonp
 def verifyuser():
-    return db.User.query.filter_by(email=request.args.get('email')).first()
+    return db.User.query.filter_by(email=request.values.get('email')).first()
 
 if __name__=='__main__':
     app.run(host='0.0.0.0')
