@@ -204,7 +204,7 @@ def showdelivery():
 
     try:
         op, delivery = db.Delivery.Get(request.args.get('id')).show(g.user)
-        return render_template('delivery.html', op=op, delivery=delivery, kTag=baseKencode(6))
+        return render_template('delivery.html', op=op, delivery=delivery, kTag=baseKencode(delivery.id))
     except ValueError as e: flash(u'Error: ' + str(e))
     return redirect(url_for('index'))
 
