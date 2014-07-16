@@ -1,1 +1,4 @@
 me.sql
+*.csv
+*.pyc
+py2*

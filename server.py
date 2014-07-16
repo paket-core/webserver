@@ -3,27 +3,30 @@
 import db
 from encoder import baseKencode
 
-from flask import(
-        Flask,
-        render_template,
-        request,
-        g,
-        session,
-        flash,
-        redirect,
-        url_for,
-        abort,
-        current_app
+from flask import (
+    Flask,
+    render_template,
+    request,
+    g,
+    session,
+    flash,
+    redirect,
+    url_for,
+    abort,
+    current_app
 )
+
 app = Flask(__name__)
 app.config.update(
-    SECRET_KEY = 'botavibi',
-    DEBUG = True
+    SECRET_KEY='botavibi',
+    DEBUG=True
 )
+
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/hub')
 def hub():
@@ -62,10 +65,10 @@ if True:
             if openid:
                 pape_req = pape.Request([])
                 return oid.try_login(openid, ask_for=['email', 'nickname'],
-                                            ask_for_optional=['fullname'],
-                                            extensions=[pape_req])
+                                     ask_for_optional=['fullname'],
+                                     extensions=[pape_req])
         return render_template('login.html', next=oid.get_next_url(),
-                            error=oid.fetch_error())
+                               error=oid.fetch_error())
 
     @oid.after_login
     def create_or_login(resp):
@@ -197,16 +200,21 @@ def createdelivery():
         form = request.values
     return render_template('send.html', form=form)
 
+
 # Delivery details.
 @app.route('/delivery')
 def showdelivery():
     if g.user is None: return redirect(url_for('login'))
 
     try:
-        op, delivery = db.Delivery.Get(request.args.get('id')).show(g.user)
-        return render_template('delivery.html', op=op, delivery=delivery, kTag=baseKencode(6))
-    except ValueError as e: flash(u'Error: ' + str(e))
+        id = int(request.args.get('id'))
+        op, delivery = db.Delivery.Get(id).show(g.user)
+        return render_template('delivery.html', op=op, delivery=delivery,
+                               kTag=baseKencode(id), kTagWords=baseKencode(id, phonetic=True))
+    except ValueError as e:
+        flash(u'Error: ' + str(e))
     return redirect(url_for('index'))
+
 
 # Pull a delivery to you. FIXME tmp stub.
 @app.route('/pull', methods=['GET', 'POST'])
@@ -235,14 +243,17 @@ def pulldelivery():
         for error in errors: flash(error)
         return redirect(url_for('showdelivery', id=request.values.get('id')))
 
-    try: db.Delivery.Get(request.values.get('id')).pull(
-        g.user,
-        request.values.get('to'),
-        reward,
-        addedpenalty
-    )
-    except ValueError as e: flash(u'Error: ' + str(e))
-    else: flash(u'Delivery created, let\'s hope someone takes it.')
+    try:
+        db.Delivery.Get(request.values.get('id')).pull(
+            g.user,
+            request.values.get('to'),
+            reward,
+            addedpenalty
+        )
+    except ValueError as e:
+        flash(u'Error: ' + str(e))
+    else:
+        flash(u'Delivery created, let\'s hope someone takes it.')
     return redirect(url_for('index'))
 
 
@@ -251,14 +262,19 @@ def pulldelivery():
 def takedelivery():
     if g.user is None: return redirect(url_for('login'))
 
-    try: db.Delivery.Get(request.values.get('id')).take(g.user)
-    except ValueError as e: flash(u'Error: ' + str(e))
-    else: flash(u'Delivery taken, you best be on your way.')
+    try:
+        db.Delivery.Get(request.values.get('id')).take(g.user)
+    except ValueError as e:
+        flash(u'Error: ' + str(e))
+    else:
+        flash(u'Delivery taken, you best be on your way.')
     return redirect(url_for('deliveries'))
 
 # Drop a delivery.
 from werkzeug.utils import secure_filename
 from os import remove
+
+
 @app.route('/drop', methods=['POST'])
 def dropdelivery():
     if g.user is None: return redirect(url_for('login'))
@@ -272,14 +288,17 @@ def dropdelivery():
                 db.Delivery.Get(
                     request.form.get('id')).drop(g.user, proof.read()
                 )
-            except ValueError as e: flash(u'Error: ' + str(e))
-            else: flash(u'Delivery dumped, carry on with your life.')
+            except ValueError as e:
+                flash(u'Error: ' + str(e))
+            else:
+                flash(u'Delivery dumped, carry on with your life.')
         remove(filename)
     else:
         flash(u'Please attach proof of delivery.')
         return redirect(url_for('showdelivery', id=request.form.get('id')))
 
     return redirect(url_for('deliveries'))
+
 
 # See deliveries related to you.
 @app.route('/deliveries')
@@ -304,6 +323,8 @@ def deliveries():
 # JSONp handler decorator.
 from functools import wraps
 from json import dumps
+
+
 def support_jsonp(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -313,7 +334,9 @@ def support_jsonp(f):
             return current_app.response_class(content, mimetype='application/json')
         else:
             return dumps(f(*args, **kwargs))
+
     return decorated_function
+
 
 # AJAX methods #
 
@@ -322,6 +345,7 @@ def support_jsonp(f):
 @support_jsonp
 def getdelivery():
     return db.Delivery.query.filter_by(id=request.values.get('id')).one().data()
+
 
 # Get deliveries with point of interest for pickup in a radius around a center.
 @app.route('/deliveriesinrange', methods=['GET', 'POST'])
@@ -345,11 +369,14 @@ def getdeliveriesinrange():
         if pointofinterest(delivery).distance([lat, lng]) < float(radius)
     }
 
+
 @app.route('/deliveriescountinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
 def getdeliveriescount_sourceinrange():
     print(float(request.values.get('lat')), float(request.values.get('lng')), float(request.values.get('radius')))
-    return len(getdeliveriesarrayinrange(request.values.get('lat'), request.values.get('lng'), request.values.get('radius')))
+    return len(
+        getdeliveriesarrayinrange(request.values.get('lat'), request.values.get('lng'), request.values.get('radius')))
+
 
 @app.route('/deliveriesinrange.jsonp', methods=['GET', 'POST'])
 @support_jsonp
@@ -363,5 +390,6 @@ def getdeliveries_sourceinrange():
 def verifyuser():
     return db.User.query.filter_by(email=request.values.get('email')).first()
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     app.run(host='0.0.0.0')
