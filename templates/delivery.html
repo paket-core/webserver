@@ -66,7 +66,7 @@ I, {{ g.user.name }}, hereby solemnly swear that I delivered a parcel from {{ de
 <form id=takedelivery action=drop method=post enctype=multipart/form-data>
     <input type=hidden name=stata value="{{ delivery.id }}">
     <input type=hidden name=id value="{{ delivery.id }}">
-    <input type=file name=proof placeholder=proof>
+    <input type=file name=proof accept="image/*" capture=camera>
     <input type=submit value="Gimme gimme">
 </form>
 {% endif %}
