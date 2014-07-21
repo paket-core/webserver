@@ -38,11 +38,19 @@ def str2phonetic(src, useLAPD=False):
          "4": "Four", "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Niner"}
     LAPD_phonetic_alphabet = dict((k.upper(), v) for k, v in LAPD_phonetic_alphabet.items())
 
+    HEBREW_phonetic_alphabet = \
+        {"a": "Aba", "b": "Banana", "c": "Cigarya", "d": "David", "e": "Erez", "f": "Feya", "g": "Ginger",
+         "h": "Hertzel", "i": "Igloo", "j": "John", "k": "Kelev", "l": "Layla", "m": "Matos", "n": "Na'al", "o": "Oren",
+         "p": "Pilpel", "q": "Queen", "r": "Arnak", "s": "Sigal", "t": "Tisan", "u": "Yulia", "v": "Virus", "w": "William",
+         "x": "Extra", "y": "Yosi", "z": "Zebra", "-": "Makaf", "0": "Effes", "1": "Ahat", "2": "Shtayim", "3": "Shalosh",
+         "4": "Arba", "5": "Hamesh", "6": "Shesh", "7": "Sheva", "8": "Shmoneh", "9": "Tesha"}
+    HEBREW_phonetic_alphabet = dict((k.upper(), v) for k, v in HEBREW_phonetic_alphabet.iteritems())
+
     srcStr = str(src).upper()
     if useLAPD:
         d = LAPD_phonetic_alphabet
     else:
-        d = NATO_phonetic_alphabet
+        d = HEBREW_phonetic_alphabet
 
     try:
         return ', '.join(d[ch] for ch in srcStr)
@@ -70,7 +78,10 @@ def baseKencode(number, phonetic=False):
         raise TypeError('number must be positive')
 
     if number < len(alphabet):
-        return alphabet[number]
+        if phonetic:
+            return str2phonetic(alphabet[number])
+        else:
+            return alphabet[number]
 
     while number != 0:
         number, i = divmod(number, len(alphabet))
