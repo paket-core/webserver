@@ -6,11 +6,10 @@
 {% block head %}{% endblock %}
 <img style="float:right" height="32" src="/static/images/Kloom logo transparent.png">
 <a href="{{ url_for('index') }}">map</a>
-{% if g.user %}
+{% if current_user.is_authenticated() %}
 <a href="{{ url_for('createdelivery') }}">send</a>
-<a href="{{ url_for('edit_profile') }}">profile</a>
 <a href="{{ url_for('deliveries') }}">deliveries</a>
-<a href="{{ url_for('logout') }}">sign out [{{ g.user.name }}]</a>
+<a href="{{ url_for('logout') }}">sign out [{{ current_user.name }}]</a>
 {% else %}
 <a href="{{ url_for('login') }}">sign in</a>
 {% endif %}

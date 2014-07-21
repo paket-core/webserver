@@ -46,13 +46,13 @@
 
 {% if 'take' == op %}
 <h1>Take this delivery</h1>
-I, {{ g.user.name }}, hereby solemnly swear to deliver a parcel from {{ delivery.from_.address }} to {{ delivery.to_.address }}, for {{ delivery.reward }} pieces of silver. I am placing a deposit of {{ delivery.penalty }} pieces of silver to be forfeited should I fail. In addition, I swear upon my left testicle to uphold order and justice, and to remain true to the Green Lantern Corps code of honor.
+I, {{ current_user.name }}, hereby solemnly swear to deliver a parcel from {{ delivery.from_.address }} to {{ delivery.to_.address }}, for {{ delivery.reward }} pieces of silver. I am placing a deposit of {{ delivery.penalty }} pieces of silver to be forfeited should I fail. In addition, I swear upon my left testicle to uphold order and justice, and to remain true to the Green Lantern Corps code of honor.
 <form id=takedelivery action=take>
     <input type=hidden name=id value="{{ delivery.id }}">
     <input type=submit value="I'm on my way">
 </form>
 <h1>Pull this delivery</h1>
-I, {{ g.user.name }}, hereby solemnly swear that if some poor bastard decides to get this parcel to me, I will take it off his hands, delivering it to where it should go and taking the deposit upon myself.
+I, {{ current_user.name }}, hereby solemnly swear that if some poor bastard decides to get this parcel to me, I will take it off his hands, delivering it to where it should go and taking the deposit upon myself.
 <form id=pulldelivery action=pull>
     <input type=hidden name=id value="{{ delivery.id }}">
     <input name=to placeholder="Where to">
@@ -62,7 +62,7 @@ I, {{ g.user.name }}, hereby solemnly swear that if some poor bastard decides to
 </form>
 {% elif 'drop' == op %}
 <h1>Drop this delivery</h1>
-I, {{ g.user.name }}, hereby solemnly swear that I delivered a parcel from {{ delivery.from_.address }} to {{ delivery.to_.address }}, for {{ delivery.reward }} pieces of silver. I now claim this reward, and demand the return of my deposit of {{ delivery.penalty }} pieces of silver. And check this out - I'll even upload a proof.
+I, {{ current_user.name }}, hereby solemnly swear that I delivered a parcel from {{ delivery.from_.address }} to {{ delivery.to_.address }}, for {{ delivery.reward }} pieces of silver. I now claim this reward, and demand the return of my deposit of {{ delivery.penalty }} pieces of silver. And check this out - I'll even upload a proof.
 <form id=takedelivery action=drop method=post enctype=multipart/form-data>
     <input type=hidden name=stata value="{{ delivery.id }}">
     <input type=hidden name=id value="{{ delivery.id }}">

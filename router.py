@@ -1,7 +1,6 @@
-#!./py2/bin/python
 # -*- coding: utf-8 -*-
 
-import httplib
+import http.client
 import urllib
 import json
 
@@ -41,8 +40,8 @@ class Router:
     """
     def __init__(self, fromlatlng, tolatlng, transport='motorcar'):
         self.jsonroutedata = None
-        conn = httplib.HTTPConnection("www.yournavigation.org")
-        params = urllib.urlencode({'format': 'geojson',
+        conn = http.client.HTTPConnection("www.yournavigation.org")
+        params = urllib.parse.urlencode({'format': 'geojson',
                                          'flon': fromlatlng[1], 'flat': fromlatlng[0],
                                          'tlon': tolatlng[1], 'tlat': tolatlng[0],
                                          'v': transport, 'fast': '1',
@@ -99,9 +98,9 @@ class Router:
         :param textaddress: the address to lookup
         :param lang: accepted languages for reply
         """
-        conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
-        params = urllib.urlencode({
-            'q': unicode(textaddress).encode('utf-8'),
+        conn = http.client.HTTPConnection("nominatim.openstreetmap.org")
+        params = urllib.parse.urlencode({
+            'q': textaddress,
             'countrycodes': 'il',
             'limit': str(limit), # max results
             'polygon': '0', #Output polygon outlines for items found  (deprecated, use one of the polygon_* parameters instead)
@@ -127,8 +126,8 @@ class Router:
         :param zoom: level of info - 18 is building level
         :param lang: accepted languages
         """
-        conn = httplib.HTTPConnection("nominatim.openstreetmap.org")
-        params = urllib.urlencode({
+        conn = http.client.HTTPConnection("nominatim.openstreetmap.org")
+        params = urllib.parse.urlencode({
             'lat': latlng[0], 'lon': latlng[1],
             'zoom': str(zoom), 'email': 'oren@orengampel.com',
             'accept-language': lang,

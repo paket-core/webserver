@@ -1,4 +1,3 @@
-#!./py2/bin/python
 # -*- coding: utf-8 -*-
 import httplib
 

@@ -1,4 +1,3 @@
-#!./py2/bin/python
 # -*- coding: utf-8 -*-
 
 # This module, oddly enough, takes care of all the database related shite.
@@ -14,6 +13,8 @@ from sqlalchemy import(
 from sqlalchemy.types import PickleType, Float, LargeBinary
 from sqlalchemy.orm import scoped_session, sessionmaker, mapper, reconstructor
 from sqlalchemy.ext.declarative import declarative_base
+from flask_login import UserMixin
+
 engine = create_engine(dburl)
 session = scoped_session(sessionmaker(
     autocommit = False,
@@ -29,19 +30,29 @@ def auto_add(target, args, kwargs):
 Base = declarative_base()
 Base.query = session.query_property()
 
-class User(Base):
+class User(Base, UserMixin):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
+
     name = Column(String(80))
+    googleid = Column(String(200))
+    picture = Column(String(200))
     email = Column(String(200))
     phone = Column(String(20))
-    openid = Column(String(200))
     balance = Column(Integer)
-    def __init__(self, name, email, phone, openid):
-        self.name, self.email, self.phone, self.openid = (
-            name, email, phone, openid
-        )
-        self.balance = 100
+
+    def __init__(self, name):
+        self.name = name
+        self.balance = 500
+
+    @classmethod
+    def getbyid(cls, id):
+        try:
+            user = session.query(cls).filter_by(id=id).one()
+        except exc.SQLAlchemyError:
+            user = cls(id)
+            session.commit()
+        return user
 
 # A Location is just that, but in the future it will have hierarchy as well
 from router import Router, getlatlng
@@ -355,7 +366,7 @@ def init_db():
 
     sender = User.query.first()
     if sender is None:
-        sender = User('stam', 'stam@blam', '111', 'none')
+        sender = User('stam')
         sender.balance = 10000
 
     for parcel in [Parcel() for i in range(10)]:

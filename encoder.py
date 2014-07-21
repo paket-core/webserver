@@ -1,4 +1,3 @@
-#!./py2/bin/python
 """
 baseK encoding tools
 
@@ -29,7 +28,7 @@ def str2phonetic(src, useLAPD=False):
          "o": "oscar", "p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform",
          "v": "victor", "w": "whiskey", "x": "x-ray", "y": "yankee", "z": "zulu", "-": "dash", "0": "Zero", "1": "One",
          "2": "Two", "3": "Three", "4": "Four", "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Nine"}
-    NATO_phonetic_alphabet = dict((k.upper(), v.upper()) for k, v in NATO_phonetic_alphabet.iteritems())
+    NATO_phonetic_alphabet = dict((k.upper(), v.upper()) for k, v in NATO_phonetic_alphabet.items())
 
     LAPD_phonetic_alphabet = \
         {"a": "Adam", "b": "Bravo", "c": "Charles", "d": "David", "e": "Edward", "f": "Frank", "g": "George",
@@ -37,7 +36,7 @@ def str2phonetic(src, useLAPD=False):
          "p": "Paul", "q": "Queen", "r": "Robert", "s": "Sam", "t": "Tom", "u": "Union", "v": "Victor", "w": "William",
          "x": "X-ray", "y": "Young", "z": "Zebra", "-": "dash", "0": "Zero", "1": "One", "2": "Two", "3": "Three",
          "4": "Four", "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Niner"}
-    LAPD_phonetic_alphabet = dict((k.upper(), v) for k, v in LAPD_phonetic_alphabet.iteritems())
+    LAPD_phonetic_alphabet = dict((k.upper(), v) for k, v in LAPD_phonetic_alphabet.items())
 
     srcStr = str(src).upper()
     if useLAPD:
@@ -53,17 +52,17 @@ def str2phonetic(src, useLAPD=False):
 
 def baseKinfo():
     """print info about the decoder."""
-    print "baseK info:\n-----------"
-    print "characters used:", alphabet
-    print "characters", len(alphabet)
-    print "scale:"
-    for i in range(1, 10): print "possible numbers for %d character: %u" % (i, len(alphabet) ** i)
+    print("baseK info:\n-----------")
+    print("characters used:", alphabet)
+    print("characters", len(alphabet))
+    print("scale:")
+    for i in range(1, 10): print("possible numbers for %d character: %u" % (i, len(alphabet) ** i))
 
 
 def baseKencode(number, phonetic=False):
-    """Converts positive integer or long to a baseK string."""
-    if not isinstance(number, (int, long)):
-        raise TypeError('number must be an integer or long')
+    """Converts positive integer to a baseK string."""
+    if not isinstance(number, int):
+        raise TypeError('number must be an integer')
 
     base = ''
 
@@ -86,7 +85,7 @@ def baseKencode(number, phonetic=False):
 def baseKdecode(val):
     """Decode a baseK string. Case insensitive."""
     num = 0;
-    if not isinstance(val, basestring):
+    if not isinstance(val, str):
         raise ValueError(str(val) + " is not a valid string")
     val = val.upper()
     for c in val:
@@ -100,9 +99,9 @@ def baseKdecode(val):
 
 def baseKrc(val):
     """Return single character for redundancy check."""
-    if isinstance(val, basestring):
+    if isinstance(val, str):
         return str(baseKdecode(val))[-1]
-    elif isinstance(val, (int, long)):
+    elif isinstance(val, int):
         return str(val)[-1]
     else:
         raise ValueError("baseKrc must receive either a number or a string")
@@ -116,20 +115,20 @@ def baseKencodeRC(number):
 if __name__ == '__main__':
     import random
 
-    print '\n' * 2
+    print('\n' * 2)
     baseKinfo()
 
-    print "\ncheck encoding and decoding for random numbers\n" + "-" * 47
+    print("\ncheck encoding and decoding for random numbers\n" + "-" * 47)
 
     v = 0
     for i in range(0, 20):
         encode = baseKencode(v)
-        print v, "==>", encode, "==>", baseKdecode(encode), baseKencodeRC(v), type(v)
+        print(v, "==>", encode, "==>", baseKdecode(encode), baseKencodeRC(v), type(v))
         if v != baseKdecode(encode):
             raise ValueError('encoder and decoder do not match!')
         v += random.randint(1, 1 + v * 50)  # this grows rapidly!
 
-    print "\ncheck encoding (some may fail)\n" + "-" * 30
+    print("\ncheck encoding (some may fail)\n" + "-" * 30)
     all = alphabet * 3 + "abcdefghijklmnopqrstuvwxy0123456789*"
     for i in range(30):
         s = ''
@@ -138,12 +137,12 @@ if __name__ == '__main__':
             s += all[random.randint(0, len(all)) - 1]
 
         try:
-            print i, s, "=>", baseKdecode(s), "rc:", baseKrc(s), "[%s]" % (str2phonetic(s),)
-        except ValueError, e:
-            print "got", e
+            print(i, s, "=>", baseKdecode(s), "rc:", baseKrc(s), "[%s]" % (str2phonetic(s),))
+        except ValueError as e:
+            print("got", e)
 
-    print "\ncheck phonetic\n" + "-" * 15
-    print "unknown chars:", str2phonetic("234@#")
-    print "shalom:", str2phonetic("shalom")
-    print "shalom:", str2phonetic("shalom", useLAPD=True)
-    print "12**4=", str2phonetic(12 ** 4, useLAPD=True)
+    print("\ncheck phonetic\n" + "-" * 15)
+    print("unknown chars:", str2phonetic("234@#"))
+    print("shalom:", str2phonetic("shalom"))
+    print("shalom:", str2phonetic("shalom", useLAPD=True))
+    print("12**4=", str2phonetic(12 ** 4, useLAPD=True))

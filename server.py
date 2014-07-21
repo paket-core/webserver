@@ -1,5 +1,3 @@
-#!./py2/bin/python
-
 import db
 from encoder import baseKencode
 
@@ -7,6 +5,7 @@ from flask import(
         Flask,
         render_template,
         request,
+        make_response,
         g,
         session,
         flash,
@@ -21,128 +20,53 @@ app.config.update(
     DEBUG = True
 )
 
+# Login, indented for foldoutability. #
+if True:
+    from flask_login import(
+        LoginManager,
+        login_required,
+        login_user,
+        logout_user,
+        current_user
+    )
+    loginmanager = LoginManager()
+    loginmanager.init_app(app)
+
+    @loginmanager.user_loader
+    def load_user(userid):
+        return db.User.getbyid(userid)
+
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        if not 'uid' in request.args:
+            return '''
+            <form>
+                <input name=uid autofocus>
+            </form>
+            '''
+        user = db.User.getbyid(request.args['uid'])
+        login_user(user)
+        return redirect(url_for('index'))
+
+    @app.route('/logout')
+    def logout():
+        logout_user()
+        session.clear()
+        return redirect(url_for('index'))
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/hub')
+@login_required
 def hub():
     return render_template('index.html', hub=True)
 
-# Openid handling, directly lifted from the flask-openid repo #
-# TODO move this shit to another file (currently indented for foldout).
-if True:
-    from flask.ext.openid import OpenID
-    from openid.extensions import pape
-
-    oid = OpenID(app, safe_roots=[], extension_responses=[pape.Response])
-
-    @app.before_request
-    def before_request():
-        g.user = None
-        if 'openid' in session:
-            g.user = db.User.query.filter_by(openid=session['openid']).first()
-
-    @app.after_request
-    def after_request(response):
-        db.session.remove()
-        return response
-
-    @app.route('/login', methods=['GET', 'POST'])
-    @oid.loginhandler
-    def login():
-        """Does the login via OpenID.  Has to call into `oid.try_login`
-        to start the OpenID machinery.
-        """
-        # if we are already logged in, go back to were we came from
-        if g.user is not None:
-            return redirect(oid.get_next_url())
-        if request.method == 'POST':
-            openid = request.form.get('openid')
-            if openid:
-                pape_req = pape.Request([])
-                return oid.try_login(openid, ask_for=['email', 'nickname'],
-                                            ask_for_optional=['fullname'],
-                                            extensions=[pape_req])
-        return render_template('login.html', next=oid.get_next_url(),
-                            error=oid.fetch_error())
-
-    @oid.after_login
-    def create_or_login(resp):
-        """This is called when login with OpenID succeeded and it's not
-        necessary to figure out if this is the users's first login or not.
-        This function has to redirect otherwise the user will be presented
-        with a terrible URL which we certainly don't want.
-        """
-        session['openid'] = resp.identity_url
-        if 'pape' in resp.extensions:
-            pape_resp = resp.extensions['pape']
-            session['auth_time'] = pape_resp.auth_time
-        user = db.User.query.filter_by(openid=resp.identity_url).first()
-        if user is not None:
-            flash(u'Successfully signed in')
-            g.user = user
-            return redirect(oid.get_next_url())
-        return redirect(url_for('create_profile', next=oid.get_next_url(),
-                                name=resp.fullname or resp.nickname,
-                                email=resp.email,
-                                phone=resp.phone))
-
-    @app.route('/create-profile', methods=['GET', 'POST'])
-    def create_profile():
-        """If this is the user's first login, the create_or_login function
-        will redirect here so that the user can set up his profile.
-        """
-        if g.user is not None or 'openid' not in session:
-            return redirect(url_for('index'))
-        if request.method == 'POST':
-            name = request.form['name']
-            email = request.form['email']
-            phone = request.form['phone']
-            if not name:
-                flash(u'Error: you have to provide a name')
-            elif '@' not in email:
-                flash(u'Error: you have to enter a valid email address')
-            else:
-                flash(u'Profile successfully created')
-                db.session.add(db.User(name, email, phone, session['openid']))
-                db.session.commit()
-                return redirect(oid.get_next_url())
-        return render_template('create_profile.html', next_url=oid.get_next_url())
-
-    @app.route('/profile', methods=['GET', 'POST'])
-    def edit_profile():
-        """Updates a profile"""
-        if g.user is None:
-            abort(401)
-        form = dict(name=g.user.name, email=g.user.email, phone=g.user.phone)
-        if request.method == 'POST':
-            form['name'] = request.form['name']
-            form['email'] = request.form['email']
-            form['phone'] = request.form['phone']
-            if not form['name']:
-                flash(u'Error: you have to provide a name')
-            elif '@' not in form['email']:
-                flash(u'Error: you have to enter a valid email address')
-            else:
-                flash(u'Profile successfully created')
-                g.user.name = form['name']
-                g.user.email = form['email']
-                g.user.phone = form['phone']
-                db.session.commit()
-                return redirect(url_for('edit_profile'))
-        return render_template('edit_profile.html', form=form)
-
-    @app.route('/logout')
-    def logout():
-        session.pop('openid', None)
-        flash(u'You have been signed out')
-        return redirect(url_for('index'))
-
 # Create a delivery.
 @app.route('/send', methods=['GET', 'POST'])
+@login_required
 def createdelivery():
-    if g.user is None: return redirect(url_for('login'))
 
     # If the form was not filled, show it.
     if 'from' not in request.values: return render_template('send.html', form=None)
@@ -177,7 +101,7 @@ def createdelivery():
     to_ = request.values.get('to')
     try:
         db.Delivery.Create(
-            g.user,
+            current_user,
             # TODO Create a parcel.
             None,
             request.values.get('from'),
@@ -199,19 +123,18 @@ def createdelivery():
 
 # Delivery details.
 @app.route('/delivery')
+@login_required
 def showdelivery():
-    if g.user is None: return redirect(url_for('login'))
-
     try:
-        op, delivery = db.Delivery.Get(request.args.get('id')).show(g.user)
+        op, delivery = db.Delivery.Get(request.args.get('id')).show(current_user)
         return render_template('delivery.html', op=op, delivery=delivery, kTag=baseKencode(delivery.id))
     except ValueError as e: flash(u'Error: ' + str(e))
     return redirect(url_for('index'))
 
 # Pull a delivery to you. FIXME tmp stub.
 @app.route('/pull', methods=['GET', 'POST'])
+@login_required
 def pulldelivery():
-    if g.user is None: return redirect(url_for('login'))
 
     # Validate reward and addedpenalty.
     errors = []
@@ -236,7 +159,7 @@ def pulldelivery():
         return redirect(url_for('showdelivery', id=request.values.get('id')))
 
     try: db.Delivery.Get(request.values.get('id')).pull(
-        g.user,
+        current_user,
         request.values.get('to'),
         reward,
         addedpenalty
@@ -248,10 +171,9 @@ def pulldelivery():
 
 # Take a delivery.
 @app.route('/take', methods=['GET', 'POST'])
+@login_required
 def takedelivery():
-    if g.user is None: return redirect(url_for('login'))
-
-    try: db.Delivery.Get(request.values.get('id')).take(g.user)
+    try: db.Delivery.Get(request.values.get('id')).take(current_user)
     except ValueError as e: flash(u'Error: ' + str(e))
     else: flash(u'Delivery taken, you best be on your way.')
     return redirect(url_for('deliveries'))
@@ -260,9 +182,8 @@ def takedelivery():
 from werkzeug.utils import secure_filename
 from os import remove
 @app.route('/drop', methods=['POST'])
+@login_required
 def dropdelivery():
-    if g.user is None: return redirect(url_for('login'))
-
     proof = request.files['proof']
     if proof:
         filename = secure_filename(proof.filename)
@@ -270,7 +191,7 @@ def dropdelivery():
         with open(filename, 'rb', buffering=0) as proof:
             try:
                 db.Delivery.Get(
-                    request.form.get('id')).drop(g.user, proof.read()
+                    request.form.get('id')).drop(current_user, proof.read()
                 )
             except ValueError as e: flash(u'Error: ' + str(e))
             else: flash(u'Delivery dumped, carry on with your life.')
@@ -283,13 +204,13 @@ def dropdelivery():
 
 # See deliveries related to you.
 @app.route('/deliveries')
+@login_required
 def deliveries():
-    if g.user is None: return redirect(url_for('login'))
     taken = db.Delivery.query.filter_by(
-        courierid=g.user.id,
+        courierid=current_user.id,
         status=db.Delivery.STATUSES['TAKEN']
     ).all()
-    fromme = db.Delivery.query.filter_by(senderid=g.user.id)
+    fromme = db.Delivery.query.filter_by(senderid=current_user.id)
     waiting = fromme.filter_by(status=db.Delivery.STATUSES['CREATED']).all()
     enroute = fromme.filter_by(status=db.Delivery.STATUSES['TAKEN']).all()
     delivered = fromme.filter_by(status=db.Delivery.STATUSES['RECEIVED']).all()
@@ -365,3 +286,126 @@ def verifyuser():
 
 if __name__=='__main__':
     app.run(host='0.0.0.0')
+
+
+
+
+
+    #from flask_googlelogin import GoogleLogin
+    #googlelogin = GoogleLogin(app)
+
+
+    #@app.route('/oauth2callback')
+    #@googlelogin.oauth2callback
+    #def create_or_update_user(token, userinfo, **params):
+    #    user = User.filter_by(google_id=userinfo['id']).first()
+    #    if user:
+    #        user.name = userinfo['name']
+    #    else:
+    #        user = User(google_id=userinfo['id'], name=userinfo['name'])
+    #    db.session.add(user)
+    #    db.session.flush()
+    #    login_user(user)
+    #    return redirect(url_for('index'))
+
+
+
+
+    #def before_request():
+    #    g.user = None
+    #    if 'openid' in session:
+    #        g.user = db.User.query.filter_by(openid=session['openid']).first()
+
+    #def after_request(response):
+    #    db.session.remove()
+    #    return response
+
+    #@app.route('/login', methods=['GET', 'POST'])
+    #def login():
+    #    """Does the login via OpenID.  Has to call into `oid.try_login`
+    #    to start the OpenID machinery.
+    #    """
+    #    # if we are already logged in, go back to were we came from
+    #    if g.user is not None:
+    #        return redirect(oid.get_next_url())
+    #    if request.method == 'POST':
+    #        openid = request.form.get('openid')
+    #        if openid:
+    #            pape_req = pape.Request([])
+    #            return oid.try_login(openid, ask_for=['email', 'nickname'],
+    #                                        ask_for_optional=['fullname'],
+    #                                        extensions=[pape_req])
+    #    return render_template('login.html', next=oid.get_next_url(),
+    #                        error=oid.fetch_error())
+
+    #def create_or_login(resp):
+    #    """This is called when login with OpenID succeeded and it's not
+    #    necessary to figure out if this is the users's first login or not.
+    #    This function has to redirect otherwise the user will be presented
+    #    with a terrible URL which we certainly don't want.
+    #    """
+    #    session['openid'] = resp.identity_url
+    #    if 'pape' in resp.extensions:
+    #        pape_resp = resp.extensions['pape']
+    #        session['auth_time'] = pape_resp.auth_time
+    #    user = db.User.query.filter_by(openid=resp.identity_url).first()
+    #    if user is not None:
+    #        flash(u'Successfully signed in')
+    #        g.user = user
+    #        return redirect(oid.get_next_url())
+    #    return redirect(url_for('create_profile', next=oid.get_next_url(),
+    #                            name=resp.fullname or resp.nickname,
+    #                            email=resp.email,
+    #                            phone=resp.phone))
+
+    #@app.route('/create-profile', methods=['GET', 'POST'])
+    #def create_profile():
+    #    """If this is the user's first login, the create_or_login function
+    #    will redirect here so that the user can set up his profile.
+    #    """
+    #    if g.user is not None or 'openid' not in session:
+    #        return redirect(url_for('index'))
+    #    if request.method == 'POST':
+    #        name = request.form['name']
+    #        email = request.form['email']
+    #        phone = request.form['phone']
+    #        if not name:
+    #            flash(u'Error: you have to provide a name')
+    #        elif '@' not in email:
+    #            flash(u'Error: you have to enter a valid email address')
+    #        else:
+    #            flash(u'Profile successfully created')
+    #            db.session.add(db.User(name, email, phone, session['openid']))
+    #            db.session.commit()
+    #            return redirect(oid.get_next_url())
+    #    return render_template('create_profile.html', next_url=oid.get_next_url())
+
+    #@app.route('/profile', methods=['GET', 'POST'])
+    #def edit_profile():
+    #    """Updates a profile"""
+    #    if g.user is None:
+    #        abort(401)
+    #    form = dict(name=g.user.name, email=g.user.email, phone=g.user.phone)
+    #    if request.method == 'POST':
+    #        form['name'] = request.form['name']
+    #        form['email'] = request.form['email']
+    #        form['phone'] = request.form['phone']
+    #        if not form['name']:
+    #            flash(u'Error: you have to provide a name')
+    #        elif '@' not in form['email']:
+    #            flash(u'Error: you have to enter a valid email address')
+    #        else:
+    #            flash(u'Profile successfully created')
+    #            g.user.name = form['name']
+    #            g.user.email = form['email']
+    #            g.user.phone = form['phone']
+    #            db.session.commit()
+    #            return redirect(url_for('edit_profile'))
+    #    return render_template('edit_profile.html', form=form)
+
+    #@app.route('/logout')
+    #def logout():
+    #    session.pop('openid', None)
+    #    flash(u'You have been signed out')
+    #    return redirect(url_for('index'))
+
