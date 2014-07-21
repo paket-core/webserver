@@ -44,7 +44,7 @@ def str2phonetic(src, useLAPD=False):
          "p": "Pilpel", "q": "Queen", "r": "Arnak", "s": "Sigal", "t": "Tisan", "u": "Yulia", "v": "Virus", "w": "William",
          "x": "Extra", "y": "Yosi", "z": "Zebra", "-": "Makaf", "0": "Effes", "1": "Ahat", "2": "Shtayim", "3": "Shalosh",
          "4": "Arba", "5": "Hamesh", "6": "Shesh", "7": "Sheva", "8": "Shmoneh", "9": "Tesha"}
-    HEBREW_phonetic_alphabet = dict((k.upper(), v) for k, v in HEBREW_phonetic_alphabet.iteritems())
+    HEBREW_phonetic_alphabet = dict((k.upper(), v) for k, v in HEBREW_phonetic_alphabet.items())
 
     srcStr = str(src).upper()
     if useLAPD:
