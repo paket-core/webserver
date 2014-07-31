@@ -1,0 +1,51 @@
+0. Assume we have a distributed geographically hashed table and good mobile clients.
+1. Alice publishes a delivery on the DgHT - now it's an open delivery.
+    Her client sets all the parameters, and they can be as fuzzy as she wants.
+        E.G. take a suitcase from Bizaron to Yaffo for 50 NIS tonight.
+2. Bob privately offers to fulfil it - now the delivery is a negotiated delivery.
+    The negotiation is mostly automatic, between the two clients, but some of it can depend on user interaction, and it is possible that some weird details will have to be hammered in person.
+    This is, of course, where all our ideas of bids and auctions can fit in.
+    But like I said, in most cases it's just the clients negotiating according to the user's preferences.
+        E.G. will take from north Bizaron (a location within Bizaron) to Yaffo for 50, but only if penalty is below 500.
+    At any point, either one can reject the deal, in which case the delivery is reopened.
+    Still, if Bob has nothing better to do, he can start moving towards Alice before they reach agreement.
+    Although all this negotiation is private, it is probably best to send it out in the open, over the DgHT, but encrypted to the pubkey of the recipient (for logs and dispute mediation and such).
+3. Once Alice and Bob reach an agreement, the delivery is closed (maybe "sealed" is a nicer word).
+    At the very least, they have to agree on the following details:
+        from, to, what, 2 * when, reward, penalty, remarks
+    If there are any authorities involved - clan leaders, pyramid builders, Tavili llc., whatever - they should at this point be informed and given the details (again, some of them can be encrypted with Alice or Bob's pubkey).
+4. Bob arrives at the package's location.
+    If he doesn't, Alice can publicly complain and lower his reputation.
+        Naturally, before complaining she can try and contact him / his clan leader.
+        Also naturally, there is nothing stopping Bob from complaining back and lowering Alice's rep.
+    The same holds if Bob arrives and finds a locked door, only in reverse.
+5. Alice creates and signs the payment transaction and hands it to Bob.
+    Example:
+        inputs:
+            Alice's prev unspent - 100mbtc (signed)
+        outputs:
+            10mbtc reward for delivey to multisig of Bob and X.
+            1mbtc commission to her pimp
+            89mbtc change to herself
+            50mbtc deposit to multisig
+        Note that it is not a valid tx (sum of outputs > sum of input).
+6. Bob adds his deposit, signs and broadcasts the tx.
+    Example:
+        inputs:
+            Alice's prev unspent - 100mbtc (signed)
+            Bob's prev unspent - 200mbtc (signed)
+        outputs:
+            10mbtc reward for delivey to multisig
+            1mbtc commission to her pimp
+            50mbtc deposit to multisig
+            150mbtc change to himself
+        Note that Bob does not at this time pay any "taxes". The sender pays his dues when he sends, a deliverator pays them when he delivers :)
+7. Upon confirmation, Alice gives the package to Bob and the delivery is en route.
+    Bob can send updates of his position from the way. This may even be part of his agreement with Alice.
+8. Bob and the package arrive at the delivery's destination, and Bob proves it - the delivery is now arrived.
+    The proof can be a picture, a signature, or even the recipient's crypto signature (if he is a user).
+    If he fails to do this, Alice can publicly complain, just like before.
+9. Bob creates a transaction that transfers the multisig outputs to his own pocket, and hands it to X.
+    Here is where Bob pays HIS taxes.
+10. X checks the proof, then checks the transaction (and its taxes, and its parent's taxes - srsly, that's where the commissions are), signs and broadcasts it.
+11. Upon confirmation, Bob can leave the package and be on his merry way - the delivery is accepted.
