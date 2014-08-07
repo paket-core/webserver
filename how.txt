@@ -1,51 +1,72 @@
 0. Assume we have a distributed geographically hashed table and good mobile clients.
-1. Alice publishes a delivery on the DgHT - now it's an open delivery.
-    Her client sets all the parameters, and they can be as fuzzy as she wants.
-        E.G. take a suitcase from Bizaron to Yaffo for 50 NIS tonight.
-2. Bob privately offers to fulfil it - now the delivery is a negotiated delivery.
-    The negotiation is mostly automatic, between the two clients, but some of it can depend on user interaction, and it is possible that some weird details will have to be hammered in person.
-    This is, of course, where all our ideas of bids and auctions can fit in.
-    But like I said, in most cases it's just the clients negotiating according to the user's preferences.
-        E.G. will take from north Bizaron (a location within Bizaron) to Yaffo for 50, but only if penalty is below 500.
-    At any point, either one can reject the deal, in which case the delivery is reopened.
-    Still, if Bob has nothing better to do, he can start moving towards Alice before they reach agreement.
+1. Alice asks for a package to be delivered from her home, at location A, to Charlie at C, for 10mbtc.
+    Her client publishes a delivery request on the DgHT.
+    The details can be as fuzzy as Alice wants.
+    Some of the details can be automatically filled by her client (e.g. fixed penalty).
+    The delivery is now OPEN.
+2. Bob browses his delivery list, sees Alice's delivery, and agrees to take it.
+    Bob's client can negotiate with Alice's and request more details. The negotiation is mostly automatic, between the two clients, but some of it can depend on user interaction, and it is possible that some weird details will have to be hammered in person. This is, of course, where all our ideas of bids and auctions can fit in.
+    At any point, either one can reject the deal.
+    Otherwise, they should agree on the following details:
+        from, to, what, 2 * when, reward, penalty, SMS / email / way of checking if it got there, remarks
+    If there are any authorities involved - clan leaders, pyramid builders, Tavili llc., whatever - they should at this point be given the details.
     Although all this negotiation is private, it is probably best to send it out in the open, over the DgHT, but encrypted to the pubkey of the recipient (for logs and dispute mediation and such).
-3. Once Alice and Bob reach an agreement, the delivery is closed (maybe "sealed" is a nicer word).
-    At the very least, they have to agree on the following details:
-        from, to, what, 2 * when, reward, penalty, remarks
-    If there are any authorities involved - clan leaders, pyramid builders, Tavili llc., whatever - they should at this point be informed and given the details (again, some of them can be encrypted with Alice or Bob's pubkey).
-4. Bob arrives at the package's location.
+    The delivery is now SEALED.
+3. Bob arrives at A with the package.
     If he doesn't, Alice can publicly complain and lower his reputation.
         Naturally, before complaining she can try and contact him / his clan leader.
         Also naturally, there is nothing stopping Bob from complaining back and lowering Alice's rep.
     The same holds if Bob arrives and finds a locked door, only in reverse.
-5. Alice creates and signs the payment transaction and hands it to Bob.
-    Example:
-        inputs:
-            Alice's prev unspent - 100mbtc (signed)
-        outputs:
-            10mbtc reward for delivey to multisig of Bob and X.
-            1mbtc commission to her pimp
-            89mbtc change to herself
-            50mbtc deposit to multisig
-        Note that it is not a valid tx (sum of outputs > sum of input).
-6. Bob adds his deposit, signs and broadcasts the tx.
-    Example:
-        inputs:
-            Alice's prev unspent - 100mbtc (signed)
-            Bob's prev unspent - 200mbtc (signed)
-        outputs:
-            10mbtc reward for delivey to multisig
-            1mbtc commission to her pimp
-            50mbtc deposit to multisig
-            150mbtc change to himself
-        Note that Bob does not at this time pay any "taxes". The sender pays his dues when he sends, a deliverator pays them when he delivers :)
-7. Upon confirmation, Alice gives the package to Bob and the delivery is en route.
-    Bob can send updates of his position from the way. This may even be part of his agreement with Alice.
-8. Bob and the package arrive at the delivery's destination, and Bob proves it - the delivery is now arrived.
-    The proof can be a picture, a signature, or even the recipient's crypto signature (if he is a user).
+    Assuming everything went well, Alice's client will create the PAYMENT transaction, sign it and hand it to Bob's.
+        Example:
+            inputs:
+                Alice's prev unspent - 100mbtc (signed)
+            outputs:
+                10mbtc reward for delivey to multisig of Bob and VERIFIER
+                1mbtc commission to her clan
+                89mbtc change to herself (minus miner's fee, if required)
+                50mbtc deposit to multisig of Bob and VERIFIER
+            Note that it is not a valid tx (sum of outputs > sum of input)
+    Bob's client will add the deposit, sign and broadcast the transaction
+        Example:
+            inputs:
+                Alice's prev unspent - 100mbtc (signed)
+                Bob's prev unspent - 200mbtc (signed)
+            outputs:
+                10mbtc reward for delivey to multisig of Bob and VERIFIER
+                1mbtc commission to her clan
+                50mbtc deposit to multisig of Bob and VERIFIER
+                150mbtc change to himself (minus miner's fee, if required)
+            Note that Bob does not at this time pay any "taxes" (other than the miner's fee). The sender pays his dues when he sends, a deliverator pays them when he delivers :)
+4. Alice gives Bob the package.
+    She might want to wait for blockchain confirmation.
+    The delivery is now ENROUTE.
+5. Bob travels with the package and arrives at C.
+    As part of his agreement with Alice or with the VERIFIER, Bob may be required to send updates of his location.
     If he fails to do this, Alice can publicly complain, just like before.
-9. Bob creates a transaction that transfers the multisig outputs to his own pocket, and hands it to X.
-    Here is where Bob pays HIS taxes.
-10. X checks the proof, then checks the transaction (and its taxes, and its parent's taxes - srsly, that's where the commissions are), signs and broadcasts it.
-11. Upon confirmation, Bob can leave the package and be on his merry way - the delivery is accepted.
+    Bob's client creates and partially signs a withdrawl transaction, and sends it to the VERIFIER.
+        Example:
+            inputs:
+                Reward from payment transaction - 10mbtc (half signed)
+                Deposit from payment transaction - 50mbtc (half signed)
+            outputs:
+                59mbtc to Bob
+                1mbtc commission to his clan
+        Note that here is where Bob pays his taxes. Perhaps it would be nice to have Alice pay here too, but Alice is no longer in the picture (unless she is the VERIFIER).
+    The VERIFIER verifies that the transaction is on the up and up, and sends Charlie a confirmation request.
+        Note that the VERIFIER can also set conditions of the payment transaction, which should be visible on the blockchain at this point.
+        Who is this VERIFIER?
+            It can be Bob, which is the natural case if he uses bitcoin, or at least pubkeys, and then this stage is completely trivial.
+            It can be Alice, who can simply call Bob and ask him. And manually sign the hex from the command line. Assuming she is online. And that the deliverator trusted her to be online and to manually sign etc. This is a pretty bad solution for most values of Alice.
+            It can be a 3rd party, which will use the means that Alice gave him. This can be an email, a text message, an IM message, a phone call, a gang of bikers that will shout Charlie's name under his window - anything. Such VERIFIERs can make good money.
+6. Charlie receives confirmation request and confirms that Bob is there with the package.
+    This confirmation request can include all sorts of information, like the photo of the deliverator, the emblem of his clan, a request to test that the package is intact, etc.
+    Once the VERIFIER receives confirmation, he signs and broadcasts the transaction.
+        It is possible that the VERIFIER will be required at this point to add miner's fee.
+    The delivery is now ACCEPTED.
+7. Bob gives Charlie the package and walks away.
+    He might want to wait for blockchain confirmation.
+
+* Broadcasters need miner's fee - from where should they take them?
+
+vim: fdm=indent fdt=v\:folddashes
