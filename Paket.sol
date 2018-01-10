@@ -17,7 +17,6 @@ contract Bul is MintableToken {
         balances[msg.sender] = totalSupply;
     }
 
-
     struct Commitment {
         uint256 amount;
         address payer;
@@ -29,8 +28,8 @@ contract Bul is MintableToken {
         uint256 deadline;
         uint256 offeredPayment;
         uint256 requiredCollateral;
-        mapping(address => mapping(address => uint256)) payments;
-        mapping(address => mapping(address => uint256)) collaterals;
+        Commitment[] payments;
+        Commitment[] collaterals;
     }
 
     Paket[] pakets;
@@ -42,17 +41,21 @@ contract Bul is MintableToken {
         uint256 _requiredCollateral
     ) public returns (uint256) {
         require(_deadline > now);
-        Paket memory paket = Paket(_recipient, _deadline, _offeredPayment, _requiredCollateral);
-        return pakets.push(paket) - 1;
+        uint256 paketIdx = pakets.length++;
+        pakets[paketIdx].recipient = _recipient;
+        pakets[paketIdx].deadline = _deadline;
+        pakets[paketIdx].offeredPayment = _offeredPayment;
+        pakets[paketIdx].requiredCollateral = _requiredCollateral;
+        return paketIdx;
     }
 
     function _commitBuls(uint256 _paketIdx, uint256 _amount, address _payee, bool _isCollateral) private {
         require(balanceOf(msg.sender) >= _amount);
         balances[msg.sender] -= _amount;
         if(_isCollateral) {
-            pakets[_paketIdx].payments[msg.sender][_payee] += _amount;
+            pakets[_paketIdx].payments.push(Commitment(_amount, msg.sender, _payee));
         } else {
-            pakets[_paketIdx].collaterals[msg.sender][_payee] += _amount;
+            pakets[_paketIdx].collaterals.push(Commitment(_amount, msg.sender, _payee));
         }
     }
 
