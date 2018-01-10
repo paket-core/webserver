@@ -7,6 +7,7 @@ fi
 
 if [ ! -r './truffle.js' ]; then
     truffle init
+    ln ./Paket.sol ./contracts/.
     npm install zeppelin-solidity
     cat << EOF > ./truffle.js
 module.exports = {
@@ -30,7 +31,6 @@ module.exports = function(deployer, network, accounts){
 EOF
 fi
 
-cp ./Paket.sol ./contracts/.
 cat << EOF
 migrate --reset
 Paket.deployed().then(function(i){p = i;})
