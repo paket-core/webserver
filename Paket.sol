@@ -38,14 +38,15 @@ contract Bul is MintableToken {
 
     Paket[] private pakets;
 
-    function launch(
+    function create(
         address _recipient,
         uint256 _deadline,
         uint256 _offeredPayment,
         uint256 _requiredCollateral
     ) public returns (uint256) {
         require(_deadline > now);
-        uint256 paketIdx = pakets.length++;
+        uint256 paketIdx = pakets.length;
+        pakets.length++;
         pakets[paketIdx].custodian = msg.sender;
         pakets[paketIdx].recipient = _recipient;
         pakets[paketIdx].deadline = _deadline;
@@ -54,27 +55,27 @@ contract Bul is MintableToken {
         return paketIdx;
     }
 
-    function _commitBuls(uint256 _paketIdx, uint256 _amount, address _payee, bool _isCollateral) private {
+    function transferCustodianship(uint256 _paketIdx, address _newCustodian) public {
+        require (pakets[_paketIdx].custodian == msg.sender);
+        pakets[_paketIdx].custodian = _newCustodian;
+    }
+
+    modifier commitBuls(uint256 _amount) {
         require(balanceOf(msg.sender) >= _amount);
         balances[msg.sender] -= _amount;
-        uint256 idx;
-        if (_isCollateral) {
-            idx = pakets[_paketIdx].collaterals.push(Commitment(_amount, msg.sender, _payee)) - 1;
-            pakets[_paketIdx].payerToCollaterals[msg.sender].push(idx);
-            pakets[_paketIdx].payeeToCollaterals[_payee].push(idx);
-        } else {
-            idx = pakets[_paketIdx].payments.push(Commitment(_amount, msg.sender, _payee)) - 1;
+        _;
+    }
+
+    function commitPayment(uint256 _paketIdx, uint256 _amount, address _payee) public commitBuls(_amount) {
+            uint256 idx = pakets[_paketIdx].payments.push(Commitment(_amount, msg.sender, _payee)) - 1;
             pakets[_paketIdx].payerToPayments[msg.sender].push(idx);
             pakets[_paketIdx].payeeToPayments[_payee].push(idx);
-        }
     }
 
-    function commitPayment(uint256 _paketIdx, uint256 _amount, address _payee) public {
-        _commitBuls(_paketIdx, _amount, _payee, false);
-    }
-
-    function commitCollateral(uint256 _paketIdx, uint256 _amount, address _payee) public {
-        _commitBuls(_paketIdx, _amount, _payee, true);
+    function commitCollateral(uint256 _paketIdx, uint256 _amount, address _payee) public commitBuls(_amount) {
+            uint256 idx = pakets[_paketIdx].collaterals.push(Commitment(_amount, msg.sender, _payee)) - 1;
+            pakets[_paketIdx].payerToCollaterals[msg.sender].push(idx);
+            pakets[_paketIdx].payeeToCollaterals[_payee].push(idx);
     }
 
     function _countCommitments(Commitment[] _commintments, uint256[] _creditIndexes, uint256[] _debitIndexes) private pure returns (uint256) {
@@ -95,32 +96,6 @@ contract Bul is MintableToken {
 
     function paketCollateralsToMe(uint256 _paketIdx) public view returns (uint256) {
         return _countCommitments(pakets[_paketIdx].collaterals, pakets[_paketIdx].payeeToCollaterals[msg.sender], pakets[_paketIdx].payerToCollaterals[msg.sender]);
-    }
-
-    function paketSelfInterest(uint256 _paketIdx) public view returns (uint256, uint256) {
-        uint256 payment = 0;
-        uint256 collateral = 0;
-        uint256 idx;
-        for (idx = 0; idx < pakets[_paketIdx].payments.length; idx++) {
-            if (pakets[_paketIdx].payments[idx].payee == msg.sender) {
-                payment += pakets[_paketIdx].payments[idx].amount;
-            } else if (pakets[_paketIdx].payments[idx].payer == msg.sender) {
-                payment -= pakets[_paketIdx].payments[idx].amount;
-            }
-        }
-        for (idx = 0; idx < pakets[_paketIdx].collaterals.length; idx++) {
-            if (pakets[_paketIdx].collaterals[idx].payee == msg.sender) {
-                collateral += pakets[_paketIdx].collaterals[idx].amount;
-            } else if (pakets[_paketIdx].collaterals[idx].payer == msg.sender) {
-                collateral -= pakets[_paketIdx].collaterals[idx].amount;
-            }
-        }
-        return (payment, collateral);
-    }
-
-    function setCustodian(uint256 _paketIdx, address _newCustodian) public {
-        require (pakets[_paketIdx].custodian == msg.sender);
-        pakets[_paketIdx].custodian = _newCustodian;
     }
 
     function forwardPayment(uint256 _paketIdx, address _payee, uint256 _amount) public {
