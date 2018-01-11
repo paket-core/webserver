@@ -66,16 +66,24 @@ contract Bul is MintableToken {
         _;
     }
 
-    function commitPayment(uint256 _paketIdx, uint256 _amount, address _payee) public commitBuls(_amount) {
+    function _commitPayment(uint256 _paketIdx, address _payee, uint256 _amount) private {
             uint256 idx = pakets[_paketIdx].payments.push(Commitment(_amount, msg.sender, _payee)) - 1;
             pakets[_paketIdx].payerToPayments[msg.sender].push(idx);
             pakets[_paketIdx].payeeToPayments[_payee].push(idx);
     }
 
-    function commitCollateral(uint256 _paketIdx, uint256 _amount, address _payee) public commitBuls(_amount) {
+    function _commitCollateral(uint256 _paketIdx, address _payee, uint256 _amount) private {
             uint256 idx = pakets[_paketIdx].collaterals.push(Commitment(_amount, msg.sender, _payee)) - 1;
             pakets[_paketIdx].payerToCollaterals[msg.sender].push(idx);
             pakets[_paketIdx].payeeToCollaterals[_payee].push(idx);
+    }
+
+    function commitPayment(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
+        _commitPayment(_paketIdx, _payee, _amount);
+    }
+
+    function commitCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
+        _commitCollateral(_paketIdx, _payee, _amount);
     }
 
     function _countCommitments(Commitment[] _commintments, uint256[] _creditIndexes, uint256[] _debitIndexes) private pure returns (uint256) {
@@ -99,5 +107,19 @@ contract Bul is MintableToken {
     }
 
     function forwardPayment(uint256 _paketIdx, address _payee, uint256 _amount) public {
+        uint256 toPay = 0;
+        uint256 idx;
+        for (uint256 idxOfIdx = 0; idxOfIdx <= pakets[_paketIdx].payeeToPayments[msg.sender].length && toPay < _amount; idxOfIdx++) {
+            idx = pakets[_paketIdx].payeeToPayments[msg.sender][idxOfIdx];
+            if (pakets[_paketIdx].payments[idx].amount < _amount) {
+                toPay += pakets[_paketIdx].payments[idx].amount;
+                pakets[_paketIdx].payments[idx].amount = 0;
+            } else {
+                toPay += _amount;
+                pakets[_paketIdx].payments[idx].amount -= _amount;
+            }
+        }
+        require(toPay == _amount);
+        _commitPayment(_paketIdx, _payee, toPay);
     }
 }
