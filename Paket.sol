@@ -106,20 +106,26 @@ contract Bul is MintableToken {
         return _countCommitments(pakets[_paketIdx].collaterals, pakets[_paketIdx].payeeToCollaterals[msg.sender], pakets[_paketIdx].payerToCollaterals[msg.sender]);
     }
 
-    function forwardPayment(uint256 _paketIdx, address _payee, uint256 _amount) public {
-        uint256 toPay = 0;
+    function relayPayment(uint256 _paketIdx, address _payee, uint256 _amount) public {
+        require(paketPaymentsToMe(_paketIdx) >= _amount);
+        _commitPayment(_paketIdx, _payee, _amount);
+    }
+
+    function coverCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
+        uint256 amountLeft = _amount;
         uint256 idx;
-        for (uint256 idxOfIdx = 0; idxOfIdx <= pakets[_paketIdx].payeeToPayments[msg.sender].length && toPay < _amount; idxOfIdx++) {
-            idx = pakets[_paketIdx].payeeToPayments[msg.sender][idxOfIdx];
-            if (pakets[_paketIdx].payments[idx].amount < _amount) {
-                toPay += pakets[_paketIdx].payments[idx].amount;
-                pakets[_paketIdx].payments[idx].amount = 0;
+        for (uint256 idxOfIdx = 0; idxOfIdx <= pakets[_paketIdx].payerToCollaterals[_payee].length && amountLeft > 0; idxOfIdx++) {
+            idx = pakets[_paketIdx].payerToCollaterals[_payee][idxOfIdx];
+            if (pakets[_paketIdx].collaterals[idx].amount <= amountLeft) {
+                pakets[_paketIdx].collaterals[idx].payer = msg.sender;
+                amountLeft -= pakets[_paketIdx].collaterals[idx].amount;
             } else {
-                toPay += _amount;
-                pakets[_paketIdx].payments[idx].amount -= _amount;
+                pakets[_paketIdx].collaterals[idx].amount -= amountLeft;
+                _commitCollateral(_paketIdx, pakets[_paketIdx].collaterals[idx].payee, amountLeft);
+                amountLeft = 0;
             }
         }
-        require(toPay == _amount);
-        _commitPayment(_paketIdx, _payee, toPay);
+        require(amountLeft == 0);
+        balances[_payee] += _amount;
     }
 }
