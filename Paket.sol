@@ -16,48 +16,29 @@ contract Bul is MintableToken {
         balances[msg.sender] = totalSupply;
     }
 
-    struct Commitment {
-        uint256 amount;
-        address payer;
-        address payee;
-    }
-
     struct Paket {
         address recipient;
-        address custodian;
         uint256 deadline;
         uint256 offeredPayment;
         uint256 requiredCollateral;
-        Commitment[] payments;
-        mapping (address => uint256[]) payerToPayments;
-        mapping (address => uint256[]) payeeToPayments;
-        Commitment[] collaterals;
-        mapping (address => uint256[]) payerToCollaterals;
-        mapping (address => uint256[]) payeeToCollaterals;
+        mapping (address => uint256) successBalances;
+        address[] paymentBenificieries;
+        address[] collateralRefundees;
+        mapping (address => uint256) failBalances;
+        address[] collateralBenificieries;
+        address[] paymentRefundees;
     }
 
     Paket[] private pakets;
 
     function create(
-        address _recipient,
-        uint256 _deadline,
-        uint256 _offeredPayment,
-        uint256 _requiredCollateral
+        address _recipient, uint256 _deadline, uint256 _offeredPayment, uint256 _requiredCollateral
     ) public returns (uint256) {
         require(_deadline > now);
-        uint256 paketIdx = pakets.length;
-        pakets.length++;
-        pakets[paketIdx].custodian = msg.sender;
-        pakets[paketIdx].recipient = _recipient;
-        pakets[paketIdx].deadline = _deadline;
-        pakets[paketIdx].offeredPayment = _offeredPayment;
-        pakets[paketIdx].requiredCollateral = _requiredCollateral;
-        return paketIdx;
-    }
-
-    function transferCustodianship(uint256 _paketIdx, address _newCustodian) public {
-        require (pakets[_paketIdx].custodian == msg.sender);
-        pakets[_paketIdx].custodian = _newCustodian;
+        return pakets.push(Paket(
+            _recipient, _deadline, _offeredPayment, _requiredCollateral,
+            new address[](0), new address[](0), new address[](0), new address[](0)
+        )) - 1;
     }
 
     modifier commitBuls(uint256 _amount) {
@@ -66,66 +47,83 @@ contract Bul is MintableToken {
         _;
     }
 
-    function _commitPayment(uint256 _paketIdx, address _payee, uint256 _amount) private {
-            uint256 idx = pakets[_paketIdx].payments.push(Commitment(_amount, msg.sender, _payee)) - 1;
-            pakets[_paketIdx].payerToPayments[msg.sender].push(idx);
-            pakets[_paketIdx].payeeToPayments[_payee].push(idx);
+    modifier managePaketBalances(uint256 _paketIdx, address _successAddress, address _failAddress, uint256 _amount) {
+        pakets[_paketIdx].successBalances[_successAddress] += _amount;
+        pakets[_paketIdx].failBalances[_failAddress] += _amount;
+        _;
     }
 
-    function _commitCollateral(uint256 _paketIdx, address _payee, uint256 _amount) private {
-            uint256 idx = pakets[_paketIdx].collaterals.push(Commitment(_amount, msg.sender, _payee)) - 1;
-            pakets[_paketIdx].payerToCollaterals[msg.sender].push(idx);
-            pakets[_paketIdx].payeeToCollaterals[_payee].push(idx);
+    function commitPayment (uint256 _paketIdx, address _payee, uint256 _amount) public
+        commitBuls(_amount) managePaketBalances(_paketIdx, _payee, msg.sender, _amount)
+    {
+        pakets[_paketIdx].paymentBenificieries.push(_payee);
+        pakets[_paketIdx].paymentRefundees.push(msg.sender);
     }
 
-    function commitPayment(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
-        _commitPayment(_paketIdx, _payee, _amount);
-    }
-
-    function commitCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
-        _commitCollateral(_paketIdx, _payee, _amount);
-    }
-
-    function _countCommitments(Commitment[] _commintments, uint256[] _creditIndexes, uint256[] _debitIndexes) private pure returns (uint256) {
-        uint256 sum = 0;
-        uint256 idx;
-        for (idx = 0; idx < _creditIndexes.length; idx++) {
-            sum += _commintments[idx].amount;
-        }
-        for (idx = 0; idx < _debitIndexes.length; idx++) {
-            sum -= _commintments[idx].amount;
-        }
-        return sum;
-    }
-
-    function paketPaymentsToMe(uint256 _paketIdx) public view returns (uint256) {
-        return _countCommitments(pakets[_paketIdx].payments, pakets[_paketIdx].payeeToPayments[msg.sender], pakets[_paketIdx].payerToPayments[msg.sender]);
-    }
-
-    function paketCollateralsToMe(uint256 _paketIdx) public view returns (uint256) {
-        return _countCommitments(pakets[_paketIdx].collaterals, pakets[_paketIdx].payeeToCollaterals[msg.sender], pakets[_paketIdx].payerToCollaterals[msg.sender]);
+    function commitCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public
+        commitBuls(_amount) managePaketBalances(_paketIdx, msg.sender, _payee, _amount)
+    {
+        pakets[_paketIdx].collateralBenificieries.push(_payee);
+        pakets[_paketIdx].collateralRefundees.push(msg.sender);
     }
 
     function relayPayment(uint256 _paketIdx, address _payee, uint256 _amount) public {
-        require(paketPaymentsToMe(_paketIdx) >= _amount);
-        _commitPayment(_paketIdx, _payee, _amount);
+        require(pakets[_paketIdx].successBalances[msg.sender] >= _amount);
+        pakets[_paketIdx].successBalances[msg.sender] -= _amount;
+        pakets[_paketIdx].successBalances[_payee] += _amount;
+        pakets[_paketIdx].paymentBenificieries.push(msg.sender);
     }
 
     function coverCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
-        uint256 amountLeft = _amount;
-        uint256 idx;
-        for (uint256 idxOfIdx = 0; idxOfIdx <= pakets[_paketIdx].payerToCollaterals[_payee].length && amountLeft > 0; idxOfIdx++) {
-            idx = pakets[_paketIdx].payerToCollaterals[_payee][idxOfIdx];
-            if (pakets[_paketIdx].collaterals[idx].amount <= amountLeft) {
-                pakets[_paketIdx].collaterals[idx].payer = msg.sender;
-                amountLeft -= pakets[_paketIdx].collaterals[idx].amount;
-            } else {
-                pakets[_paketIdx].collaterals[idx].amount -= amountLeft;
-                _commitCollateral(_paketIdx, pakets[_paketIdx].collaterals[idx].payee, amountLeft);
-                amountLeft = 0;
-            }
-        }
-        require(amountLeft == 0);
+        require(pakets[_paketIdx].successBalances[_payee] >= _amount);
+        pakets[_paketIdx].successBalances[_payee] -= _amount;
+        pakets[_paketIdx].successBalances[msg.sender] += _amount;
+        pakets[_paketIdx].collateralRefundees.push(msg.sender);
         balances[_payee] += _amount;
+    }
+
+    function paketSelfInterest(uint256 _paketIdx) public view returns (uint256, uint256) {
+        return (pakets[_paketIdx].successBalances[msg.sender], pakets[_paketIdx].failBalances[msg.sender]);
+    }
+
+//    function _settle(address[] _benificiaries, mapping (address => uint256) _payments) private {
+//        for (uint256 idx = 0; idx < _benificiaries.length; idx++) {
+//            balances[_benificiaries[idx]] += _payments[_benificiaries[idx]];
+//            _payments[_benificiaries[idx]] = 0;
+//        }
+//    }
+
+    function refundAsked(uint256 _paketIdx) public {
+        require(pakets[_paketIdx].deadline < now);
+        uint256 idx;
+        address payee;
+        for (idx = 0; idx < pakets[_paketIdx].paymentRefundees.length; idx++) {
+            payee = pakets[_paketIdx].paymentRefundees[idx];
+            balances[payee] += pakets[_paketIdx].failBalances[payee];
+            pakets[_paketIdx].failBalances[payee] = 0;
+        }
+        for (idx = 0; idx < pakets[_paketIdx].collateralBenificieries.length; idx++) {
+            payee = pakets[_paketIdx].collateralBenificieries[idx];
+            balances[payee] += pakets[_paketIdx].failBalances[payee];
+            pakets[_paketIdx].failBalances[payee] = 0;
+        }
+        delete pakets[_paketIdx];
+    }
+
+    function approveReceipt(uint256 _paketIdx) public {
+        require(pakets[_paketIdx].recipient == msg.sender);
+        uint256 idx;
+        address payee;
+        for (idx = 0; idx < pakets[_paketIdx].collateralRefundees.length; idx++) {
+            payee = pakets[_paketIdx].collateralRefundees[idx];
+            balances[payee] += pakets[_paketIdx].successBalances[payee];
+            pakets[_paketIdx].successBalances[payee] = 0;
+        }
+        for (idx = 0; idx < pakets[_paketIdx].paymentBenificieries.length; idx++) {
+            payee = pakets[_paketIdx].paymentBenificieries[idx];
+            balances[payee] += pakets[_paketIdx].successBalances[payee];
+            pakets[_paketIdx].successBalances[payee] = 0;
+        }
+        delete pakets[_paketIdx];
     }
 }
