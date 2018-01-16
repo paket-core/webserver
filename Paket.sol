@@ -109,7 +109,7 @@ contract Bul is MintableToken {
 //    }
 
     // Refund all payments and forward all collaterals if the deadline has passed.
-    function refundAsked(uint256 _paketIdx) public {
+    function refund(uint256 _paketIdx) public {
         require(pakets[_paketIdx].deadline < now);
         uint256 idx;
         address payee;
@@ -127,7 +127,7 @@ contract Bul is MintableToken {
     }
 
     // Forward all payments and refund all collaterals if recipient agrees.
-    function approveReceipt(uint256 _paketIdx) public {
+    function pay(uint256 _paketIdx) public {
         require(pakets[_paketIdx].recipient == msg.sender);
         uint256 idx;
         address payee;
