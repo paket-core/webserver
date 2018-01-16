@@ -32,7 +32,7 @@ Try the following sequence:
   - balanceOf(owner's address): 1000000000000000000000000
   - mint(owner's address, 1000)
   - balanceOf(owner's address): 1000000000000000000001000
-  - mintingFinished
+  - finishMinting
   - mint(owner's address, 1): should return an error and revert
   - transfer("0x1", "1000")
   - balanceOf(owner's address): 1000000000000000000000000
