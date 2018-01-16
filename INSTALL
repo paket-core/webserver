@@ -1,15 +1,20 @@
+====== INSTALL ======
 How to Get, Run and Test the Code
 
-1) Get the code. You will need to have your public key in `/home/git/.ssh/authorized_keys`.
+===== Get the Code =====
+`git clone git@34.253.21.197:paket`
 
-git clone git@34.253.21.197:paket
+You will need to have your public key in `/home/git/.ssh/authorized_keys`.
 
-2) Copy the code found in `Paket.sol` to Remix.
+
+===== Run the Code =====
+1) Copy the code found in `paket/Paket.sol` to Remix.
 
 https://remix.ethereum.org/
 
-3) Compile it in Remix by hitting the compile button (do not use auto compile, fetching the sources from github takes too long). You should receive some warnings from both our code and the open-zeppelin lib. These fall into three categories (usage of `now`, Remix not being able to estimate gas requirement and possibly constant functions) and are safe to ignore.
+2) Compile it in Remix by hitting the compile button (do not use auto compile, fetching the sources from GitHub takes too long). You should receive some warnings from both our code and the open-zeppelin lib. These fall into three categories (usage of `now`, Remix not being able to estimate gas requirement and possibly constant functions) and are safe to ignore.
 
-4) Create the contract by clicking the run tab and then the create button. You may need to raise the gas limit on the creation of the contract to 4,000,000 wei.
+3) Create the contract by clicking the run tab and then the create button. You may need to raise the gas limit on the creation of the contract to 4,000,000 wei.
 
-5) Test the functions. Arguments, when required, are seperated by commas and are always quoted in double quotes. Addresses are of the form `"0x1234..."`. Numbers are `"1"`. Strings are, well, quoted strings. Note that "read only" functions - that do not modify the state and have no cost - are violet while state changing functions are red.
+===== Test the Code =====
+Test the functions. Arguments, when required, are separated by commas and are always quoted in double quotes. Addresses are of the form `"0x1234..."`. Numbers are `"1"`. Strings are, well, quoted strings. Note that "read-only" functions - that do not modify the state and have no cost - are violet while state changing functions are red.
