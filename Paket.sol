@@ -108,10 +108,7 @@ contract Bul is MintableToken {
 //        }
 //    }
 
-<<<<<<< HEAD
-=======
     // Refund all payments and forward all collaterals if the deadline has passed.
->>>>>>> 88677980f52e9089a75dc322dfcb9cd2d5988b8a
     function refund(uint256 _paketIdx) public {
         require(pakets[_paketIdx].deadline < now);
         uint256 idx;
@@ -129,10 +126,7 @@ contract Bul is MintableToken {
         delete pakets[_paketIdx];
     }
 
-<<<<<<< HEAD
-=======
     // Forward all payments and refund all collaterals if recipient agrees.
->>>>>>> 88677980f52e9089a75dc322dfcb9cd2d5988b8a
     function pay(uint256 _paketIdx) public {
         require(pakets[_paketIdx].recipient == msg.sender);
         uint256 idx;
