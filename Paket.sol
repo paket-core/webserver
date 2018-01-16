@@ -93,7 +93,7 @@ contract Bul is MintableToken {
 //        }
 //    }
 
-    function refundAsked(uint256 _paketIdx) public {
+    function refund(uint256 _paketIdx) public {
         require(pakets[_paketIdx].deadline < now);
         uint256 idx;
         address payee;
@@ -110,7 +110,7 @@ contract Bul is MintableToken {
         delete pakets[_paketIdx];
     }
 
-    function approveReceipt(uint256 _paketIdx) public {
+    function pay(uint256 _paketIdx) public {
         require(pakets[_paketIdx].recipient == msg.sender);
         uint256 idx;
         address payee;
