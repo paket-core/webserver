@@ -1,6 +1,6 @@
 How to Get, Run and Test the Code
 
-1) Get the code.
+1) Get the code. You will need to have your public key in `/home/git/.ssh/authorized_keys`.
 
 git clone git@34.253.21.197:paket
 
