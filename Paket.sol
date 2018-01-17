@@ -3,20 +3,21 @@ pragma solidity ^0.4.13;
 // PaKeT experiment
 // ---------------------------------------------------------------------
 
-import 'https://github.com/OpenZeppelin/zeppelin-solidity/contracts/token/MintableToken.sol';
+//import 'https://github.com/OpenZeppelin/zeppelin-solidity/contracts/token/MintableToken.sol';
+import '/root/paket/node_modules/zeppelin-solidity/contracts/token/MintableToken.sol';
 
-contract Bul is MintableToken {
-    string public name = "Bul";
+contract Paket is MintableToken {
+    string public name = "PaKeT Bul";
     string public symbol = "BUL";
     uint256 public decimals = 18;
     address public owner = msg.sender;
 
-    function Bul() public {
+    function Paket() public {
         totalSupply = 10 ** 6 * 10 ** decimals;
         balances[msg.sender] = totalSupply;
     }
 
-    struct Paket {
+    struct _Paket {
         address recipient;
         uint256 deadline;
         uint256 offeredPayment;
@@ -31,7 +32,7 @@ contract Bul is MintableToken {
         address[] paymentRefundees;
     }
 
-    Paket[] private pakets;
+    _Paket[] private pakets;
 
     // Create a new "empty" paket.
     function create(
@@ -40,7 +41,7 @@ contract Bul is MintableToken {
         require(_deadline > now);
         // push returns the new length of the array, so we subtract 1 to get the new index.
         // Also note the new emptyt arrays created for the new paket struct.
-        return pakets.push(Paket(
+        return pakets.push(_Paket(
             _recipient, _deadline, _offeredPayment, _requiredCollateral,
             new address[](0), new address[](0), new address[](0), new address[](0)
         )) - 1;
