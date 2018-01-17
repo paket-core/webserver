@@ -40,5 +40,5 @@ EOF
 fi
 
 truffle migrate --reset | grep -Po '(?<=Paket: ).*' > paket.address
-solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail +2 > paket.abi
+solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2 > paket.abi
 ./paket.py
