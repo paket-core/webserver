@@ -4,7 +4,7 @@ pragma solidity ^0.4.13;
 // ---------------------------------------------------------------------
 
 //import 'https://github.com/OpenZeppelin/zeppelin-solidity/contracts/token/MintableToken.sol';
-import '/root/paket/node_modules/zeppelin-solidity/contracts/token/MintableToken.sol';
+import './node_modules/zeppelin-solidity/contracts/token/MintableToken.sol';
 
 contract Paket is MintableToken {
     string public name = "PaKeT Bul";
