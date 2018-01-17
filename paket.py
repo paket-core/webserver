@@ -8,7 +8,6 @@ import web3
 def get_contract():
     'Get our contract.'
     w_3 = web3.Web3(web3.HTTPProvider('http://localhost:8545'))
-    print(w_3.eth.blockNumber)
 
     with open('paket.address', 'r') as address_file:
         address = address_file.read()[:-1]
@@ -19,4 +18,7 @@ def get_contract():
     return w_3.eth.contract(address=address, abi=abi)
 
 if __name__ == '__main__':
-    print(get_contract().call().owner())
+    c = get_contract()
+    o = c.call().owner()
+    b = c.call().balanceOf(o)
+    print(o, b)
