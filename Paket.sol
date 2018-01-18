@@ -20,9 +20,6 @@ contract Paket is MintableToken {
     struct _Paket {
         address recipient;
         uint256 deadline;
-        uint256 offeredPayment;
-        uint256 requiredCollateral;
-
         // Balances in case of success and failure, indexed by payment and collateral.
         mapping (address => uint256) successBalances;
         address[] paymentBenificieries;
@@ -35,15 +32,12 @@ contract Paket is MintableToken {
     _Paket[] private pakets;
 
     // Create a new "empty" paket.
-    function create(
-        address _recipient, uint256 _deadline, uint256 _offeredPayment, uint256 _requiredCollateral
-    ) public returns (uint256) {
+    function create(address _recipient, uint256 _deadline) public returns (uint256) {
         require(_deadline > now);
         // push returns the new length of the array, so we subtract 1 to get the new index.
         // Also note the new emptyt arrays created for the new paket struct.
         return pakets.push(_Paket(
-            _recipient, _deadline, _offeredPayment, _requiredCollateral,
-            new address[](0), new address[](0), new address[](0), new address[](0)
+            _recipient, _deadline, new address[](0), new address[](0), new address[](0), new address[](0)
         )) - 1;
     }
 
@@ -128,7 +122,7 @@ contract Paket is MintableToken {
     }
 
     // Forward all payments and refund all collaterals if recipient agrees.
-    function pay(uint256 _paketIdx) public {
+    function payout(uint256 _paketIdx) public {
         require(pakets[_paketIdx].recipient == msg.sender);
         uint256 idx;
         address payee;
