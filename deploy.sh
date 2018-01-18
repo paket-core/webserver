@@ -11,6 +11,7 @@ if ! which truffle; then
     exit 1
 fi
 
+# Initialize truffle if needed.
 if [ ! -r './truffle.js' ]; then
     truffle init
     ln ./Paket.sol ./contracts/.
@@ -39,6 +40,20 @@ EOF
 
 fi
 
-truffle migrate --reset | grep -Po '(?<=Paket: ).*' > paket.address
-solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2 > paket.abi
-./paket.py
+# Initialize swagger if needed.
+[ -d swagger-ui ] || git clone --depth 1 https://github.com/swagger-api/swagger-ui
+
+# Deploy contract and set address.
+PAKET_ADDRESS="$(truffle migrate --reset | grep -Po '(?<=Paket: ).*')"
+
+# Get ABI.
+PAKET_ABI="$(solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2)"
+
+
+# Run flask
+export PAKET_ADDRESS
+export PAKET_ABI
+
+export FLASK_APP=paket.py
+export FLASK_DEBUG=1
+python -m flask run

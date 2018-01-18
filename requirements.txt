@@ -6,6 +6,10 @@ eth-keyfile==0.4.1
 eth-keys==0.1.0b4
 eth-tester==0.1.0b11
 eth-utils==0.7.4
+Flask==0.12
+flask-swagger==0.2.13
+Flask-Cors==3.0.2
+Flask-Limiter==0.9.3
 idna==2.6
 pkg-resources==0.0.0
 pycryptodome==3.4.7
