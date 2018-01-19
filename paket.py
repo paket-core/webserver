@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import uuid
 
 import web3
 # pylint: disable=no-member
@@ -18,6 +19,9 @@ def get_w3(rpc_server=RPC_SERVER):
 
 W3 = get_w3()
 
+def set_account(address):
+    W3.eth.defaultAccount = address
+
 def get_contract(address=ADDRESS, abi=ABI, w3=W3):
     'Get a contract.'
     return W3.eth.contract(address=address, abi=abi)
@@ -30,25 +34,30 @@ def get_owner():
 def get_balance(address):
     return PAKET.call().balanceOf(address)
 
-def get_paket_balance(paket_idx):
-    return PAKET.call().paketSelfInterest(paket_idx);
+def transfer(address, amount):
+    PAKET.transact().transfer(address, amount)
+
+def get_paket_balance(paket_id):
+    return PAKET.call().paketSelfInterest(paket_id);
 
 def launch(recipient, deadline, courier, payment):
-    paket_idx = PAKET.transact().create(recipient, deadline)
-    PAKET.transact().commitPayment(paket_idx, courier, payment)
-    return paket_idx
+    # We are using only 128 bits here, out of the available 256.
+    paket_id = uuid.uuid4().int
+    PAKET.transact().create(paket_id, recipient, deadline)
+    PAKET.transact().commitPayment(paket_id, courier, payment)
+    return paket_id
 
-def commit_collateral(paket_idx, launcher, collateral):
-    PAKET.transact().commitCollateral(paket_idx, launcher, collateral)
+def commit_collateral(paket_id, launcher, collateral):
+    PAKET.transact().commitCollateral(paket_id, launcher, collateral)
 
-def cover_collateral(paket_idx, courier, collateral):
-    PAKET.transact().coverCollateral(paket_idx, courier, collateral)
+def cover_collateral(paket_id, courier, collateral):
+    PAKET.transact().coverCollateral(paket_id, courier, collateral)
 
-def relay_payment(paket_idx, courier, payment):
-    PAKET.transact().relayPayment(paket_idx, courier, collateral)
+def relay_payment(paket_id, courier, payment):
+    PAKET.transact().relayPayment(paket_id, courier, collateral)
 
-def refund(paket_idx):
-    PAKET.transact().refund(paket_idx)
+def refund(paket_id):
+    PAKET.transact().refund(paket_id)
 
-def confirm_delivery(paket_idx):
-    PAKET.transact().payout(paket_idx)
+def confirm_delivery(paket_id):
+    PAKET.transact().payout(paket_id)
