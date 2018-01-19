@@ -31,12 +31,6 @@ contract Paket is MintableToken {
 
     mapping (uint256 => PaketStruct) private pakets;
 
-    // Get paket's recipient and deadline if it exists.
-    function getPaket(uint256 _paketId) view public returns (address, uint256) {
-        require(pakets[_paketId].deadline > 0);
-        return (pakets[_paketId].recipient, pakets[_paketId].deadline);
-    }
-
     // Create a new "empty" paket if _deadline is in the future and_paketId is unique.
     function create(uint256 _paketId, address _recipient, uint256 _deadline) public {
         require(_deadline > now);
