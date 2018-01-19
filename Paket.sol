@@ -17,7 +17,7 @@ contract Paket is MintableToken {
         balances[msg.sender] = totalSupply;
     }
 
-    struct _Paket {
+    struct PaketStruct {
         address recipient;
         uint256 deadline;
         // Balances in case of success and failure, indexed by payment and collateral.
@@ -29,19 +29,26 @@ contract Paket is MintableToken {
         address[] paymentRefundees;
     }
 
-    _Paket[] private pakets;
+    mapping (uint256 => PaketStruct) private pakets;
 
-    // Create a new "empty" paket.
-    function create(address _recipient, uint256 _deadline) public returns (uint256) {
+    // Get paket's recipient and deadline if it exists.
+    function getPaket(uint256 _paketId) view public returns (address, uint256) {
+        require(pakets[_paketId].deadline > 0);
+        return (pakets[_paketId].recipient, pakets[_paketId].deadline);
+    }
+
+    // Create a new "empty" paket if _deadline is in the future and_paketId is unique.
+    function create(uint256 _paketId, address _recipient, uint256 _deadline) public {
         require(_deadline > now);
-        // push returns the new length of the array, so we subtract 1 to get the new index.
-        // Also note the new emptyt arrays created for the new paket struct.
-        return pakets.push(_Paket(
+        require(pakets[_paketId].deadline == 0);
+        pakets[_paketId] = PaketStruct(
             _recipient, _deadline, new address[](0), new address[](0), new address[](0), new address[](0)
-        )) - 1;
+        );
     }
 
     // Modifier to functions that commit BULs.
+    // FIXME Perhaps we better use zeppelin's transfre method.
+    // Which probably means we will be sending BULs to the contract itself.
     modifier commitBuls(uint256 _amount) {
         require(balanceOf(msg.sender) >= _amount);
         balances[msg.sender] -= _amount;
@@ -49,50 +56,50 @@ contract Paket is MintableToken {
     }
 
     // Modifier to functions that need to add balances from outside.
-    modifier managePaketBalances(uint256 _paketIdx, address _successAddress, address _failAddress, uint256 _amount) {
-        pakets[_paketIdx].successBalances[_successAddress] += _amount;
-        pakets[_paketIdx].failBalances[_failAddress] += _amount;
+    modifier managePaketBalances(uint256 _paketId, address _successAddress, address _failAddress, uint256 _amount) {
+        pakets[_paketId].successBalances[_successAddress] += _amount;
+        pakets[_paketId].failBalances[_failAddress] += _amount;
         _;
     }
 
     // Add payment to a paket.
-    function commitPayment (uint256 _paketIdx, address _payee, uint256 _amount) public
-        commitBuls(_amount) managePaketBalances(_paketIdx, _payee, msg.sender, _amount)
+    function commitPayment (uint256 _paketId, address _payee, uint256 _amount) public
+        commitBuls(_amount) managePaketBalances(_paketId, _payee, msg.sender, _amount)
     {
-        pakets[_paketIdx].paymentBenificieries.push(_payee);
-        pakets[_paketIdx].paymentRefundees.push(msg.sender);
+        pakets[_paketId].paymentBenificieries.push(_payee);
+        pakets[_paketId].paymentRefundees.push(msg.sender);
     }
 
     // Add collateral to a paket.
-    function commitCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public
-        commitBuls(_amount) managePaketBalances(_paketIdx, msg.sender, _payee, _amount)
+    function commitCollateral(uint256 _paketId, address _payee, uint256 _amount) public
+        commitBuls(_amount) managePaketBalances(_paketId, msg.sender, _payee, _amount)
     {
-        pakets[_paketIdx].collateralBenificieries.push(_payee);
-        pakets[_paketIdx].collateralRefundees.push(msg.sender);
+        pakets[_paketId].collateralBenificieries.push(_payee);
+        pakets[_paketId].collateralRefundees.push(msg.sender);
     }
 
     // Promise some of the payment previously promised to you to another.
-    function relayPayment(uint256 _paketIdx, address _payee, uint256 _amount) public {
-        require(pakets[_paketIdx].successBalances[msg.sender] >= _amount);
-        pakets[_paketIdx].successBalances[msg.sender] -= _amount;
-        pakets[_paketIdx].successBalances[_payee] += _amount;
-        pakets[_paketIdx].paymentBenificieries.push(msg.sender);
+    function relayPayment(uint256 _paketId, address _payee, uint256 _amount) public {
+        require(pakets[_paketId].successBalances[msg.sender] >= _amount);
+        pakets[_paketId].successBalances[msg.sender] -= _amount;
+        pakets[_paketId].successBalances[_payee] += _amount;
+        pakets[_paketId].paymentBenificieries.push(msg.sender);
     }
 
     // Cover someone else's collateral (so he gets his BULs back).
     // _amount must be equal or less than what he committed.
     // For increasing collateral use commitCollateral.
-    function coverCollateral(uint256 _paketIdx, address _payee, uint256 _amount) public commitBuls(_amount) {
-        require(pakets[_paketIdx].successBalances[_payee] >= _amount);
-        pakets[_paketIdx].successBalances[_payee] -= _amount;
-        pakets[_paketIdx].successBalances[msg.sender] += _amount;
-        pakets[_paketIdx].collateralRefundees.push(msg.sender);
+    function coverCollateral(uint256 _paketId, address _payee, uint256 _amount) public commitBuls(_amount) {
+        require(pakets[_paketId].successBalances[_payee] >= _amount);
+        pakets[_paketId].successBalances[_payee] -= _amount;
+        pakets[_paketId].successBalances[msg.sender] += _amount;
+        pakets[_paketId].collateralRefundees.push(msg.sender);
         balances[_payee] += _amount;
     }
 
     // Check my balance in case of success and failure;
-    function paketSelfInterest(uint256 _paketIdx) public view returns (uint256, uint256) {
-        return (pakets[_paketIdx].successBalances[msg.sender], pakets[_paketIdx].failBalances[msg.sender]);
+    function paketSelfInterest(uint256 _paketId) public view returns (uint256, uint256) {
+        return (pakets[_paketId].successBalances[msg.sender], pakets[_paketId].failBalances[msg.sender]);
     }
 
 // Why can't we use this helper function?
@@ -102,40 +109,62 @@ contract Paket is MintableToken {
 //            _payments[_benificiaries[idx]] = 0;
 //        }
 //    }
+//
+// Or even someting like this:
+//
+//    // This is a helper struct so we can bypass Solidity's limitation of not passing mappings as function arguments.
+//    struct IndexedBalances {
+//        mapping (address => uint256) balances;
+//        address[] benificieries;
+//    }
+//
+//    // Helper function that settles a bunch of balances.
+//    function _settle(IndexedBalances storage _ibs) private {
+//        for (uint256 idx = 0; idx < _ibs.benificiaries.length; idx++) {
+//            balances[_ibs.benificiaries[idx]] += _ibs.payments[_ibs.benificiaries[idx]];
+//            _ibs.payments[_ibs.benificiaries[idx]] = 0;
+//        }
+//    }
+//
+//    // Refund all payments and forward all collaterals if the deadline has passed.
+//    function refund(uint256 _paketId) public {
+//        require(pakets[_paketId].deadline < now);
+//        _settle(IndexedBalances(pakets[_paketId].failBalances, pakets[_paketId].paymentRefundees));
+//        _settle(IndexedBalances(pakets[_paketId].failBalances, pakets[_paketId].collateralBenificieries));
 
     // Refund all payments and forward all collaterals if the deadline has passed.
-    function refund(uint256 _paketIdx) public {
-        require(pakets[_paketIdx].deadline < now);
+    function refund(uint256 _paketId) public {
+        require(pakets[_paketId].deadline < now);
         uint256 idx;
         address payee;
-        for (idx = 0; idx < pakets[_paketIdx].paymentRefundees.length; idx++) {
-            payee = pakets[_paketIdx].paymentRefundees[idx];
-            balances[payee] += pakets[_paketIdx].failBalances[payee];
-            pakets[_paketIdx].failBalances[payee] = 0;
+        for (idx = 0; idx < pakets[_paketId].paymentRefundees.length; idx++) {
+            payee = pakets[_paketId].paymentRefundees[idx];
+            balances[payee] += pakets[_paketId].failBalances[payee];
+            pakets[_paketId].failBalances[payee] = 0;
         }
-        for (idx = 0; idx < pakets[_paketIdx].collateralBenificieries.length; idx++) {
-            payee = pakets[_paketIdx].collateralBenificieries[idx];
-            balances[payee] += pakets[_paketIdx].failBalances[payee];
-            pakets[_paketIdx].failBalances[payee] = 0;
+        for (idx = 0; idx < pakets[_paketId].collateralBenificieries.length; idx++) {
+            payee = pakets[_paketId].collateralBenificieries[idx];
+            balances[payee] += pakets[_paketId].failBalances[payee];
+            pakets[_paketId].failBalances[payee] = 0;
         }
-        delete pakets[_paketIdx];
+        delete pakets[_paketId];
     }
 
     // Forward all payments and refund all collaterals if recipient agrees.
-    function payout(uint256 _paketIdx) public {
-        require(pakets[_paketIdx].recipient == msg.sender);
+    function payout(uint256 _paketId) public {
+        require(pakets[_paketId].recipient == msg.sender);
         uint256 idx;
         address payee;
-        for (idx = 0; idx < pakets[_paketIdx].collateralRefundees.length; idx++) {
-            payee = pakets[_paketIdx].collateralRefundees[idx];
-            balances[payee] += pakets[_paketIdx].successBalances[payee];
-            pakets[_paketIdx].successBalances[payee] = 0;
+        for (idx = 0; idx < pakets[_paketId].collateralRefundees.length; idx++) {
+            payee = pakets[_paketId].collateralRefundees[idx];
+            balances[payee] += pakets[_paketId].successBalances[payee];
+            pakets[_paketId].successBalances[payee] = 0;
         }
-        for (idx = 0; idx < pakets[_paketIdx].paymentBenificieries.length; idx++) {
-            payee = pakets[_paketIdx].paymentBenificieries[idx];
-            balances[payee] += pakets[_paketIdx].successBalances[payee];
-            pakets[_paketIdx].successBalances[payee] = 0;
+        for (idx = 0; idx < pakets[_paketId].paymentBenificieries.length; idx++) {
+            payee = pakets[_paketId].paymentBenificieries[idx];
+            balances[payee] += pakets[_paketId].successBalances[payee];
+            pakets[_paketId].successBalances[payee] = 0;
         }
-        delete pakets[_paketIdx];
+        delete pakets[_paketId];
     }
 }
