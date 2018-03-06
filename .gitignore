@@ -1,1 +1,10 @@
 *.pyc
+build
+contracts
+env
+ganache
+migrations
+node_modules
+swagger-ui
+truffle-config.js
+truffle.js

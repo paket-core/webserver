@@ -1,7 +1,11 @@
-#!/bin/sh
-if ! [ "$BASH_SOURCE" ]; then
-    echo 'This file is meant for sourcing, not execution.'
-    return 1
+#!/bin/bash
+PAKET_WEB3_SERVER="${PAKET_WEB3_SERVER:-http://localhost:8545}"
+FLASK_APP=api.py
+FLASK_DEBUG=1
+
+if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
+    echo "no RPC found on localhost $PAKET_WEB3_SERVER"
+    exit 1
 fi
 
 if ! which truffle; then
@@ -9,7 +13,13 @@ if ! which truffle; then
     return 1
 fi
 
-# Initialize truffle if needed.
+missing_packages="$(comm -23 requirements.txt <(pip freeze))"
+if [ "$missing_packages" ]; then
+    echo "The following packages are missing: $missing_packages"
+    exit 1
+fi
+
+# Initialize truffle and zeppelin if needed.
 if [ ! -r './truffle.js' ]; then
     truffle init
     ln ./Paket.sol ./contracts/.
@@ -35,6 +45,9 @@ EOF
     npm install zeppelin-solidity
 fi
 
+# Initialize swagger if needed.
+[ -d swagger-ui ] || git clone --depth 1 https://github.com/swagger-api/swagger-ui
+
 # Deploy contract and set address.
 PAKET_ADDRESS="$(truffle migrate --reset | grep -Po '(?<=Paket: ).*')"
 export PAKET_ADDRESS
@@ -42,3 +55,7 @@ export PAKET_ADDRESS
 # Get ABI.
 PAKET_ABI="$(solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2)"
 export PAKET_ABI
+
+export FLASK_APP
+export FLASK_DEBUG
+flask run
