@@ -6,6 +6,8 @@ import flask_cors
 import flask_limiter.util
 import flask_swagger
 
+import paket
+
 VERSION = '1'
 
 APP = flask.Flask('PaKeT')
@@ -14,6 +16,40 @@ APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static', 'swagger-ui/dist']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
+
+@APP.route("/v{}/balance/<user>".format(VERSION), methods=['GET', 'POST'])
+def balance_endpoint(user):
+    """
+      Get the balance of your account
+      Use this call to get the balance of our account.
+      ---
+      tags:
+        - user-calls
+      parameters:
+        - user: the user name
+          in: URL
+          description: the user's name
+          required: true
+          type: string
+          format: string
+          default: debug
+
+      responses:
+        200:
+          description: Status provided.
+          schema:
+            properties:
+              available_bulls:
+                type: integer
+                format: int32
+                minimum: 0
+                description: funds available for usage in buls
+            example:
+              code: 200
+              available_bulls: 850
+    """
+    return flask.jsonify({'available_bulls': 850})
+
 
 @APP.route('/spec.json')
 def spec_endpoint():
