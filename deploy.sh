@@ -13,7 +13,7 @@ if ! which truffle; then
     return 1
 fi
 
-missing_packages="$(comm -23 requirements.txt <(pip freeze))"
+missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
 if [ "$missing_packages" ]; then
     echo "The following packages are missing: $missing_packages"
     exit 1

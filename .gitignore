@@ -5,6 +5,7 @@ env
 ganache
 migrations
 node_modules
+paket.db
 swagger-ui
 truffle-config.js
 truffle.js

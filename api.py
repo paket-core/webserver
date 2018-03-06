@@ -2,11 +2,15 @@
 import os
 
 import flask
+import flask.logging
 import flask_cors
 import flask_limiter.util
 import flask_swagger
 
 import paket
+import logger
+
+logger.setup()
 
 VERSION = '1'
 
@@ -17,8 +21,8 @@ STATIC_DIRS = ['static', 'swagger-ui/dist']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
-@APP.route("/v{}/balance/<user>".format(VERSION), methods=['GET', 'POST'])
-def balance_endpoint(user):
+@APP.route("/v{}/balance".format(VERSION))
+def balance_endpoint():
     """
       Get the balance of your account
       Use this call to get the balance of our account.
@@ -26,9 +30,9 @@ def balance_endpoint(user):
       tags:
         - user-calls
       parameters:
-        - user: the user name
-          in: URL
-          description: the user's name
+        - user_id: the user's ID
+          in: query
+          description: the user's unique ID
           required: true
           type: string
           format: string
@@ -48,7 +52,10 @@ def balance_endpoint(user):
               code: 200
               available_bulls: 850
     """
-    return flask.jsonify({'available_bulls': 850})
+    balance = paket.get_balance(flask.request.args['user_id'])
+    if balance is None:
+        return flask.make_response(flask.jsonify({'error': 'No balance available.'}), 404)
+    return flask.jsonify({'available_bulls': balance})
 
 
 @APP.route('/spec.json')
