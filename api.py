@@ -21,12 +21,48 @@ DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
 APP.config['SWAGGER'] = {
-    'title': 'PaKeT API',
-    'version': VERSION,
-    'description': 'This is a cool thing.',
     'uiversion': 3
     }
-flasgger.Swagger(APP)
+
+template = {
+  "swagger": "3.0",
+  "securityDefinitions": {
+    "api_key": {
+      "type": "apiKey",
+      "name": "api_key",
+      "in": "header"
+    },
+    "oauth": {
+      "type": "oauth2",
+      "authorizationUrl": "http://api.example.com/api/auth/",
+      "flow": "implicit",
+      "scopes": {
+        "read:players": "read player data"
+      }
+    }
+  },
+
+  "info": {
+    "title": "PaKeT API",
+    "description": "This is a cool thing.",
+    "contact": {
+      "responsibleOrganization": "ME",
+      "responsibleDeveloper": "Me",
+      "email": "me@me.com",
+      "url": "www.me.com",
+    },
+    "termsOfService": "http://me.com/terms",
+    "version": VERSION
+  },
+  #"host": "mysite.com",  # overrides localhost:500
+  "basePath": "/api",  # base bash for blueprint registration
+  "schemes": [
+    "http",
+    "https"
+  ],
+}
+
+flasgger.Swagger(APP, template=template)
 
 
 class MissingFields(Exception):
