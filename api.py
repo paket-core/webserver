@@ -212,13 +212,43 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
           description: list of packages
           schema:
             properties:
-              available_bulls:
-                type: integer
-                format: int32
-                minimum: 0
-                description: funds available for usage in buls
+              packagess:
+                type: array
+                items:
+                  type: object
+                  properties:
+                      PKT-id:
+                        type: string
+                      Recipient-id:
+                        type: string
+                      send-timestamp:
+                        type: integer
+                      deadline-timestamp:
+                        type: integer
+                      cost:
+                        type: integer
+                      collateral:
+                        type: integer
+                      status:
+                        type: string
+                        
             example:
-              available_bulls: 850
+              - PKT-id: 1001
+                Recipient-id: '@israel'
+                send-timestamp: 41234123
+                deadline-timestamp: 41244123
+                cost: 120
+                collateral: 400
+                status: in transit
+              - PKT-id: 1002
+                Recipient-id: '@oren'
+                send-timestamp: 41234123
+                deadline-timestamp: 41244123
+                cost: 20
+                collateral: 40
+                status: delivered
+                
+
     '''
     return {'error': 'Not implemented', 'status': 501}
 
