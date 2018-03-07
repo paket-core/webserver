@@ -159,13 +159,12 @@ def balance_endpoint(user_id):
       tags:
         - user-calls
       parameters:
-        - user_id: the user's ID
-          in: query
+        - in: query
+          name: user_id
           description: the user's unique ID
           required: true
           type: string
-          format: string
-          default: debug
+          default: owner
 
       responses:
         200:
