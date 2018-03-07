@@ -184,7 +184,7 @@ def balance_endpoint(user_id):
 @APP.route("/v{}/transfer".format(VERSION))
 @validate_call({'address', 'amount'})
 def transfer_endpoint(address, amount):
-    'Put swagger shit here.'
+    'Put swagger YAML here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
@@ -256,28 +256,28 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
 @APP.route("/v{}/launch".format(VERSION))
 @validate_call({'address', 'amount'})
 def launch_endpoint():
-    'Put swagger shit here.'
+    'Put swagger YAML here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/accept".format(VERSION))
 @validate_call
 def accept_endpoint():
-    'Put swagger shit here.'
+    'Put swagger YAML here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/address".format(VERSION))
 @validate_call
 def address_endpoint():
-    'Put swagger shit here.'
+    'Put swagger YAML here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/price".format(VERSION))
 @validate_call
 def price_endpoint():
-    'Put swagger shit here.'
+    'Put swagger YAML here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
