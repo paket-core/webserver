@@ -156,11 +156,9 @@ def balance_endpoint(user_id):
       Get the balance of your account
       Use this call to get the balance of our account.
       ---
-      tags:
-        - user-calls
       parameters:
-        - in: query
-          name: user_id
+        - name: user_id
+          in: query
           description: the user's unique ID
           required: true
           type: string
@@ -168,7 +166,7 @@ def balance_endpoint(user_id):
 
       responses:
         200:
-          description: Status provided.
+          description: balance in BULs
           schema:
             properties:
               available_bulls:
@@ -177,7 +175,6 @@ def balance_endpoint(user_id):
                 minimum: 0
                 description: funds available for usage in buls
             example:
-              code: 200
               available_bulls: 850
     '''
     balance = paket.get_balance(user_id)
@@ -194,7 +191,35 @@ def transfer_endpoint(address, amount):
 @APP.route("/v{}/packages".format(VERSION))
 @validate_call()
 def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
-    'Put swagger shit here.'
+    '''
+      Get list of packages
+      ---
+      parameters:
+        - name: show_inactive
+          in: query
+          description: include inactive packages in response
+          required: false
+          type: boolean
+          default: false
+        - name: from_date
+          in: query
+          description: show only packages from this date forward
+          required: false
+          type: string
+
+      responses:
+        200:
+          description: list of packages
+          schema:
+            properties:
+              available_bulls:
+                type: integer
+                format: int32
+                minimum: 0
+                description: funds available for usage in buls
+            example:
+              available_bulls: 850
+    '''
     return {'error': 'Not implemented', 'status': 501}
 
 
