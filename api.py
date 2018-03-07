@@ -3,9 +3,9 @@ import collections
 import functools
 import os
 
+import flasgger
 import flask
 import flask_limiter.util
-import flask_swagger
 
 import paket
 import logger
@@ -19,6 +19,14 @@ APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static', 'swagger-ui/dist']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
+
+APP.config['SWAGGER'] = {
+    'title': 'PaKeT API',
+    'version': VERSION,
+    'description': 'This is a cool thing.',
+    'uiversion': 3
+    }
+flasgger.Swagger(APP)
 
 
 class MissingFields(Exception):
@@ -143,36 +151,42 @@ def balance_endpoint(user_id):
 @APP.route("/v{}/transfer".format(VERSION))
 @validate_call({'address', 'amount'})
 def transfer_endpoint(address, amount):
+    'Put swagger shit here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/packages".format(VERSION))
 @validate_call()
 def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
+    'Put swagger shit here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/launch".format(VERSION))
 @validate_call({'address', 'amount'})
-def launch_endpoint(address, amount):
+def launch_endpoint():
+    'Put swagger shit here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/accept".format(VERSION))
 @validate_call
 def accept_endpoint():
+    'Put swagger shit here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/address".format(VERSION))
 @validate_call
 def address_endpoint():
+    'Put swagger shit here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/price".format(VERSION))
 @validate_call
 def price_endpoint():
+    'Put swagger shit here.'
     return {'error': 'Not implemented', 'status': 501}
 
 
@@ -182,18 +196,6 @@ def ratelimit_handler(error):
     msg = 'Rate limit exceeded. Allowed rate: {}'.format(error.description)
     LOGGER.info(msg)
     return flask.make_response(flask.jsonify({'status': 429, 'error': msg}), 429)
-
-
-@APP.route('/spec.json')
-def spec_endpoint():
-    'Swagger.'
-    swag = flask_swagger.swagger(APP)
-    swag['info']['version'] = VERSION
-    swag['info']['title'] = 'PaKeT'
-    swag['info']['description'] = '''
-This is a cool thing.
-'''
-    return flask.jsonify(swag), 200
 
 
 @APP.route('/')
