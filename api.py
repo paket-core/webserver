@@ -27,19 +27,20 @@ APP.config['SWAGGER'] = {
 template = {
   "swagger": "3.0",
   "securityDefinitions": {
-    "api_key": {
+    "an_api_key thingy": {
       "type": "apiKey",
-      "name": "api_key",
+      "name": "api_key_name",
       "in": "header"
     },
     "oauth": {
       "type": "oauth2",
-      "authorizationUrl": "http://api.example.com/api/auth/",
-      "flow": "implicit",
+      "authorizationUrl": "https://github.com/login/oauth/authorize",
+      "tokenUrl": "https://github.com/login/oauth/access_token",
+      "flow": "authorizationCode",
       "scopes": {
         "read:players": "read player data"
       }
-    }
+    },
   },
 
   "info": {
