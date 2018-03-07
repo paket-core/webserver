@@ -1,7 +1,7 @@
 #!/bin/bash
-PAKET_WEB3_SERVER="${PAKET_WEB3_SERVER:-http://localhost:8545}"
-FLASK_APP=api.py
-FLASK_DEBUG=1
+set -o allexport
+. paket.env
+set +o allexport
 
 if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
     echo "no RPC found on localhost $PAKET_WEB3_SERVER"
@@ -56,6 +56,4 @@ export PAKET_ADDRESS
 PAKET_ABI="$(solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2)"
 export PAKET_ABI
 
-export FLASK_APP
-export FLASK_DEBUG
 flask run
