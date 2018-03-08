@@ -21,7 +21,7 @@ DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
 APP.config['SWAGGER'] = {
-    'uiversion': 3
+    'uiversion': 3,
     }
 
 template = {
@@ -252,11 +252,80 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
     '''
     return {'error': 'Not implemented', 'status': 501}
 
+@APP.route("/v{}/package".format(VERSION))
+@validate_call()
+def package_endpoint(package_id):
+    '''
+      Get list of packages
+      ---
+      parameters:
+        - name: package_id
+          in: query
+          description: PKT id
+          required: true
+          type: integer
+          default: 0
+      definitions:
+        Package:
+          type: object
+          properties:
+            PKT-id:
+                type: string
+            Recipient-id:
+                type: string
+            send-timestamp:
+                type: integer
+            deadline-timestamp:
+                type: integer
+            cost:
+                type: integer
+            collateral:
+                type: integer
+            status:
+                type: string
+              
+      responses:
+        200:
+          description: a single packages
+          schema:
+            $ref: '#/definitions/Package'
+                        
+            example:
+              - PKT-id: 1001
+                Recipient-id: '@israel'
+                send-timestamp: 41234123
+                deadline-timestamp: 41244123
+                cost: 120
+                collateral: 400
+                status: in transit
+
+
+    '''
+    return {'error': 'Not implemented', 'status': 501}
+
 
 @APP.route("/v{}/launch".format(VERSION))
 @validate_call({'address', 'amount'})
 def launch_endpoint():
-    'Put swagger YAML here.'
+    '''Put swagger YAML here.
+
+                PKT-id:
+            type: string
+            Recipient-id:
+            type: string
+            send-timestamp:
+            type: integer
+            deadline-timestamp:
+            type: integer
+            cost:
+            type: integer
+            collateral:
+            type: integer
+            status:
+            type: string
+    
+    
+    '''
     return {'error': 'Not implemented', 'status': 501}
 
 
