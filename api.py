@@ -290,9 +290,36 @@ def package_endpoint(package_id):
 
 
 @APP.route("/v{}/launch".format(VERSION))
-@validate_call({'address', 'amount'})
+@validate_call({'receiver-id', })
 def launch_endpoint():
-    '''Put swagger YAML here.'''
+    '''
+      Launch a package
+      ---
+      parameters:
+        - name: receiver-id
+          in: query
+          description: Receiver id
+          required: true
+          type: string
+          default: '@oren'
+              
+      responses:
+        200:
+          description: Package launched
+          content:
+            schema:
+              type: string
+              example: PKT-12345            
+            example:
+              - PKT-id: 1001
+                Recipient-id: '@israel'
+                send-timestamp: 41234123
+                deadline-timestamp: 41244123
+                cost: 120
+                collateral: 400
+                status: in transit
+    '''
+
     return {'error': 'Not implemented', 'status': 501}
 
 
