@@ -215,22 +215,7 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
               packagess:
                 type: array
                 items:
-                  type: object
-                  properties:
-                      PKT-id:
-                        type: string
-                      Recipient-id:
-                        type: string
-                      send-timestamp:
-                        type: integer
-                      deadline-timestamp:
-                        type: integer
-                      cost:
-                        type: integer
-                      collateral:
-                        type: integer
-                      status:
-                        type: string
+                  $ref: '#/definitions/Package'
                         
             example:
               - PKT-id: 1001
@@ -256,7 +241,7 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
 @validate_call()
 def package_endpoint(package_id):
     '''
-      Get list of packages
+      Get a single package
       ---
       parameters:
         - name: package_id
@@ -307,25 +292,7 @@ def package_endpoint(package_id):
 @APP.route("/v{}/launch".format(VERSION))
 @validate_call({'address', 'amount'})
 def launch_endpoint():
-    '''Put swagger YAML here.
-
-                PKT-id:
-            type: string
-            Recipient-id:
-            type: string
-            send-timestamp:
-            type: integer
-            deadline-timestamp:
-            type: integer
-            cost:
-            type: integer
-            collateral:
-            type: integer
-            status:
-            type: string
-    
-    
-    '''
+    '''Put swagger YAML here.'''
     return {'error': 'Not implemented', 'status': 501}
 
 
