@@ -5,6 +5,7 @@ import os
 
 import flasgger
 import flask
+import flask_dance.contrib.github
 import flask_limiter.util
 
 import paket
@@ -16,54 +17,30 @@ logger.setup()
 
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
-STATIC_DIRS = ['static', 'swagger-ui/dist']
+STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
+#from flask import Flask, redirect, url_for
+#from flask_dance.contrib.github import make_github_blueprint, github
+BLUEPRINT = flask_dance.contrib.github.make_github_blueprint(
+    client_id=os.environ['GITHUB_CLIENT_ID'],
+    client_secret=os.environ['GITHUB_CLIENT_SECRET'])
+APP.register_blueprint(BLUEPRINT, url_prefix="/login")
+
 APP.config['SWAGGER'] = {
     'uiversion': 3,
-    }
-
-template = {
-  "swagger": "3.0",
-
-  "info": {
-    "title": "PaKeT API",
-    "description": "This is a cool thing.",
-    "contact": {
-      "responsibleOrganization": "ME",
-      "responsibleDeveloper": "Me",
-      "email": "me@me.com",
-      "url": "www.me.com",
-    },
-    "termsOfService": "http://me.com/terms",
-    "version": VERSION
-  },
-
-  "securityDefinitions": {
-    "an_api_key thingy": {
-      "type": "apiKey",
-      "name": "api_key_name",
-      "in": "header"
-    },
-    "oauth": {
-      "type": "oauth2",
-      "authorizationUrl": "https://github.com/login/oauth/authorize",
-      "tokenUrl": "https://github.com/login/oauth/access_token",
-      "flow": "authorizationCode",
-      "scopes": {
-        "read:players": "read player data"
-      }
-    },
-  },
-  #"host": "mysite.com",  # overrides localhost:500
-  #"basePath": "/api",  # base bash for blueprint registration
-  "schemes": [
-    "http",
-  ],
-}
-
-flasgger.Swagger(APP, template=template)
+    'specs_route': '/',
+    'info': {
+        'title': 'PaKeT API',
+        'description': 'This is a cool thing.',
+        'version': VERSION},
+    'securityDefinitions': {
+        'oauth': {
+            'type': 'oauth2',
+            'authorizationUrl': '/login',
+            'flow': 'authorizationCode'}}}
+flasgger.Swagger(APP)
 
 
 class MissingFields(Exception):
@@ -100,10 +77,13 @@ def validate_values(args):
     return args
 
 
-def validate_user(user_id):
-    'Raise exception if user is invalid.'
-    # This will support OAuth, probably.
-    LOGGER.warning("not validating user %s", user_id)
+def get_user():
+    'Get current user.'
+    if flask_dance.contrib.github.github.authorized:
+        resp = flask_dance.contrib.github.github.get('/user')
+        if resp.ok:
+            return resp.json
+    return False
 
 
 def optional_args_decorator(decorator):
@@ -133,10 +113,14 @@ def validate_call(handler=None, required_fields=None):
         # pylint: disable=broad-except
         # If anything fails, we want to log it and fail gracefully.
         try:
-            kwargs = flask.request.values
+            kwargs = flask.request.values.to_dict()
             validate_fields(set(kwargs.keys()), required_fields)
             kwargs = validate_values(kwargs)
-            response = handler(**kwargs.to_dict())
+            kwargs['user_id'] = get_user()
+            if kwargs['user_id']:
+                response = handler(**kwargs)
+            else:
+                response = {'status': 403, 'error': 'Must be logged in'}
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
         except BadBulNumberField as exception:
@@ -149,21 +133,23 @@ def validate_call(handler=None, required_fields=None):
     return _validate_call
 
 
+@APP.route('/login')
+def login():
+    'OAuth login.'
+    if not flask_dance.contrib.github.github.authorized:
+        return flask.redirect(flask.url_for("github.login"))
+    resp = flask_dance.contrib.github.github.get("/user")
+    assert resp.ok
+    return "You are @{login} on GitHub".format(login=resp.json()["login"])
+
+
 @APP.route("/v{}/balance".format(VERSION))
-@validate_call({'user_id'})
+@validate_call
 def balance_endpoint(user_id):
     '''
       Get the balance of your account
       Use this call to get the balance of our account.
       ---
-      parameters:
-        - name: user_id
-          in: query
-          description: the user's unique ID
-          required: true
-          type: string
-          default: owner
-
       responses:
         200:
           description: balance in BULs
@@ -216,7 +202,6 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
                 type: array
                 items:
                   $ref: '#/definitions/Package'
-                        
             example:
               - PKT-id: 1001
                 Recipient-id: '@israel'
@@ -232,8 +217,6 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
                 cost: 20
                 collateral: 40
                 status: delivered
-                
-
     '''
     return {'error': 'Not implemented', 'status': 501}
 
@@ -268,13 +251,11 @@ def package_endpoint(package_id):
                 type: integer
             status:
                 type: string
-              
       responses:
         200:
           description: a single packages
           schema:
             $ref: '#/definitions/Package'
-                        
             example:
               - PKT-id: 1001
                 Recipient-id: '@israel'
@@ -302,14 +283,13 @@ def launch_endpoint():
           required: true
           type: string
           default: '@oren'
-              
       responses:
         200:
           description: Package launched
           content:
             schema:
               type: string
-              example: PKT-12345            
+              example: PKT-12345
             example:
               - PKT-id: 1001
                 Recipient-id: '@israel'
@@ -357,11 +337,11 @@ def ratelimit_handler(error):
 @LIMITER.limit(limit_value="2000 per second")
 def catch_all_endpoint(path='index.html'):
     'All undefined endpoints try to serve from the static directories.'
-    LOGGER.warning('in catchall')
     for directory in STATIC_DIRS:
         if os.path.isfile(os.path.join(directory, path)):
             return flask.send_from_directory(directory, path)
     error = "Forbidden: /{}".format(path)
     if path[0] == 'v' and path[2] == '/' and path[1].isdigit and path[1] != VERSION:
-        error = "/{} - you are trying to access an unsupported version of the API ({}), please use /v{}/".format(path, VERSION, VERSION)
+        error = "/{} - you are trying to access an unsupported version of the API ({}), please use /v{}/".format(
+            path, VERSION, VERSION)
     return flask.jsonify({'status': 403, 'error': error}), 403

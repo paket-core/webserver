@@ -10,7 +10,7 @@ fi
 
 if ! which truffle; then
     echo 'truffle not found'
-    return 1
+    exit 1
 fi
 
 missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
@@ -44,9 +44,6 @@ module.exports = function(deployer, network, accounts){
 EOF
     npm install zeppelin-solidity
 fi
-
-# Initialize swagger if needed.
-[ -d swagger-ui ] || git clone --depth 1 https://github.com/swagger-api/swagger-ui
 
 # Deploy contract and set address.
 PAKET_ADDRESS="$(truffle migrate --reset | grep -Po '(?<=Paket: ).*')"
