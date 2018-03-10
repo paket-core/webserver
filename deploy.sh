@@ -12,6 +12,11 @@ if ! which truffle; then
     exit 1
 fi
 
+if ! which solc; then
+    echo 'solc not found'
+    exit 1
+fi
+
 missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
 if [ "$missing_packages" ]; then
     echo "The following packages are missing: $missing_packages"
