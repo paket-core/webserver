@@ -29,6 +29,7 @@ BLUEPRINT = flask_dance.contrib.github.make_github_blueprint(
 APP.register_blueprint(BLUEPRINT, url_prefix="/login")
 
 APP.config['SWAGGER'] = {
+    'title': 'PaKeT API',
     'uiversion': 3,
     'specs_route': '/',
     'info': {
