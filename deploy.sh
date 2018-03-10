@@ -4,11 +4,17 @@ set -o allexport
 set +o allexport
 
 if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
-    node ./node_modules/ganache-cli/build/cli.node.js &
+    echo "no RPC found on localhost $PAKET_WEB3_SERVER"
+    exit 1
 fi
 
 if ! which truffle; then
     echo 'truffle not found'
+    exit 1
+fi
+
+if ! which solc; then
+    echo 'solc not found'
     exit 1
 fi
 
@@ -19,10 +25,10 @@ if [ "$missing_packages" ]; then
 fi
 
 # Initialize truffle and zeppelin if needed.
-if [ ! -r 'truffle.js' ]; then
+if [ ! -r './truffle.js' ]; then
     truffle init
     ln ./Paket.sol ./contracts/.
-    cat << EOF > truffle.js
+    cat << EOF > ./truffle.js
 module.exports = {
   // See <http://truffleframework.com/docs/advanced/configuration>
   // to customize your Truffle configuration!
