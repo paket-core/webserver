@@ -4,7 +4,7 @@ pragma solidity ^0.4.13;
 // ---------------------------------------------------------------------
 
 //import 'https://github.com/OpenZeppelin/zeppelin-solidity/contracts/token/MintableToken.sol';
-import '../node_modules/zeppelin-solidity/contracts/token/MintableToken.sol';
+import '../node_modules/zeppelin-solidity/contracts/token/ERC20/MintableToken.sol';
 
 contract Paket is MintableToken {
     string public name = "PaKeT Bul";
@@ -13,8 +13,8 @@ contract Paket is MintableToken {
     address public owner = msg.sender;
 
     function Paket() public {
-        totalSupply = 10 ** 6 * 10 ** decimals;
-        balances[msg.sender] = totalSupply;
+        totalSupply_ = 10 ** 6 * 10 ** decimals;
+        balances[msg.sender] = totalSupply_;
     }
 
     struct PaketStruct {
