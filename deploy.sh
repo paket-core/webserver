@@ -4,13 +4,12 @@ set -o allexport
 set +o allexport
 
 if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
-    echo "no RPC found on localhost $PAKET_WEB3_SERVER"
-    exit 1
+    node ./node_modules/ganache-cli/build/cli.node.js &
 fi
 
 if ! which truffle; then
     echo 'truffle not found'
-    return 1
+    exit 1
 fi
 
 missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
@@ -20,10 +19,10 @@ if [ "$missing_packages" ]; then
 fi
 
 # Initialize truffle and zeppelin if needed.
-if [ ! -r './truffle.js' ]; then
+if [ ! -r 'truffle.js' ]; then
     truffle init
     ln ./Paket.sol ./contracts/.
-    cat << EOF > ./truffle.js
+    cat << EOF > truffle.js
 module.exports = {
   // See <http://truffleframework.com/docs/advanced/configuration>
   // to customize your Truffle configuration!
@@ -45,9 +44,6 @@ EOF
     npm install zeppelin-solidity
 fi
 
-# Initialize swagger if needed.
-[ -d swagger-ui ] || git clone --depth 1 https://github.com/swagger-api/swagger-ui
-
 # Deploy contract and set address.
 PAKET_ADDRESS="$(truffle migrate --reset | grep -Po '(?<=Paket: ).*')"
 export PAKET_ADDRESS
@@ -56,4 +52,4 @@ export PAKET_ADDRESS
 PAKET_ABI="$(solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2)"
 export PAKET_ABI
 
-flask run
+flask run --host=0.0.0.0
