@@ -29,6 +29,7 @@ BLUEPRINT = flask_dance.contrib.github.make_github_blueprint(
 APP.register_blueprint(BLUEPRINT, url_prefix="/login")
 
 APP.config['SWAGGER'] = {
+    'title': 'PaKeT API',
     'uiversion': 3,
     'specs_route': '/',
     'info': {
@@ -79,6 +80,10 @@ def validate_values(args):
 
 def get_user():
     'Get current user.'
+    # For debug purposed, allow defining a user ID in the header.
+    if flask.request.headers.get('X-User-ID'):
+        return flask.request.headers.get('X-User-ID')
+
     if flask_dance.contrib.github.github.authorized:
         resp = flask_dance.contrib.github.github.get('/user')
         if resp.ok:
@@ -147,21 +152,27 @@ def login():
 @validate_call
 def balance_endpoint(user_id):
     '''
-      Get the balance of your account
-      Use this call to get the balance of our account.
-      ---
-      responses:
-        200:
-          description: balance in BULs
-          schema:
-            properties:
-              available_bulls:
-                type: integer
-                format: int32
-                minimum: 0
-                description: funds available for usage in buls
-            example:
-              available_bulls: 850
+    Get the balance of your account
+    Use this call to get the balance of our account.
+    ---
+    parameters:
+      - in: header
+        name: X-User-ID
+        schema:
+            type: string
+            format: string
+    responses:
+      200:
+        description: balance in BULs
+        schema:
+          properties:
+            available_bulls:
+              type: integer
+              format: int32
+              minimum: 0
+              description: funds available for usage in buls
+          example:
+            available_bulls: 850
     '''
     balance = paket.get_balance(user_id)
     return {'available_bulls': balance or 0}
@@ -169,8 +180,29 @@ def balance_endpoint(user_id):
 
 @APP.route("/v{}/transfer".format(VERSION))
 @validate_call({'address', 'amount'})
-def transfer_endpoint(address, amount):
-    'Put swagger YAML here.'
+def transfer_endpoint(user_id, address, amount):
+    '''
+    Transfer BULs to another address.
+    ---
+    parameters:
+      - in: header
+        name: X-User-ID
+        schema:
+            type: string
+            format: string
+    responses:
+      200:
+        description: balance in BULs
+        schema:
+          properties:
+            available_bulls:
+              type: integer
+              format: int32
+              minimum: 0
+              description: funds available for usage in buls
+          example:
+            available_bulls: 850
+    '''
     return {'error': 'Not implemented', 'status': 501}
 
 
@@ -178,45 +210,45 @@ def transfer_endpoint(address, amount):
 @validate_call()
 def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
     '''
-      Get list of packages
-      ---
-      parameters:
-        - name: show_inactive
-          in: query
-          description: include inactive packages in response
-          required: false
-          type: boolean
-          default: false
-        - name: from_date
-          in: query
-          description: show only packages from this date forward
-          required: false
-          type: string
+    Get list of packages
+    ---
+    parameters:
+      - name: show_inactive
+        in: query
+        description: include inactive packages in response
+        required: false
+        type: boolean
+        default: false
+      - name: from_date
+        in: query
+        description: show only packages from this date forward
+        required: false
+        type: string
 
-      responses:
-        200:
-          description: list of packages
-          schema:
-            properties:
-              packagess:
-                type: array
-                items:
-                  $ref: '#/definitions/Package'
-            example:
-              - PKT-id: 1001
-                Recipient-id: '@israel'
-                send-timestamp: 41234123
-                deadline-timestamp: 41244123
-                cost: 120
-                collateral: 400
-                status: in transit
-              - PKT-id: 1002
-                Recipient-id: '@oren'
-                send-timestamp: 41234123
-                deadline-timestamp: 41244123
-                cost: 20
-                collateral: 40
-                status: delivered
+    responses:
+      200:
+        description: list of packages
+        schema:
+          properties:
+            packagess:
+              type: array
+              items:
+                $ref: '#/definitions/Package'
+          example:
+            - PKT-id: 1001
+              Recipient-id: '@israel'
+              send-timestamp: 41234123
+              deadline-timestamp: 41244123
+              cost: 120
+              collateral: 400
+              status: in transit
+            - PKT-id: 1002
+              Recipient-id: '@oren'
+              send-timestamp: 41234123
+              deadline-timestamp: 41244123
+              cost: 20
+              collateral: 40
+              status: delivered
     '''
     return {'error': 'Not implemented', 'status': 501}
 
@@ -224,48 +256,46 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
 @validate_call()
 def package_endpoint(package_id):
     '''
-      Get a single package
-      ---
-      parameters:
-        - name: package_id
-          in: query
-          description: PKT id
-          required: true
-          type: integer
-          default: 0
-      definitions:
-        Package:
-          type: object
-          properties:
-            PKT-id:
-                type: string
-            Recipient-id:
-                type: string
-            send-timestamp:
-                type: integer
-            deadline-timestamp:
-                type: integer
-            cost:
-                type: integer
-            collateral:
-                type: integer
-            status:
-                type: string
-      responses:
-        200:
-          description: a single packages
-          schema:
-            $ref: '#/definitions/Package'
-            example:
-              - PKT-id: 1001
-                Recipient-id: '@israel'
-                send-timestamp: 41234123
-                deadline-timestamp: 41244123
-                cost: 120
-                collateral: 400
-                status: in transit
-
-
+    Get a single package
+    ---
+    parameters:
+      - name: package_id
+        in: query
+        description: PKT id
+        required: true
+        type: integer
+        default: 0
+    definitions:
+      Package:
+        type: object
+        properties:
+          PKT-id:
+              type: string
+          Recipient-id:
+              type: string
+          send-timestamp:
+              type: integer
+          deadline-timestamp:
+              type: integer
+          cost:
+              type: integer
+          collateral:
+              type: integer
+          status:
+              type: string
+    responses:
+      200:
+        description: a single packages
+        schema:
+          $ref: '#/definitions/Package'
+          example:
+            - PKT-id: 1001
+              Recipient-id: '@israel'
+              send-timestamp: 41234123
+              deadline-timestamp: 41244123
+              cost: 120
+              collateral: 400
+              status: in transit
     '''
     return {'error': 'Not implemented', 'status': 501}
 
@@ -274,30 +304,30 @@ def package_endpoint(package_id):
 @validate_call({'receiver-id', })
 def launch_endpoint():
     '''
-      Launch a package
-      ---
-      parameters:
-        - name: receiver-id
-          in: query
-          description: Receiver id
-          required: true
-          type: string
-          default: '@oren'
-      responses:
-        200:
-          description: Package launched
-          content:
-            schema:
-              type: string
-              example: PKT-12345
-            example:
-              - PKT-id: 1001
-                Recipient-id: '@israel'
-                send-timestamp: 41234123
-                deadline-timestamp: 41244123
-                cost: 120
-                collateral: 400
-                status: in transit
+    Launch a package
+    ---
+    parameters:
+      - name: receiver-id
+        in: query
+        description: Receiver id
+        required: true
+        type: string
+        default: '@oren'
+    responses:
+      200:
+        description: Package launched
+        content:
+          schema:
+            type: string
+            example: PKT-12345
+          example:
+            - PKT-id: 1001
+              Recipient-id: '@israel'
+              send-timestamp: 41234123
+              deadline-timestamp: 41244123
+              cost: 120
+              collateral: 400
+              status: in transit
     '''
 
     return {'error': 'Not implemented', 'status': 501}
