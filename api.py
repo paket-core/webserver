@@ -39,7 +39,7 @@ APP.config['SWAGGER'] = {
     'securityDefinitions': {
         'oauth': {
             'type': 'oauth2',
-            'authorizationUrl': '/login',
+            'authorizationUrl': '/login/github/authorized',
             'flow': 'authorizationCode'}}}
 flasgger.Swagger(APP)
 
@@ -52,6 +52,10 @@ class BadBulNumberField(Exception):
     'This denotes invalid BUL number field.'
 
 
+class BadAddressField(Exception):
+    'This denotes invalid address field.'
+
+
 def validate_fields(fields, required_fields):
     'Raise exception if there are missing fields.'
     if required_fields is None:
@@ -62,7 +66,11 @@ def validate_fields(fields, required_fields):
 
 
 def validate_values(args):
-    'Raise exception if a "_bulls" field is not a valid integer.'
+    '''
+    Raise exception for invalid values.
+    "_bulls" fields must be valid integers.
+    "_address" fields must be valid addresses.
+    '''
     for key, value in args.items():
         if key.endswith('_bulls'):
             try:
@@ -75,10 +83,13 @@ def validate_values(args):
             elif int_val < 0:
                 raise BadBulNumberField("value of {} is smaller than zero".format(key))
             args[key] = int_val
+        elif key.endswith('_address'):
+            if not paket.W3.isAddress(value):
+                raise BadAddressField("value of {} is not a valid address".format(key))
     return args
 
 
-def get_user():
+def get_user_id():
     'Get current user.'
     # For debug purposed, allow defining a user ID in the header.
     if flask.request.headers.get('X-User-ID'):
@@ -89,6 +100,10 @@ def get_user():
         if resp.ok:
             return resp.json
     return False
+
+def get_user_address():
+    'Get Current user address.'
+    return paket.get_user_address(get_user_id())
 
 
 def optional_args_decorator(decorator):
@@ -121,11 +136,11 @@ def validate_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             validate_fields(set(kwargs.keys()), required_fields)
             kwargs = validate_values(kwargs)
-            kwargs['user_id'] = get_user()
-            if kwargs['user_id']:
+            kwargs['user_address'] = kwargs.get('user_address', get_user_address())
+            if kwargs['user_address']:
                 response = handler(**kwargs)
             else:
-                response = {'status': 403, 'error': 'Must be logged in'}
+                response = {'status': 403, 'error': 'Must be logged in with an existing user'}
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
         except BadBulNumberField as exception:
@@ -150,14 +165,19 @@ def login():
 
 @APP.route("/v{}/balance".format(VERSION))
 @validate_call
-def balance_endpoint(user_id):
+def balance_endpoint(user_address):
     '''
     Get the balance of your account
     Use this call to get the balance of our account.
     ---
     parameters:
-      - in: header
-        name: X-User-ID
+      - name: X-User-ID
+        in: header
+        schema:
+            type: string
+            format: string
+      - name: user_address
+        in: query
         schema:
             type: string
             format: string
@@ -174,36 +194,37 @@ def balance_endpoint(user_id):
           example:
             available_bulls: 850
     '''
-    balance = paket.get_balance(user_id)
+    balance = paket.get_balance(user_address)
     return {'available_bulls': balance or 0}
 
 
 @APP.route("/v{}/transfer".format(VERSION))
-@validate_call({'address', 'amount'})
-def transfer_endpoint(user_id, address, amount):
+@validate_call({'to_address', 'amount_bulls'})
+def transfer_endpoint(user_address, to_address, amount_bulls):
     '''
     Transfer BULs to another address.
     ---
     parameters:
-      - in: header
-        name: X-User-ID
+      - name: X-User-ID
+        in: header
         schema:
             type: string
             format: string
+      - name: to_address
+        in: query
+        description: target address for transfer
+        required: true
+        type: string
+      - name: amount_bulls
+        in: query
+        description: amount to transfer
+        required: true
+        type: integer
     responses:
       200:
-        description: balance in BULs
-        schema:
-          properties:
-            available_bulls:
-              type: integer
-              format: int32
-              minimum: 0
-              description: funds available for usage in buls
-          example:
-            available_bulls: 850
+        description: transfer request sent
     '''
-    return {'error': 'Not implemented', 'status': 501}
+    return {'promise': paket.transfer(user_address, to_address, amount_bulls), 'status': 200}
 
 
 @APP.route("/v{}/packages".format(VERSION))

@@ -25,22 +25,39 @@ PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
 OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
 db.set_users({'owner': OWNER, 'launcher': LAUNCHER, 'recipient': RECIPIENT, 'courier': COURIER})
 
-# pylint: disable=missing-docstring
-def set_account(address):
-    W3.eth.defaultAccount = address
 
-def get_balance(user_id):
+def get_user_address(user_id):
+    'Get address of a user.'
+    if W3.isAddress(user_id):
+        return user_id
     address = db.get_address(user_id)
     if not W3.isAddress(address):
         LOGGER.error("user %s has invalid address %s", user_id, address)
         return None
+    return address
+
+
+def set_account(address):
+    'Set the default account.'
+    W3.eth.defaultAccount = address
+
+
+def get_balance(address):
+    'Get balance for an address.'
     return PAKET.call().balanceOf(address)
 
-def transfer(address, amount):
-    PAKET.transact().transfer(address, amount)
 
+def transfer(user_address, to_address, amount):
+    'Transfer BULs.'
+    LOGGER.warning("%s, %s, %s", user_address, to_address, amount)
+    LOGGER.warning("%s, %s, %s", *[type(field) for field in [user_address, to_address, amount]])
+    return PAKET.transact({'from': user_address}).transfer(to_address, amount)
+
+
+# pylint: disable=missing-docstring
 def get_paket_balance(paket_id):
     return PAKET.call().paketSelfInterest(paket_id)
+
 
 def launch(recipient, deadline, courier, payment):
     # We are using only 128 bits here, out of the available 256.
@@ -49,20 +66,26 @@ def launch(recipient, deadline, courier, payment):
     PAKET.transact().commitPayment(paket_id, courier, payment)
     return paket_id
 
+
 def commit_collateral(paket_id, launcher, collateral):
     PAKET.transact().commitCollateral(paket_id, launcher, collateral)
+
 
 def cover_collateral(paket_id, courier, collateral):
     PAKET.transact().coverCollateral(paket_id, courier, collateral)
 
+
 def relay_payment(paket_id, courier, payment):
     PAKET.transact().relayPayment(paket_id, courier, payment)
+
 
 def refund(paket_id):
     PAKET.transact().refund(paket_id)
 
+
 def confirm_delivery(paket_id):
     PAKET.transact().payout(paket_id)
+
 
 def test():
     # This is an ugly, temporary usage of ganache's internal keys.
@@ -77,10 +100,9 @@ def test():
 
     show_balances()
 
-    set_account(owner)
-    transfer(launcher, 1000)
-    transfer(recipient, 1000)
-    transfer(courier, 1000)
+    transfer(owner, launcher, 1000)
+    transfer(owner, recipient, 1000)
+    transfer(owner, courier, 1000)
     show_balances()
 
     paket_idx = launch(recipient, int(time.time()) + 100, courier, 100)
@@ -89,6 +111,7 @@ def test():
     set_account(recipient)
     confirm_delivery(paket_idx)
     show_balances()
+
 
 if __name__ == '__main__':
     test()
