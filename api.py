@@ -1,4 +1,4 @@
-'Web JSON swagger API to PaKeT smart contract.'
+"""Web JSON swagger API to PaKeT smart contract."""
 import collections
 import functools
 import os
@@ -22,8 +22,8 @@ STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
-#from flask import Flask, redirect, url_for
-#from flask_dance.contrib.github import make_github_blueprint, github
+# from flask import Flask, redirect, url_for
+# from flask_dance.contrib.github import make_github_blueprint, github
 BLUEPRINT = flask_dance.contrib.github.make_github_blueprint(
     client_id=os.environ['GITHUB_CLIENT_ID'],
     client_secret=os.environ['GITHUB_CLIENT_SECRET'])
@@ -46,19 +46,19 @@ flasgger.Swagger(APP)
 
 
 class MissingFields(Exception):
-    'This denotes missing field in args.'
+    """This denotes missing field in args."""
 
 
 class BadBulNumberField(Exception):
-    'This denotes invalid BUL number field.'
+    """This denotes invalid BUL number field."""
 
 
 class BadAddressField(Exception):
-    'This denotes invalid address field.'
+    """This denotes invalid address field."""
 
 
 def validate_fields(fields, required_fields):
-    'Raise exception if there are missing fields.'
+    """Raise exception if there are missing fields."""
     if required_fields is None:
         required_fields = set()
     missing_fields = required_fields - fields
@@ -67,12 +67,12 @@ def validate_fields(fields, required_fields):
 
 
 def validate_values(args):
-    '''
+    """
     Raise exception for invalid values.
     "_bulls" fields must be valid integers.
     "_address" fields must be valid addresses.
     For debug purposes, we allow addresses as user IDs.
-    '''
+    """
     for key, value in args.items():
         if key.endswith('_bulls'):
             try:
@@ -93,7 +93,7 @@ def validate_values(args):
 
 
 def get_user_id():
-    'Get current user.'
+    """Get current user."""
     # For debug purposed, allow defining a user ID in the header.
     if flask.request.headers.get('X-User-ID'):
         return flask.request.headers.get('X-User-ID')
@@ -104,31 +104,35 @@ def get_user_id():
             return resp.json
     return False
 
+
 def get_user_address():
-    'Get Current user address.'
+    """Get Current user address."""
     return paket.get_user_address(get_user_id())
 
 
 def optional_args_decorator(decorator):
-    'A decorator decorator, allowing a decorator to be used with or without arg.'
+    """A decorator decorator, allowing a decorator to be used with or without arg."""
+
     @functools.wraps(decorator)
     def decorated(*args, **kwargs):
-        'Differentiate between arg-less and arg-full calls to the decorator.'
+        """Differentiate between arg-less and arg-full calls to the decorator."""
         if len(args) == 1 and not kwargs and isinstance(args[0], collections.Callable):
             return decorator(args[0])
         return lambda decoratee: decorator(decoratee, *args, **kwargs)
+
     return decorated
 
 
 @optional_args_decorator
 def validate_call(handler=None, required_fields=None):
-    '''
+    """
     Validate an API call and pass it to a handler function.
     Note that if required_fields is given it has to be a set.
     Also not that handler is defaulted to None so as not to screw up the
     syntactic sugar of the decorator - otherwise we will need to specify the
     handler whenever the decorator receives arguments.
-    '''
+    """
+
     @functools.wraps(handler)
     def _validate_call():
         # Default values.
@@ -153,12 +157,13 @@ def validate_call(handler=None, required_fields=None):
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
+
     return _validate_call
 
 
 @APP.route('/login')
 def login():
-    'OAuth login.'
+    """OAuth login."""
     if not flask_dance.contrib.github.github.authorized:
         return flask.redirect(flask.url_for("github.login"))
     resp = flask_dance.contrib.github.github.get("/user")
@@ -169,7 +174,7 @@ def login():
 @APP.route("/v{}/balance".format(VERSION))
 @validate_call
 def balance_endpoint(user_address):
-    '''
+    """
     Get the balance of your account
     Use this call to get the balance of our account.
     ---
@@ -191,14 +196,14 @@ def balance_endpoint(user_address):
               description: funds available for usage in buls
           example:
             available_bulls: 850
-    '''
+    """
     return {'available_bulls': paket.get_balance(user_address)}
 
 
 @APP.route("/v{}/transfer_bulls".format(VERSION))
 @validate_call({'to_address', 'amount_bulls'})
 def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
-    '''
+    """
     Transfer BULs to another address.
     ---
     parameters:
@@ -220,14 +225,14 @@ def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
     responses:
       200:
         description: transfer request sent
-    '''
+    """
     return {'promise': paket.transfer(user_address, to_address, amount_bulls), 'status': 200}
 
 
 @APP.route("/v{}/packages".format(VERSION))
 @validate_call()
 def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
-    '''
+    """
     Get list of packages
     ---
     parameters:
@@ -248,7 +253,7 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
         description: list of packages
         schema:
           properties:
-            packagess:
+            packages:
               type: array
               items:
                 $ref: '#/definitions/Package'
@@ -267,13 +272,14 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
               cost: 20
               collateral: 40
               status: delivered
-    '''
+    """
     return {'error': 'Not implemented', 'status': 501}
+
 
 @APP.route("/v{}/package".format(VERSION))
 @validate_call()
 def package_endpoint(package_id):
-    '''
+    """
     Get a single package
     ---
     parameters:
@@ -314,14 +320,14 @@ def package_endpoint(package_id):
               cost: 120
               collateral: 400
               status: in transit
-    '''
+    """
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/launch".format(VERSION))
 @validate_call({'receiver-id', })
 def launch_endpoint():
-    '''
+    """
     Launch a package
     ---
     parameters:
@@ -346,7 +352,7 @@ def launch_endpoint():
               cost: 120
               collateral: 400
               status: in transit
-    '''
+    """
 
     return {'error': 'Not implemented', 'status': 501}
 
@@ -354,28 +360,28 @@ def launch_endpoint():
 @APP.route("/v{}/accept".format(VERSION))
 @validate_call
 def accept_endpoint():
-    'Put swagger YAML here.'
+    """Put swagger YAML here."""
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/address".format(VERSION))
 @validate_call
 def address_endpoint():
-    'Put swagger YAML here.'
+    """Put swagger YAML here."""
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/price".format(VERSION))
 @validate_call
 def price_endpoint():
-    'Put swagger YAML here.'
+    """Put swagger YAML here."""
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/users".format(VERSION))
 @validate_call
 def users_endpoint(user_address=None):
-    '''
+    """
     Get a list of users and their addresses - for debug only.
     ---
     parameters:
@@ -416,13 +422,13 @@ def users_endpoint(user_address=None):
                     ]
                 ]
             }
-    '''
+    """
     return {'users': db.get_users(), 'status': 200}
 
 
 @APP.errorhandler(429)
 def ratelimit_handler(error):
-    'Custom error for rate limiter.'
+    """Custom error for rate limiter."""
     msg = 'Rate limit exceeded. Allowed rate: {}'.format(error.description)
     LOGGER.info(msg)
     return flask.make_response(flask.jsonify({'status': 429, 'error': msg}), 429)
@@ -432,7 +438,7 @@ def ratelimit_handler(error):
 @APP.route('/<path:path>', methods=['GET', 'POST'])
 @LIMITER.limit(limit_value="2000 per second")
 def catch_all_endpoint(path='index.html'):
-    'All undefined endpoints try to serve from the static directories.'
+    """All undefined endpoints try to serve from the static directories."""
     for directory in STATIC_DIRS:
         if os.path.isfile(os.path.join(directory, path)):
             return flask.send_from_directory(directory, path)
