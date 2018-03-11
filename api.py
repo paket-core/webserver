@@ -35,7 +35,7 @@ APP.config['SWAGGER'] = {
     'specs_route': '/',
     'info': {
         'title': 'PaKeT API',
-        'description': 'This is a cool thing.',
+        'description': 'Web API Server for The PaKeT Project.',
         'version': VERSION},
     'securityDefinitions': {
         'oauth': {
@@ -176,8 +176,10 @@ def login():
 def balance_endpoint(user_address):
     """
     Get the balance of your account
-    Use this call to get the balance of our account.
+    Use this call to get the balance of your account.
     ---
+    tags:
+    - wallet
     parameters:
       - name: X-User-ID
         in: header
@@ -205,7 +207,11 @@ def balance_endpoint(user_address):
 def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
     """
     Transfer BULs to another address.
+    Use this call to send part of your balance to another user.
+    The to_address can be either a user id, or a wallet address.
     ---
+    tags:
+    - wallet
     parameters:
       - name: X-User-ID
         in: header
@@ -234,7 +240,12 @@ def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
 def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
+    Use this call to get a list of packages.
+    You can filter the list by showing only active packages, or packages originating after a certain date.
+    You can also filter to show only packages where the user has a specific role, such as "launcher" or "receiver".
     ---
+    tags:
+    - packages
     parameters:
       - name: show_inactive
         in: query
@@ -280,8 +291,11 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
 @validate_call()
 def package_endpoint(package_id):
     """
-    Get a single package
+    Get a info about a single package.
+    This will return additional information, such as GPSloc, custodian, etc.
     ---
+    tags:
+    - packages
     parameters:
       - name: package_id
         in: query
@@ -328,8 +342,11 @@ def package_endpoint(package_id):
 @validate_call({'receiver-id', })
 def launch_endpoint():
     """
-    Launch a package
+    Launch a package.
+    Use this call to create a new package for delivery.
     ---
+    tags:
+    - packages
     parameters:
       - name: receiver-id
         in: query
@@ -384,6 +401,8 @@ def users_endpoint(user_address=None):
     """
     Get a list of users and their addresses - for debug only.
     ---
+    tags:
+    - debug
     parameters:
       - name: X-User-ID
         in: header
