@@ -8,6 +8,7 @@ import flask
 import flask_dance.contrib.github
 import flask_limiter.util
 
+import db
 import paket
 import logger
 
@@ -194,9 +195,9 @@ def balance_endpoint(user_address):
     return {'available_bulls': paket.get_balance(user_address)}
 
 
-@APP.route("/v{}/transfer".format(VERSION))
+@APP.route("/v{}/transfer_bulls".format(VERSION))
 @validate_call({'to_address', 'amount_bulls'})
-def transfer_endpoint(user_address, to_address, amount_bulls):
+def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
     '''
     Transfer BULs to another address.
     ---
@@ -369,6 +370,54 @@ def address_endpoint():
 def price_endpoint():
     'Put swagger YAML here.'
     return {'error': 'Not implemented', 'status': 501}
+
+
+@APP.route("/v{}/users".format(VERSION))
+@validate_call
+def users_endpoint(user_address=None):
+    '''
+    Get a list of users and their addresses - for debug only.
+    ---
+    parameters:
+      - name: X-User-ID
+        in: header
+        schema:
+            type: string
+            format: string
+    responses:
+      200:
+        description: a list of users
+        schema:
+          properties:
+            available_bulls:
+              type: integer
+              format: int32
+              minimum: 0
+              description: funds available for usage in buls
+          example:
+            {
+                "status": 200,
+                "users": [
+                    [
+                    "owner",
+                    "0x27936e0AFe9634E557c17aeA7FF7885D4D2901b6"
+                    ],
+                    [
+                    "launcher",
+                    "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+                    ],
+                    [
+                    "recipient",
+                    "0x00196f888b3eDa8C6F4a116511CAFeD93008763f"
+                    ],
+                    [
+                    "courier",
+                    "0x498e32Ae4B84f96CDD24a2d5b7270A15Ad8d9a26"
+                    ]
+                ]
+            }
+    '''
+    return {'users': db.get_users(), 'status': 200}
 
 
 @APP.errorhandler(429)

@@ -6,6 +6,7 @@ import sqlite3
 LOGGER = logging.getLogger("pkt.{}".format(__name__))
 DB_NAME = 'paket.db'
 
+
 @contextlib.contextmanager
 def sql_connection(db_name=DB_NAME):
     'Context manager for querying the database.'
@@ -18,6 +19,7 @@ def sql_connection(db_name=DB_NAME):
     finally:
         if 'connection' in locals():
             connection.close()
+
 
 def init_db():
     'Initialize the database.'
@@ -32,16 +34,24 @@ def init_db():
         sql.execute('CREATE UNIQUE INDEX user_id_index ON users(user_id);')
         LOGGER.debug('indices created')
 
+
 def set_users(users):
     'Set some users for testing.'
     with sql_connection() as sql:
         for user_id, address in users.items():
             try:
-                sql.execute('INSERT INTO users (user_id, address) VALUES (?, ?)', (user_id, ''))
+                sql.execute("INSERT INTO users (user_id, address) VALUES (?, ?)", (user_id, ''))
             except sqlite3.IntegrityError:
                 pass
-            sql.execute('UPDATE users SET address = ? WHERE user_id = ?', (address, user_id))
+            sql.execute("UPDATE users SET address = ? WHERE user_id = ?", (address, user_id))
             users = sql.fetchone()
+
+
+def get_users():
+    'Get list of users and addresses - for debug only.'
+    with sql_connection() as sql:
+        sql.execute('SELECT user_id, address FROM users')
+        return sql.fetchall()
 
 def get_address(user_id):
     'Get the address of a user.'
