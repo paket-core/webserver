@@ -49,8 +49,6 @@ def get_balance(address):
 
 def transfer(user_address, to_address, amount):
     'Transfer BULs.'
-    LOGGER.warning("%s, %s, %s", user_address, to_address, amount)
-    LOGGER.warning("%s, %s, %s", *[type(field) for field in [user_address, to_address, amount]])
     return PAKET.transact({'from': user_address}).transfer(to_address, amount)
 
 

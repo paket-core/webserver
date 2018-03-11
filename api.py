@@ -70,6 +70,7 @@ def validate_values(args):
     Raise exception for invalid values.
     "_bulls" fields must be valid integers.
     "_address" fields must be valid addresses.
+    For debug purposes, we allow addresses as user IDs.
     '''
     for key, value in args.items():
         if key.endswith('_bulls'):
@@ -84,7 +85,8 @@ def validate_values(args):
                 raise BadBulNumberField("value of {} is smaller than zero".format(key))
             args[key] = int_val
         elif key.endswith('_address'):
-            if not paket.W3.isAddress(value):
+            args[key] = paket.get_user_address(value)
+            if not paket.W3.isAddress(args[key]):
                 raise BadAddressField("value of {} is not a valid address".format(key))
     return args
 
@@ -176,11 +178,6 @@ def balance_endpoint(user_address):
         schema:
             type: string
             format: string
-      - name: user_address
-        in: query
-        schema:
-            type: string
-            format: string
     responses:
       200:
         description: balance in BULs
@@ -194,8 +191,7 @@ def balance_endpoint(user_address):
           example:
             available_bulls: 850
     '''
-    balance = paket.get_balance(user_address)
-    return {'available_bulls': balance or 0}
+    return {'available_bulls': paket.get_balance(user_address)}
 
 
 @APP.route("/v{}/transfer".format(VERSION))
