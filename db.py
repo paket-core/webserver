@@ -7,6 +7,10 @@ LOGGER = logging.getLogger("pkt.{}".format(__name__))
 DB_NAME = 'paket.db'
 
 
+class UnknownUser(Exception):
+    'Invalid user ID.'
+
+
 @contextlib.contextmanager
 def sql_connection(db_name=DB_NAME):
     'Context manager for querying the database.'
@@ -53,11 +57,12 @@ def get_users():
         sql.execute('SELECT user_id, address FROM users')
         return sql.fetchall()
 
+
 def get_address(user_id):
-    'Get the address of a user.'
+    'Get the address of a user. Raise exception if the user is unknown.'
     with sql_connection() as sql:
         sql.execute('SELECT address FROM users WHERE user_id = ?', (user_id,))
         try:
             return sql.fetchone()[0]
         except TypeError:
-            return None
+            raise UnknownUser("Unknown user {}".format(user_id))
