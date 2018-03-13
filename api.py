@@ -73,7 +73,7 @@ def check_and_fix_values(kwargs):
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
-            LOGGER.warning("Attemting conversion of user ID %s to address", value)
+            LOGGER.warning("Attempting conversion of user ID %s to address", value)
             kwargs[key] = db.get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
                 raise BadAddressField("value of {} is not a valid address".format(key))
@@ -316,7 +316,7 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
 def package_handler(package_id):
     """
     Get a info about a single package.
-    This will return additional information, such as GPSloc, custodian, etc.
+    This will return additional information, such as GPS location, custodian, etc.
     ---
     tags:
     - packages
