@@ -360,8 +360,7 @@ def price_endpoint():
 
 
 @APP.route("/v{}/users".format(VERSION))
-@api_call
-def users_endpoint(user_address=None):
+def users_endpoint():
     """
     Get a list of users and their addresses - for debug only.
     ---
@@ -406,7 +405,7 @@ def users_endpoint(user_address=None):
                 ]
             }
     """
-    return {'users': db.get_users(), 'status': 200}
+    return flask.jsonify({'users': db.get_users()})
 
 
 @APP.errorhandler(429)
