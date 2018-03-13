@@ -20,16 +20,40 @@ STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
-
 APP.config['SWAGGER'] = {
     'title': 'PaKeT API',
     'uiversion': 3,
     'specs_route': '/',
-    'info': {
-        'title': 'PaKeT API',
-        'description': 'Web API Server for The PaKeT Project.',
-        'version': VERSION}}
-flasgger.Swagger(APP)
+    "specs": [
+            {
+                "endpoint": 'apispec',
+                "route": '/apispec.json',
+                "rule_filter": lambda rule: True,  # all in
+                "model_filter": lambda tag: True,  # all in
+            }
+        ],
+}
+flasgger.Swagger(APP, template={
+    "swagger": "2.0",
+    "info": {
+        "title": "PaKeT API",
+        "description": "Web API Server for The PaKeT Project",
+        "contact": {
+            "name": "Israel Levin",
+            "email": "Israel@paket.global",
+            "url": "www.paket.global",
+        },
+        "version": VERSION,
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+          },
+    },
+    "schemes": [
+        "http",
+        "https"
+    ],
+})
 
 
 class MissingFields(Exception):
@@ -66,7 +90,7 @@ def check_and_fix_values(kwargs):
                 int_val = int(str(value))
             except ValueError:
                 raise BadBulNumberField("the value of {}({}) is not an integer".format(key, value))
-            if int_val >= 10**10:
+            if int_val >= 10 ** 10:
                 raise BadBulNumberField("the value of {}({}) is too large".format(key, value))
             elif int_val < 0:
                 raise BadBulNumberField("the value of {}({}) is less than zero".format(key, value))
@@ -82,12 +106,14 @@ def check_and_fix_values(kwargs):
 
 def optional_arg_decorator(decorator):
     """A decorator for decorators than can accept optional arguments."""
+
     @functools.wraps(decorator)
     def wrapped_decorator(*args, **kwargs):
         """A wrapper to return a filled up function in case arguments are given."""
         if len(args) == 1 and not kwargs and callable(args[0]):
             return decorator(args[0])
         return lambda decoratee: decorator(decoratee, *args, **kwargs)
+
     return wrapped_decorator
 
 
@@ -100,6 +126,7 @@ def api_call(handler=None, required_fields=None):
     fixes them, handles authentication, and then passes them to the handler,
     dealing with exceptions and returning a valid response.
     """
+
     @functools.wraps(handler)
     def _api_call(*_, **kwargs):
         # pylint: disable=broad-except
@@ -123,6 +150,7 @@ def api_call(handler=None, required_fields=None):
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
+
     return _api_call
 
 
@@ -375,10 +403,36 @@ def accept_handler():
     return {'status': 501, 'error': 'Not implemented'}
 
 
-@APP.route("/v{}/address".format(VERSION))
+@APP.route("/v{}/buls_address".format(VERSION))
 @api_call
-def address_handler():
-    """Put swagger YAML here."""
+def buls_address_handler(user_address):
+    """
+        Get the address of the BULs. This addressed can be used to send BULs to.
+        ---
+        tags:
+        - wallet
+        parameters:
+          - name: X-User-ID
+            in: header
+            default: owner
+            schema:
+                type: string
+                format: string
+        responses:
+          200:
+            description: an address
+            schema:
+              properties:
+                address:
+                  type: string
+                  format: string
+                  description: address of te BUL wallet
+              example:
+                {
+                    "status": 200,
+                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+                }
+        """
     return {'status': 501, 'error': 'Not implemented'}
 
 
