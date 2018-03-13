@@ -1,4 +1,4 @@
-'Web JSON swagger API to PaKeT smart contract.'
+"""Web JSON swagger API to PaKeT smart contract."""
 import functools
 import os
 
@@ -33,19 +33,19 @@ flasgger.Swagger(APP)
 
 
 class MissingFields(Exception):
-    'Missing field in args.'
+    """Missing field in args."""
 
 
 class BadBulNumberField(Exception):
-    'Invalid BUL number field.'
+    """Invalid BUL number field."""
 
 
 class BadAddressField(Exception):
-    'Invalid address field.'
+    """Invalid address field."""
 
 
 def check_missing_fields(fields, required_fields):
-    'Raise exception if there are missing fields.'
+    """Raise exception if there are missing fields."""
     if required_fields is None:
         required_fields = set()
     missing_fields = set(required_fields) - set(fields)
@@ -54,11 +54,11 @@ def check_missing_fields(fields, required_fields):
 
 
 def check_and_fix_values(kwargs):
-    '''
+    """
     Raise exception for invalid values.
     "_buls" and "_timestamp" fields must be valid integers.
     "_address" fields must be valid addresses.
-    '''
+    """
     for key, value in kwargs.items():
         if key.endswith('_buls') or key.endswith('_timestamp'):
             try:
@@ -81,10 +81,10 @@ def check_and_fix_values(kwargs):
 
 
 def optional_arg_decorator(decorator):
-    'A decorator for decorators than can accept optional arguments.'
+    """A decorator for decorators than can accept optional arguments."""
     @functools.wraps(decorator)
     def wrapped_decorator(*args, **kwargs):
-        'A wrapper to return a filled up function in case arguments are given.'
+        """A wrapper to return a filled up function in case arguments are given."""
         if len(args) == 1 and not kwargs and callable(args[0]):
             return decorator(args[0])
         return lambda decoratee: decorator(decoratee, *args, **kwargs)
@@ -95,11 +95,11 @@ def optional_arg_decorator(decorator):
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
 def api_call(handler=None, required_fields=None):
-    '''
+    """
     A decorator to handle all API calls: extracts arguments, validates them,
     fixes them, handles authentication, and then passes them to the handler,
     dealing with exceptions and returning a valid response.
-    '''
+    """
     @functools.wraps(handler)
     def _api_call(*_, **kwargs):
         # pylint: disable=broad-except
@@ -451,7 +451,7 @@ def catch_all_handler(path='index.html'):
 
 @APP.errorhandler(429)
 def ratelimit_handler(error):
-    'Custom error handler for rate limiting.'
+    """Custom error handler for rate limiting."""
     error = 'Rate limit ({}) exceeded'.format(error.description)
     LOGGER.warning(error)
     return flask.make_response(flask.jsonify({'status': 429, 'error': error}), 429)

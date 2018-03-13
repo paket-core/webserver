@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-'Use PaKeT smart contract.'
+"""Use PaKeT smart contract."""
 import json
 import logging
 import os
@@ -27,22 +27,22 @@ db.set_users({'owner': OWNER, 'launcher': LAUNCHER, 'recipient': RECIPIENT, 'cou
 
 
 def set_account(address):
-    'Set the default account.'
+    """Set the default account."""
     W3.eth.defaultAccount = address
 
 
 def get_balance(address):
-    'Get balance for an address.'
+    """Get balance for an address."""
     return PAKET.call().balanceOf(address)
 
 
 def transfer_buls(user, to_address, amount):
-    'Transfer BULs.'
+    """Transfer BULs."""
     return PAKET.transact({'from': user}).transfer(to_address, amount)
 
 
 def launch_paket(user, recipient, deadline, courier, payment):
-    'Launch a paket.'
+    """Launch a paket."""
     # We are using only 128 bits here, out of the available 256.
     paket_id = uuid.uuid4().int
     LOGGER.error("%s %s %s", paket_id, recipient, deadline)
