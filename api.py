@@ -20,6 +20,7 @@ STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
+
 APP.config['SWAGGER'] = {
     'title': 'PaKeT API',
     'uiversion': 3,
@@ -55,17 +56,17 @@ def check_missing_fields(fields, required_fields):
 def check_and_fix_values(kwargs):
     '''
     Raise exception for invalid values.
-    "_bulls" fields must be valid integers.
+    "_buls" and "_timestamp" fields must be valid integers.
     "_address" fields must be valid addresses.
     '''
     for key, value in kwargs.items():
-        if key.endswith('_bulls'):
+        if key.endswith('_buls') or key.endswith('_timestamp'):
             try:
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
             except ValueError:
                 raise BadBulNumberField("the value of {}({}) is not an integer".format(key, value))
-            if int_val >= 10**9:
+            if int_val >= 10**10:
                 raise BadBulNumberField("the value of {}({}) is too large".format(key, value))
             elif int_val < 0:
                 raise BadBulNumberField("the value of {}({}) is less than zero".format(key, value))
@@ -73,10 +74,11 @@ def check_and_fix_values(kwargs):
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
             LOGGER.warning("Attemting conversion of user ID %s to address", value)
-            kwargs[key] = paket.get_user_address(value)
+            kwargs[key] = db.get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
                 raise BadAddressField("value of {} is not a valid address".format(key))
     return kwargs
+
 
 def optional_arg_decorator(decorator):
     'A decorator for decorators than can accept optional arguments.'
@@ -99,14 +101,15 @@ def api_call(handler=None, required_fields=None):
     dealing with exceptions and returning a valid response.
     '''
     @functools.wraps(handler)
-    def _api_call(*args, **kwargs):
+    def _api_call(*_, **kwargs):
         # pylint: disable=broad-except
         # If anything fails, we want to catch it here.
+        response = {'status': 500, 'error': 'Internal server error'}
         try:
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            kwargs['user_address'] = db.get_address(flask.request.headers.get('X-User-ID'))
+            kwargs['user_address'] = db.get_user_address(flask.request.headers.get('X-User-ID'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
@@ -114,8 +117,9 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 400, 'error': str(exception)}
         except db.UnknownUser as exception:
             response = {'status': 403, 'error': str(exception)}
-        except Exception:
+        except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
+            response['debug'] = str(exception)
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
@@ -124,7 +128,7 @@ def api_call(handler=None, required_fields=None):
 
 @APP.route("/v{}/balance".format(VERSION))
 @api_call
-def balance_endpoint(user_address):
+def balance_handler(user_address):
     """
     Get the balance of your account
     Use this call to get the balance of your account.
@@ -134,6 +138,7 @@ def balance_endpoint(user_address):
     parameters:
       - name: X-User-ID
         in: header
+        default: owner
         schema:
             type: string
             format: string
@@ -142,20 +147,20 @@ def balance_endpoint(user_address):
         description: balance in BULs
         schema:
           properties:
-            available_bulls:
+            available_buls:
               type: integer
               format: int32
               minimum: 0
               description: funds available for usage in buls
           example:
-            available_bulls: 850
+            available_buls: 850
     """
-    return {'available_bulls': paket.get_balance(user_address)}
+    return {'available_buls': paket.get_balance(user_address)}
 
 
-@APP.route("/v{}/transfer_bulls".format(VERSION))
-@api_call(['to_address', 'amount_bulls'])
-def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
+@APP.route("/v{}/transfer_buls".format(VERSION))
+@api_call(['to_address', 'amount_buls'])
+def transfer_buls_handler(user_address, to_address, amount_buls):
     """
     Transfer BULs to another address.
     Use this call to send part of your balance to another user.
@@ -166,6 +171,7 @@ def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
     parameters:
       - name: X-User-ID
         in: header
+        default: owner
         schema:
             type: string
             format: string
@@ -174,7 +180,7 @@ def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
         description: target address for transfer
         required: true
         type: string
-      - name: amount_bulls
+      - name: amount_buls
         in: query
         description: amount to transfer
         required: true
@@ -183,12 +189,69 @@ def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
       200:
         description: transfer request sent
     """
-    return {'promise': paket.transfer(user_address, to_address, amount_bulls), 'status': 200}
+    return {'status': 200, 'promise': paket.transfer_buls(user_address, to_address, amount_buls)}
 
 
+@APP.route("/v{}/launch_package".format(VERSION))
+@api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls'])
+def launch_handler(user_address, recipient_address, deadline_timestamp, courier_address, payment_buls):
+    """
+    Launch a package.
+    Use this call to create a new package for delivery.
+    ---
+    tags:
+    - packages
+    parameters:
+      - name: X-User-ID
+        in: header
+        default: owner
+        schema:
+            type: string
+            format: string
+      - name: recipient_address
+        in: query
+        default: recipient
+        description: Recipient address
+        required: true
+        type: string
+      - name: deadline_timestamp
+        in: query
+        default: 9999999999
+        description: Deadline timestamp
+        required: true
+        type: integer
+        example: 1520948634
+      - name: courier_address
+        in: query
+        default: courier
+        description: Courier address
+        required: true
+        type: string
+      - name: payment_buls
+        in: query
+        default: 10
+        description: BULs promised as payment
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Package launched
+        content:
+          schema:
+            type: string
+            example: PKT-12345
+          example:
+            PKT-id: 1001
+    """
+    return dict(status=200, **paket.launch_paket(
+        user_address, recipient_address, deadline_timestamp, courier_address, payment_buls
+    ))
+
+
+# pylint: disable=unused-argument
 @APP.route("/v{}/packages".format(VERSION))
 @api_call()
-def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
+def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
     Use this call to get a list of packages.
@@ -200,6 +263,7 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
     parameters:
       - name: X-User-ID
         in: header
+        default: owner
         schema:
             type: string
             format: string
@@ -214,6 +278,11 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
         description: show only packages from this date forward
         required: false
         type: string
+      - name: collateral_buls
+        in: query
+        description: BULs required as collateral
+        required: true
+        type: integer
     responses:
       200:
         description: list of packages
@@ -239,12 +308,12 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
               collateral: 40
               status: delivered
     """
-    return {'error': 'Not implemented', 'status': 501}
+    return {'status': 501, 'error': 'Not implemented'}
 
 
 @APP.route("/v{}/package".format(VERSION))
 @api_call()
-def package_endpoint(package_id):
+def package_handler(package_id):
     """
     Get a info about a single package.
     This will return additional information, such as GPSloc, custodian, etc.
@@ -254,6 +323,7 @@ def package_endpoint(package_id):
     parameters:
       - name: X-User-ID
         in: header
+        default: owner
         schema:
             type: string
             format: string
@@ -295,72 +365,32 @@ def package_endpoint(package_id):
               collateral: 400
               status: in transit
     """
-    return {'error': 'Not implemented', 'status': 501}
-
-
-@APP.route("/v{}/launch".format(VERSION))
-@api_call(['to_address', 'payment_bulls', 'collateral_bulls'])
-def launch_endpoint():
-    """
-    Launch a package.
-    Use this call to create a new package for delivery.
-    ---
-    tags:
-    - packages
-    parameters:
-      - name: X-User-ID
-        in: header
-        schema:
-            type: string
-            format: string
-      - name: to_address
-        in: query
-        description: Receiver address
-        required: true
-        type: string
-        default: '@oren'
-    responses:
-      200:
-        description: Package launched
-        content:
-          schema:
-            type: string
-            example: PKT-12345
-          example:
-            - PKT-id: 1001
-              Recipient-id: '@israel'
-              send-timestamp: 41234123
-              deadline-timestamp: 41244123
-              cost: 120
-              collateral: 400
-              status: in transit
-    """
-    return {'error': 'Not implemented', 'status': 501}
+    return {'status': 501, 'error': 'Not implemented'}
 
 
 @APP.route("/v{}/accept".format(VERSION))
 @api_call
-def accept_endpoint():
+def accept_handler():
     """Put swagger YAML here."""
-    return {'error': 'Not implemented', 'status': 501}
+    return {'status': 501, 'error': 'Not implemented'}
 
 
 @APP.route("/v{}/address".format(VERSION))
 @api_call
-def address_endpoint():
+def address_handler():
     """Put swagger YAML here."""
-    return {'error': 'Not implemented', 'status': 501}
+    return {'status': 501, 'error': 'Not implemented'}
 
 
 @APP.route("/v{}/price".format(VERSION))
 @api_call
-def price_endpoint():
+def price_handler():
     """Put swagger YAML here."""
-    return {'error': 'Not implemented', 'status': 501}
+    return {'status': 501, 'error': 'Not implemented'}
 
 
 @APP.route("/v{}/users".format(VERSION))
-def users_endpoint():
+def users_handler():
     """
     Get a list of users and their addresses - for debug only.
     ---
@@ -369,6 +399,7 @@ def users_endpoint():
     parameters:
       - name: X-User-ID
         in: header
+        default: owner
         schema:
             type: string
             format: string
@@ -377,7 +408,7 @@ def users_endpoint():
         description: a list of users
         schema:
           properties:
-            available_bulls:
+            available_buls:
               type: integer
               format: int32
               minimum: 0
@@ -408,24 +439,19 @@ def users_endpoint():
     return flask.jsonify({'users': db.get_users()})
 
 
-@APP.errorhandler(429)
-def ratelimit_handler(error):
-    """Custom error for rate limiter."""
-    msg = 'Rate limit exceeded. Allowed rate: {}'.format(error.description)
-    LOGGER.info(msg)
-    return flask.make_response(flask.jsonify({'status': 429, 'error': msg}), 429)
-
-
 @APP.route('/')
 @APP.route('/<path:path>', methods=['GET', 'POST'])
-@LIMITER.limit(limit_value="2000 per second")
-def catch_all_endpoint(path='index.html'):
+def catch_all_handler(path='index.html'):
     """All undefined endpoints try to serve from the static directories."""
     for directory in STATIC_DIRS:
         if os.path.isfile(os.path.join(directory, path)):
             return flask.send_from_directory(directory, path)
-    error = "Forbidden: /{}".format(path)
-    if path[0] == 'v' and path[2] == '/' and path[1].isdigit and path[1] != VERSION:
-        error = "/{} - you are trying to access an unsupported version of the API ({}), please use /v{}/".format(
-            path, VERSION, VERSION)
-    return flask.jsonify({'status': 403, 'error': error}), 403
+    return flask.jsonify({'status': 403, 'error': "Forbidden path: {}".format(path)}), 403
+
+
+@APP.errorhandler(429)
+def ratelimit_handler(error):
+    'Custom error handler for rate limiting.'
+    error = 'Rate limit ({}) exceeded'.format(error.description)
+    LOGGER.warning(error)
+    return flask.make_response(flask.jsonify({'status': 429, 'error': error}), 429)

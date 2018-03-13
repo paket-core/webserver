@@ -58,7 +58,7 @@ def get_users():
         return sql.fetchall()
 
 
-def get_address(user_id):
+def get_user_address(user_id):
     'Get the address of a user. Raise exception if the user is unknown.'
     with sql_connection() as sql:
         sql.execute('SELECT address FROM users WHERE user_id = ?', (user_id,))
