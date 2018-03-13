@@ -26,17 +26,6 @@ OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
 db.set_users({'owner': OWNER, 'launcher': LAUNCHER, 'recipient': RECIPIENT, 'courier': COURIER})
 
 
-def get_user_address(user_id):
-    'Get address of a user.'
-    if W3.isAddress(user_id):
-        return user_id
-    address = db.get_address(user_id)
-    if not W3.isAddress(address):
-        LOGGER.error("user %s has invalid address %s", user_id, address)
-        return None
-    return address
-
-
 def set_account(address):
     'Set the default account.'
     W3.eth.defaultAccount = address
@@ -47,42 +36,46 @@ def get_balance(address):
     return PAKET.call().balanceOf(address)
 
 
-def transfer(user_address, to_address, amount):
+def transfer_buls(user, to_address, amount):
     'Transfer BULs.'
-    return PAKET.transact({'from': user_address}).transfer(to_address, amount)
+    return PAKET.transact({'from': user}).transfer(to_address, amount)
+
+
+def launch_paket(user, recipient, deadline, courier, payment):
+    'Launch a paket.'
+    # We are using only 128 bits here, out of the available 256.
+    paket_id = uuid.uuid4().int
+    LOGGER.error("%s %s %s", paket_id, recipient, deadline)
+    LOGGER.error("%s %s %s", type(paket_id), type(recipient), type(deadline))
+    return {
+        'paket_id': paket_id,
+        'creation_promise': PAKET.transact({'from': user}).create(paket_id, recipient, deadline),
+        'payment_promise': PAKET.transact({'from': user}).commitPayment(paket_id, courier, payment)}
 
 
 # pylint: disable=missing-docstring
-def get_paket_balance(paket_id):
-    return PAKET.call().paketSelfInterest(paket_id)
+def get_paket_balance(user, paket_id):
+    return PAKET.call({'from': user}).paketSelfInterest(paket_id)
 
 
-def launch(recipient, deadline, courier, payment):
-    # We are using only 128 bits here, out of the available 256.
-    paket_id = uuid.uuid4().int
-    PAKET.transact().create(paket_id, recipient, deadline)
-    PAKET.transact().commitPayment(paket_id, courier, payment)
-    return paket_id
+def commit_collateral(user, paket_id, launcher, collateral):
+    PAKET.transact({'from': user}).commitCollateral(paket_id, launcher, collateral)
 
 
-def commit_collateral(paket_id, launcher, collateral):
-    PAKET.transact().commitCollateral(paket_id, launcher, collateral)
+def cover_collateral(user, paket_id, courier, collateral):
+    PAKET.transact({'from': user}).coverCollateral(paket_id, courier, collateral)
 
 
-def cover_collateral(paket_id, courier, collateral):
-    PAKET.transact().coverCollateral(paket_id, courier, collateral)
+def relay_payment(user, paket_id, courier, payment):
+    PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
 
 
-def relay_payment(paket_id, courier, payment):
-    PAKET.transact().relayPayment(paket_id, courier, payment)
+def refund(user, paket_id):
+    PAKET.transact({'from': user}).refund(paket_id)
 
 
-def refund(paket_id):
-    PAKET.transact().refund(paket_id)
-
-
-def confirm_delivery(paket_id):
-    PAKET.transact().payout(paket_id)
+def confirm_delivery(user, paket_id):
+    PAKET.transact({'from': user}).payout(paket_id)
 
 
 def test():
@@ -98,16 +91,15 @@ def test():
 
     show_balances()
 
-    transfer(owner, launcher, 1000)
-    transfer(owner, recipient, 1000)
-    transfer(owner, courier, 1000)
+    transfer_buls(owner, launcher, 1000)
+    transfer_buls(owner, recipient, 1000)
+    transfer_buls(owner, courier, 1000)
     show_balances()
 
-    paket_idx = launch(recipient, int(time.time()) + 100, courier, 100)
+    paket_idx = launch_paket(launcher, recipient, int(time.time()) + 100, courier, 100)
     show_balances()
 
-    set_account(recipient)
-    confirm_delivery(paket_idx)
+    confirm_delivery(recipient, paket_idx)
     show_balances()
 
 
