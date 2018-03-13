@@ -26,9 +26,8 @@ APP.config['SWAGGER'] = {
     'specs_route': '/',
     'info': {
         'title': 'PaKeT API',
-        'description': 'This is a cool thing.',
+        'description': 'Web API Server for The PaKeT Project.',
         'version': VERSION}}
-
 flasgger.Swagger(APP)
 
 
@@ -126,10 +125,12 @@ def api_call(handler=None, required_fields=None):
 @APP.route("/v{}/balance".format(VERSION))
 @api_call
 def balance_endpoint(user_address):
-    '''
+    """
     Get the balance of your account
-    Use this call to get the balance of our account.
+    Use this call to get the balance of your account.
     ---
+    tags:
+    - wallet
     parameters:
       - name: X-User-ID
         in: header
@@ -148,16 +149,20 @@ def balance_endpoint(user_address):
               description: funds available for usage in buls
           example:
             available_bulls: 850
-    '''
+    """
     return {'available_bulls': paket.get_balance(user_address)}
 
 
 @APP.route("/v{}/transfer_bulls".format(VERSION))
 @api_call(['to_address', 'amount_bulls'])
 def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
-    '''
+    """
     Transfer BULs to another address.
+    Use this call to send part of your balance to another user.
+    The to_address can be either a user id, or a wallet address.
     ---
+    tags:
+    - wallet
     parameters:
       - name: X-User-ID
         in: header
@@ -177,16 +182,21 @@ def transfer_bulls_endpoint(user_address, to_address, amount_bulls):
     responses:
       200:
         description: transfer request sent
-    '''
+    """
     return {'promise': paket.transfer(user_address, to_address, amount_bulls), 'status': 200}
 
 
 @APP.route("/v{}/packages".format(VERSION))
 @api_call()
 def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None):
-    '''
+    """
     Get list of packages
+    Use this call to get a list of packages.
+    You can filter the list by showing only active packages, or packages originating after a certain date.
+    You can also filter to show only packages where the user has a specific role, such as "launcher" or "receiver".
     ---
+    tags:
+    - packages
     parameters:
       - name: X-User-ID
         in: header
@@ -209,7 +219,7 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
         description: list of packages
         schema:
           properties:
-            packagess:
+            packages:
               type: array
               items:
                 $ref: '#/definitions/Package'
@@ -228,15 +238,19 @@ def packages_endpoint(show_inactive=False, from_date=None, role_in_delivery=None
               cost: 20
               collateral: 40
               status: delivered
-    '''
+    """
     return {'error': 'Not implemented', 'status': 501}
+
 
 @APP.route("/v{}/package".format(VERSION))
 @api_call()
 def package_endpoint(package_id):
-    '''
-    Get a single package
+    """
+    Get a info about a single package.
+    This will return additional information, such as GPSloc, custodian, etc.
     ---
+    tags:
+    - packages
     parameters:
       - name: X-User-ID
         in: header
@@ -280,16 +294,19 @@ def package_endpoint(package_id):
               cost: 120
               collateral: 400
               status: in transit
-    '''
+    """
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/launch".format(VERSION))
 @api_call(['to_address', 'payment_bulls', 'collateral_bulls'])
 def launch_endpoint():
-    '''
-    Launch a package
+    """
+    Launch a package.
+    Use this call to create a new package for delivery.
     ---
+    tags:
+    - packages
     parameters:
       - name: X-User-ID
         in: header
@@ -317,37 +334,39 @@ def launch_endpoint():
               cost: 120
               collateral: 400
               status: in transit
-    '''
+    """
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/accept".format(VERSION))
 @api_call
 def accept_endpoint():
-    'Put swagger YAML here.'
+    """Put swagger YAML here."""
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/address".format(VERSION))
 @api_call
 def address_endpoint():
-    'Put swagger YAML here.'
+    """Put swagger YAML here."""
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/price".format(VERSION))
 @api_call
 def price_endpoint():
-    'Put swagger YAML here.'
+    """Put swagger YAML here."""
     return {'error': 'Not implemented', 'status': 501}
 
 
 @APP.route("/v{}/users".format(VERSION))
 @api_call
 def users_endpoint(user_address=None):
-    '''
+    """
     Get a list of users and their addresses - for debug only.
     ---
+    tags:
+    - debug
     parameters:
       - name: X-User-ID
         in: header
@@ -386,13 +405,13 @@ def users_endpoint(user_address=None):
                     ]
                 ]
             }
-    '''
+    """
     return {'users': db.get_users(), 'status': 200}
 
 
 @APP.errorhandler(429)
 def ratelimit_handler(error):
-    'Custom error for rate limiter.'
+    """Custom error for rate limiter."""
     msg = 'Rate limit exceeded. Allowed rate: {}'.format(error.description)
     LOGGER.info(msg)
     return flask.make_response(flask.jsonify({'status': 429, 'error': msg}), 429)
@@ -402,7 +421,7 @@ def ratelimit_handler(error):
 @APP.route('/<path:path>', methods=['GET', 'POST'])
 @LIMITER.limit(limit_value="2000 per second")
 def catch_all_endpoint(path='index.html'):
-    'All undefined endpoints try to serve from the static directories.'
+    """All undefined endpoints try to serve from the static directories."""
     for directory in STATIC_DIRS:
         if os.path.isfile(os.path.join(directory, path)):
             return flask.send_from_directory(directory, path)
