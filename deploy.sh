@@ -25,7 +25,14 @@ fi
 
 # Initialize truffle and zeppelin if needed.
 if [ ! -r 'truffle.js' ]; then
+    # Ugly hack because truffle will only init in an empty directory.
+    mkdir truffle
+    cd truffle
     truffle init
+    cd ..
+    mv truffle/* .
+    rmdir truffle
+
     ln ./Paket.sol ./contracts/.
     cat << EOF > truffle.js
 module.exports = {
