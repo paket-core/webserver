@@ -1,10 +1,18 @@
 #!/bin/bash
-set -o allexport
-. paket.env
-set +o allexport
+# Deploy a PaKeT server.
 
-if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
-    node ./node_modules/ganache-cli/build/cli.node.js &
+# Requires python3 (see python requirements in requirements.txt), npm, truffle,
+# solc, and a running ethereum RPC server (we are using ganache-cli).
+
+missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
+if [ "$missing_packages" ]; then
+    echo "The following packages are missing: $missing_packages"
+    exit 1
+fi
+
+if ! which npm; then
+    echo 'npm not found'
+    exit 1
 fi
 
 if ! which truffle; then
@@ -17,14 +25,18 @@ if ! which solc; then
     exit 1
 fi
 
-missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
-if [ "$missing_packages" ]; then
-    echo "The following packages are missing: $missing_packages"
+if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
+    echo 'no running rpc server found on standard port'
     exit 1
 fi
 
-# Initialize truffle and zeppelin if needed.
-if [ ! -r 'truffle.js' ]; then
+# Install zeppelin if needed.
+if [ ! -e './node_modules/zeppelin-solidity/' ]; then
+    npm install zeppelin-solidity
+fi
+
+# Initialize truffle if needed.
+if [ ! -e 'truffle.js' ]; then
     # Ugly hack because truffle will only init in an empty directory.
     mkdir truffle
     cd truffle
@@ -53,10 +65,14 @@ module.exports = function(deployer, network, accounts){
     deployer.deploy(Paket);
 };
 EOF
-    npm install zeppelin-solidity
 fi
 
-# Deploy contract and set address.
+# Export environment variables.
+set -o allexport
+. paket.env
+set +o allexport
+
+# Deploy contract and get address.
 PAKET_ADDRESS="$(truffle migrate --reset | grep -Po '(?<=Paket: ).*')"
 export PAKET_ADDRESS
 
@@ -64,4 +80,5 @@ export PAKET_ADDRESS
 PAKET_ABI="$(solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2)"
 export PAKET_ABI
 
-flask run --host=0.0.0.0
+# Run server if script is run directly (and not sourced).
+[ "$BASH_SOURCE" == "$0" ] && flask run --host=0.0.0.0
