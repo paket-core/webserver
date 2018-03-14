@@ -28,6 +28,11 @@ def sql_connection(db_name=DB_NAME):
 def init_db():
     'Initialize the database.'
     with sql_connection() as sql:
+        # Not using IF EXISTS here in case we want different handling.
+        sql.execute('SELECT name FROM sqlite_master WHERE type = "table" AND name = "users"')
+        if len(sql.fetchall()) == 1:
+            LOGGER.debug('table already exists')
+            return
         sql.execute('''
             CREATE TABLE users(
                 address VARCHAR(42) PRIMARY KEY,
