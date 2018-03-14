@@ -40,6 +40,20 @@ contract Paket is MintableToken {
         );
     }
 
+    // Get paket details.
+    function get(uint256 _paketId) view public returns (
+        address recipient, uint256 deadline,
+        address[] paymentBenificieries, address[] collateralRefundees,
+        address[] paymentRefundees, address[] collateralBenificieries
+    ) {
+        recipient = pakets[_paketId].recipient;
+        deadline = pakets[_paketId].deadline;
+        paymentBenificieries = pakets[_paketId].paymentBenificieries;
+        collateralRefundees = pakets[_paketId].collateralBenificieries;
+        paymentRefundees = pakets[_paketId].paymentRefundees;
+        collateralBenificieries = pakets[_paketId].collateralBenificieries;
+    }
+
     // Modifier to functions that commit BULs.
     // FIXME Perhaps we better use zeppelin's transfre method.
     // Which probably means we will be sending BULs to the contract itself.
