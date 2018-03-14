@@ -1,4 +1,4 @@
-'PaKeT logging.'
+"""PaKeT logging."""
 import logging
 import os
 
@@ -10,8 +10,9 @@ FORMAT = '%(asctime)s %(levelname).3s: %(message)s - %(name)s +%(lineno)03d'
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LEVEL = logging.DEBUG
 
+
 def setup():
-    'Setup the root logger.'
+    """Setup the root logger."""
     # Colored logs for terminal. Do this first, because it messes with the logger's level.
     stream_formatter = coloredlogs.ColoredFormatter(
         fmt=FORMAT, datefmt=DATE_FORMAT, level_styles={

@@ -1,4 +1,4 @@
-'Web JSON swagger API to PaKeT smart contract.'
+"""Web JSON swagger API to PaKeT smart contract."""
 import functools
 import os
 
@@ -20,32 +20,56 @@ STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
-
 APP.config['SWAGGER'] = {
     'title': 'PaKeT API',
     'uiversion': 3,
     'specs_route': '/',
-    'info': {
-        'title': 'PaKeT API',
-        'description': 'Web API Server for The PaKeT Project.',
-        'version': VERSION}}
-flasgger.Swagger(APP)
+    "specs": [
+            {
+                "endpoint": 'apispec',
+                "route": '/apispec.json',
+                "rule_filter": lambda rule: True,  # all in
+                "model_filter": lambda tag: True,  # all in
+            }
+        ],
+}
+flasgger.Swagger(APP, template={
+    "swagger": "2.0",
+    "info": {
+        "title": "PaKeT API",
+        "description": "Web API Server for The PaKeT Project",
+        "contact": {
+            "name": "Israel Levin",
+            "email": "Israel@paket.global",
+            "url": "www.paket.global",
+        },
+        "version": VERSION,
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+          },
+    },
+    "schemes": [
+        "http",
+        "https"
+    ],
+})
 
 
 class MissingFields(Exception):
-    'Missing field in args.'
+    """Missing field in args."""
 
 
 class BadBulNumberField(Exception):
-    'Invalid BUL number field.'
+    """Invalid BUL number field."""
 
 
 class BadAddressField(Exception):
-    'Invalid address field.'
+    """Invalid address field."""
 
 
 def check_missing_fields(fields, required_fields):
-    'Raise exception if there are missing fields.'
+    """Raise exception if there are missing fields."""
     if required_fields is None:
         required_fields = set()
     missing_fields = set(required_fields) - set(fields)
@@ -54,11 +78,11 @@ def check_missing_fields(fields, required_fields):
 
 
 def check_and_fix_values(kwargs):
-    '''
+    """
     Raise exception for invalid values.
     "_buls" and "_timestamp" fields must be valid integers.
     "_address" fields must be valid addresses.
-    '''
+    """
     for key, value in kwargs.items():
         if key.endswith('_buls') or key.endswith('_timestamp'):
             try:
@@ -66,14 +90,14 @@ def check_and_fix_values(kwargs):
                 int_val = int(str(value))
             except ValueError:
                 raise BadBulNumberField("the value of {}({}) is not an integer".format(key, value))
-            if int_val >= 10**10:
+            if int_val >= 10 ** 10:
                 raise BadBulNumberField("the value of {}({}) is too large".format(key, value))
             elif int_val < 0:
                 raise BadBulNumberField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
-            LOGGER.warning("Attemting conversion of user ID %s to address", value)
+            LOGGER.warning("Attempting conversion of user ID %s to address", value)
             kwargs[key] = db.get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
                 raise BadAddressField("value of {} is not a valid address".format(key))
@@ -81,13 +105,15 @@ def check_and_fix_values(kwargs):
 
 
 def optional_arg_decorator(decorator):
-    'A decorator for decorators than can accept optional arguments.'
+    """A decorator for decorators than can accept optional arguments."""
+
     @functools.wraps(decorator)
     def wrapped_decorator(*args, **kwargs):
-        'A wrapper to return a filled up function in case arguments are given.'
+        """A wrapper to return a filled up function in case arguments are given."""
         if len(args) == 1 and not kwargs and callable(args[0]):
             return decorator(args[0])
         return lambda decoratee: decorator(decoratee, *args, **kwargs)
+
     return wrapped_decorator
 
 
@@ -95,11 +121,12 @@ def optional_arg_decorator(decorator):
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
 def api_call(handler=None, required_fields=None):
-    '''
+    """
     A decorator to handle all API calls: extracts arguments, validates them,
     fixes them, handles authentication, and then passes them to the handler,
     dealing with exceptions and returning a valid response.
-    '''
+    """
+
     @functools.wraps(handler)
     def _api_call(*_, **kwargs):
         # pylint: disable=broad-except
@@ -123,6 +150,7 @@ def api_call(handler=None, required_fields=None):
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
+
     return _api_call
 
 
@@ -316,7 +344,7 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
 def package_handler(package_id):
     """
     Get a info about a single package.
-    This will return additional information, such as GPSloc, custodian, etc.
+    This will return additional information, such as GPS location, custodian, etc.
     ---
     tags:
     - packages
@@ -375,10 +403,36 @@ def accept_handler():
     return {'status': 501, 'error': 'Not implemented'}
 
 
-@APP.route("/v{}/address".format(VERSION))
+@APP.route("/v{}/wallet_address".format(VERSION))
 @api_call
-def address_handler():
-    """Put swagger YAML here."""
+def wallet_address_handler(user_address):
+    """
+        Get the address of the wallet. This address can be used to send BULs to.
+        ---
+        tags:
+        - wallet
+        parameters:
+          - name: X-User-ID
+            in: header
+            default: owner
+            schema:
+                type: string
+                format: string
+        responses:
+          200:
+            description: an address
+            schema:
+              properties:
+                address:
+                  type: string
+                  format: string
+                  description: address of te BUL wallet
+              example:
+                {
+                    "status": 200,
+                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+                }
+        """
     return {'status': 501, 'error': 'Not implemented'}
 
 
@@ -451,7 +505,7 @@ def catch_all_handler(path='index.html'):
 
 @APP.errorhandler(429)
 def ratelimit_handler(error):
-    'Custom error handler for rate limiting.'
+    """Custom error handler for rate limiting."""
     error = 'Rate limit ({}) exceeded'.format(error.description)
     LOGGER.warning(error)
     return flask.make_response(flask.jsonify({'status': 429, 'error': error}), 429)
