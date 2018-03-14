@@ -1,4 +1,4 @@
-'PaKeT database interface.'
+"""PaKeT database interface."""
 import contextlib
 import logging
 import sqlite3
@@ -8,12 +8,12 @@ DB_NAME = 'paket.db'
 
 
 class UnknownUser(Exception):
-    'Invalid user ID.'
+    """Invalid user ID."""
 
 
 @contextlib.contextmanager
 def sql_connection(db_name=DB_NAME):
-    'Context manager for querying the database.'
+    """Context manager for querying the database."""
     try:
         connection = sqlite3.connect(db_name)
         yield connection.cursor()
@@ -22,11 +22,12 @@ def sql_connection(db_name=DB_NAME):
         raise db_exception
     finally:
         if 'connection' in locals():
+            # noinspection PyUnboundLocalVariable
             connection.close()
 
 
 def init_db():
-    'Initialize the database.'
+    """Initialize the database."""
     with sql_connection() as sql:
         # Not using IF EXISTS here in case we want different handling.
         sql.execute('SELECT name FROM sqlite_master WHERE type = "table" AND name = "users"')
@@ -45,7 +46,7 @@ def init_db():
 
 
 def set_users(users):
-    'Set some users for testing.'
+    """Set some users for testing."""
     with sql_connection() as sql:
         for user_id, address in users.items():
             try:
@@ -57,14 +58,14 @@ def set_users(users):
 
 
 def get_users():
-    'Get list of users and addresses - for debug only.'
+    """Get list of users and addresses - for debug only."""
     with sql_connection() as sql:
         sql.execute('SELECT user_id, address FROM users')
         return sql.fetchall()
 
 
 def get_user_address(user_id):
-    'Get the address of a user. Raise exception if the user is unknown.'
+    """Get the address of a user. Raise exception if the user is unknown."""
     with sql_connection() as sql:
         sql.execute('SELECT address FROM users WHERE user_id = ?', (user_id,))
         try:
