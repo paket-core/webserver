@@ -60,23 +60,28 @@ def get_paket_balance(user, paket_id):
 
 
 def commit_collateral(user, paket_id, launcher, collateral):
-    PAKET.transact({'from': user}).commitCollateral(paket_id, launcher, collateral)
+    return PAKET.transact({'from': user}).commitCollateral(paket_id, launcher, collateral)
 
 
 def cover_collateral(user, paket_id, courier, collateral):
-    PAKET.transact({'from': user}).coverCollateral(paket_id, courier, collateral)
+    return PAKET.transact({'from': user}).coverCollateral(paket_id, courier, collateral)
 
 
 def relay_payment(user, paket_id, courier, payment):
-    PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
+    return PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
 
 
 def refund(user, paket_id):
-    PAKET.transact({'from': user}).refund(paket_id)
+    return PAKET.transact({'from': user}).refund(paket_id)
 
 
 def confirm_delivery(user, paket_id):
-    PAKET.transact({'from': user}).payout(paket_id)
+    return PAKET.transact({'from': user}).payout(paket_id)
+
+
+def accept_paket(user, paket_id):
+    paket = PAKET.call().get(paket_id)
+    return paket
 
 
 def test():
@@ -97,10 +102,10 @@ def test():
     transfer_buls(owner, courier, 1000)
     show_balances()
 
-    paket_idx = launch_paket(launcher, recipient, int(time.time()) + 100, courier, 100)
+    paket_id = launch_paket(launcher, recipient, int(time.time()) + 100, courier, 100)
     show_balances()
 
-    confirm_delivery(recipient, paket_idx)
+    confirm_delivery(recipient, paket_id)
     show_balances()
 
 
