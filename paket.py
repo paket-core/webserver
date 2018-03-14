@@ -23,6 +23,7 @@ PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
 
 # This is an ugly, temporary usage of ganache's internal keys.
 OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
+db.init_db()
 db.set_users({'owner': OWNER, 'launcher': LAUNCHER, 'recipient': RECIPIENT, 'courier': COURIER})
 
 
