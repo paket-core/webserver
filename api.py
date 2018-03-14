@@ -403,9 +403,9 @@ def accept_handler():
     return {'status': 501, 'error': 'Not implemented'}
 
 
-@APP.route("/v{}/buls_address".format(VERSION))
+@APP.route("/v{}/wallet_address".format(VERSION))
 @api_call
-def buls_address_handler(user_address):
+def wallet_address_handler(user_address):
     """
         Get the address of the BULs. This addressed can be used to send BULs to.
         ---
