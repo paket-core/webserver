@@ -407,7 +407,7 @@ def accept_handler():
 @api_call
 def wallet_address_handler(user_address):
     """
-        Get the address of the BULs. This addressed can be used to send BULs to.
+        Get the address of the wallet. This address can be used to send BULs to.
         ---
         tags:
         - wallet
