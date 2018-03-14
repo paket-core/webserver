@@ -60,8 +60,8 @@ class MissingFields(Exception):
     """Missing field in args."""
 
 
-class BadBulNumberField(Exception):
-    """Invalid BUL number field."""
+class BadNumberField(Exception):
+    """Invalid number field."""
 
 
 class BadAddressField(Exception):
@@ -80,20 +80,18 @@ def check_missing_fields(fields, required_fields):
 def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
-    "_buls" and "_timestamp" fields must be valid integers.
+    "_buls" and "_timestamp" and "package_id" fields must be valid integers.
     "_address" fields must be valid addresses.
     """
     for key, value in kwargs.items():
-        if key.endswith('_buls') or key.endswith('_timestamp'):
+        if key.endswith('_buls') or key.endswith('_timestamp') or key == 'package_id':
             try:
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
             except ValueError:
-                raise BadBulNumberField("the value of {}({}) is not an integer".format(key, value))
-            if int_val >= 10 ** 10:
-                raise BadBulNumberField("the value of {}({}) is too large".format(key, value))
-            elif int_val < 0:
-                raise BadBulNumberField("the value of {}({}) is less than zero".format(key, value))
+                raise BadNumberField("the value of {}({}) is not an integer".format(key, value))
+            if int_val < 0:
+                raise BadNumberField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
@@ -140,7 +138,7 @@ def api_call(handler=None, required_fields=None):
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
-        except BadBulNumberField as exception:
+        except BadNumberField as exception:
             response = {'status': 400, 'error': str(exception)}
         except db.UnknownUser as exception:
             response = {'status': 403, 'error': str(exception)}
@@ -152,6 +150,39 @@ def api_call(handler=None, required_fields=None):
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
 
     return _api_call
+
+
+@APP.route("/v{}/wallet_address".format(VERSION))
+@api_call
+def wallet_address_handler(user_address):
+    """
+        Get the address of the wallet. This address can be used to send BULs to.
+        ---
+        tags:
+        - wallet
+        parameters:
+          - name: X-User-ID
+            in: header
+            default: owner
+            schema:
+                type: string
+                format: string
+        responses:
+          200:
+            description: an address
+            schema:
+              properties:
+                address:
+                  type: string
+                  format: string
+                  description: address of te BUL wallet
+              example:
+                {
+                    "status": 200,
+                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+                }
+        """
+    return {'status': 200, 'address': user_address}
 
 
 @APP.route("/v{}/balance".format(VERSION))
@@ -205,11 +236,13 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
             format: string
       - name: to_address
         in: query
+        default: launcher
         description: target address for transfer
         required: true
         type: string
       - name: amount_buls
         in: query
+        default: 111
         description: amount to transfer
         required: true
         type: integer
@@ -222,7 +255,7 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
 
 @APP.route("/v{}/launch_package".format(VERSION))
 @api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls'])
-def launch_handler(user_address, recipient_address, deadline_timestamp, courier_address, payment_buls):
+def launch_package_handler(user_address, recipient_address, deadline_timestamp, courier_address, payment_buls):
     """
     Launch a package.
     Use this call to create a new package for delivery.
@@ -274,6 +307,83 @@ def launch_handler(user_address, recipient_address, deadline_timestamp, courier_
     return dict(status=200, **paket.launch_paket(
         user_address, recipient_address, deadline_timestamp, courier_address, payment_buls
     ))
+
+
+@APP.route("/v{}/accept_package".format(VERSION))
+@api_call(['package_id'])
+def accept_package_handler(user_address, package_id):
+    """
+    Accept a package.
+    If the package requires collateral, commit it.
+    If user is the package's recipient, release all funds from the escrow.
+    ---
+    tags:
+    - packages
+    parameters:
+      - name: X-User-ID
+        in: header
+        default: recipient
+        schema:
+            type: string
+            format: string
+      - name: package_id
+        in: query
+        description: PKT id
+        required: true
+        type: integer
+        default: 0
+    responses:
+      200:
+        description: Package accept requested
+    """
+    return {'status': 200, 'promise': paket.accept_paket(user_address, package_id)}
+
+
+@APP.route("/v{}/relay_package".format(VERSION))
+@api_call(['package_id', 'courier_address', 'payment_buls'])
+def relay_package_handler(user_address, package_id, courier_address, payment_buls):
+    """
+    Relay a package to another courier, offering payment.
+    ---
+    tags:
+    - packages
+    parameters:
+      - name: X-User-ID
+        in: header
+        default: courier
+        schema:
+            type: string
+            format: string
+      - name: package_id
+        in: query
+        description: PKT id
+        required: true
+        type: integer
+        default: 0
+      - name: courier_address
+        in: query
+        default: courier
+        description: Courier address
+        required: true
+        type: string
+      - name: payment_buls
+        in: query
+        default: 10
+        description: BULs promised as payment
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Package launched
+        content:
+          schema:
+            type: string
+            example: PKT-12345
+          example:
+            PKT-id: 1001
+    """
+    LOGGER.warning("%s %s %s", type(package_id), type(courier_address), type(payment_buls))
+    return {'status': 200, 'promise': paket.relay_payment(user_address, package_id, courier_address, payment_buls)}
 
 
 # pylint: disable=unused-argument
@@ -393,46 +503,6 @@ def package_handler(package_id):
               collateral: 400
               status: in transit
     """
-    return {'status': 501, 'error': 'Not implemented'}
-
-
-@APP.route("/v{}/accept".format(VERSION))
-@api_call
-def accept_handler():
-    """Put swagger YAML here."""
-    return {'status': 501, 'error': 'Not implemented'}
-
-
-@APP.route("/v{}/wallet_address".format(VERSION))
-@api_call
-def wallet_address_handler(user_address):
-    """
-        Get the address of the wallet. This address can be used to send BULs to.
-        ---
-        tags:
-        - wallet
-        parameters:
-          - name: X-User-ID
-            in: header
-            default: owner
-            schema:
-                type: string
-                format: string
-        responses:
-          200:
-            description: an address
-            schema:
-              properties:
-                address:
-                  type: string
-                  format: string
-                  description: address of te BUL wallet
-              example:
-                {
-                    "status": 200,
-                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-                }
-        """
     return {'status': 501, 'error': 'Not implemented'}
 
 
