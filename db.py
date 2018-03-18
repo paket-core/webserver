@@ -38,8 +38,10 @@ def init_db():
         sql.execute('''
             CREATE TABLE users(
                 address VARCHAR(42) PRIMARY KEY,
-                user_key VARCHAR(1024) UNIQUE,
-                user_id VARCHAR(32) UNIQUE,
+                key VARCHAR(1024) UNIQUE,
+                uid VARCHAR(32) UNIQUE,
+                email VARCHAR(256),
+                phone VARCHAR(32),
                 kwargs VARCHAR(1024))''')
         LOGGER.debug('users table created')
         sql.execute('''
@@ -54,29 +56,48 @@ def init_db():
         LOGGER.debug('packages table created')
 
 
+def create_user(address, key, uid):
+    """Create a new user."""
+    with sql_connection() as sql:
+        sql.execute("INSERT INTO users (address, key, uid) VALUES (?, ?, ?)", (address, key, uid))
+
+
+def get_user(key):
+    """Get user details."""
+    with sql_connection() as sql:
+        sql.execute("SELECT * FROM users WHERE address = ?", (key,))
+        return sql.fetchone()
+
+
+def update_user_details(key, email, phone):
+    """Update user details."""
+    with sql_connection() as sql:
+        sql.execute("UPDATE users SET email = ?, phone = ? WHERE key = ?", (email, phone, key))
+
+
 def set_users(users):
     """Set some users for testing."""
-    with sql_connection() as sql:
-        for user_id, address in users.items():
-            try:
-                sql.execute("INSERT INTO users (user_id, address) VALUES (?, ?)", (user_id, ''))
-            except sqlite3.IntegrityError:
-                pass
-            sql.execute("UPDATE users SET address = ? WHERE user_id = ?", (address, user_id))
-            users = sql.fetchone()
+    for user_id, address in users.items():
+        try:
+            assert get_user(user_id) is None
+            LOGGER.debug("User %s exists", user_id)
+        except (sqlite3.ProgrammingError, AssertionError):
+            LOGGER.debug("Creating user %s", user_id)
+            create_user(address, user_id, user_id)
 
 
 def get_users():
     """Get list of users and addresses - for debug only."""
     with sql_connection() as sql:
-        sql.execute('SELECT user_id, address FROM users')
-        return sql.fetchall()
+        sql.execute('SELECT * FROM users')
+        users = sql.fetchall()
+        return {user['uid']: {key: user[key] for key in user.keys()} for user in users}
 
 
 def get_user_address(user_id):
     """Get the address of a user. Raise exception if the user is unknown."""
     with sql_connection() as sql:
-        sql.execute('SELECT address FROM users WHERE user_id = ?', (user_id,))
+        sql.execute('SELECT address FROM users WHERE uid = ?', (user_id,))
         try:
             return sql.fetchone()[0]
         except TypeError:
