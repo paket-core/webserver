@@ -410,7 +410,7 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
 # pylint: disable=unused-argument
 @APP.route("/v{}/packages".format(VERSION))
 @api_call()
-def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None):
+def packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
     Use this call to get a list of packages.
@@ -437,11 +437,6 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
         description: show only packages from this date forward
         required: false
         type: string
-      - name: collateral_buls
-        in: query
-        description: BULs required as collateral
-        required: true
-        type: integer
     responses:
       200:
         description: list of packages
@@ -467,7 +462,7 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
               collateral: 40
               status: delivered
     """
-    return {'status': 501, 'error': 'Not implemented'}
+    return {'status': 200, 'packages': db.get_packages()}
 
 
 @APP.route("/v{}/package".format(VERSION))

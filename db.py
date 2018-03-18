@@ -114,9 +114,16 @@ def create_package(paket_id, launcher_address, recipient_address, payment, colla
 def get_package(paket_id):
     """Get package details."""
     with sql_connection() as sql:
-        sql.execute('SELECT * FROM packages WHERE paket_id = ?', (paket_id,))
+        sql.execute("SELECT * FROM packages WHERE paket_id = ?", (paket_id,))
         package = sql.fetchone()
     return {key: package[key] for key in package.keys()}
+
+def get_packages():
+    """Get a list of packages."""
+    with sql_connection() as sql:
+        sql.execute('SELECT paket_id, launcher_address, custodian_address, recipient_address FROM packages')
+        packages = sql.fetchall()
+    return {package['paket_id']: {key: package[key] for key in package.keys()} for package in packages}
 
 
 def update_custodian(paket_id, custodian_address):
