@@ -472,7 +472,7 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
 
 @APP.route("/v{}/package".format(VERSION))
 @api_call()
-def package_handler(paket_id):
+def package_handler(user_address, paket_id):
     """
     Get a info about a single package.
     This will return additional information, such as GPS location, custodian, etc.
@@ -524,7 +524,7 @@ def package_handler(paket_id):
               collateral: 400
               status: in transit
     """
-    return {'status': 501, 'error': 'Not implemented'}
+    return {'status': 200, 'package': db.get_package(paket_id)}
 
 
 @APP.route("/v{}/register_user".format(VERSION))
@@ -562,10 +562,35 @@ def register_user_handler(user_address, email, phone):
 
 
 @APP.route("/v{}/price".format(VERSION))
-@api_call
 def price_handler():
-    """Put swagger YAML here."""
-    return {'status': 501, 'error': 'Not implemented'}
+    """
+    Get buy and sell prices.
+    ---
+    tags:
+    - wallet
+    responses:
+      200:
+        description: buy and sell prices
+        schema:
+          properties:
+            buy_price:
+              type: integer
+              format: int32
+              minimum: 0
+              description: price for which a BUL may me purchased
+            sell_price:
+              type: integer
+              format: int32
+              minimum: 0
+              description: price for which a BUL may me sold
+          example:
+            {
+                "status": 200,
+                "buy_price": 1,
+                "sell_price": 1
+            }
+    """
+    return flask.jsonify({'status': 200, 'buy_price': 1, 'sell_price': 1})
 
 
 @APP.route("/v{}/users".format(VERSION))

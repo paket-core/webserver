@@ -88,7 +88,7 @@ def get_users():
     with sql_connection() as sql:
         sql.execute('SELECT * FROM users')
         users = sql.fetchall()
-        return {user['uid']: {key: user[key] for key in user.keys()} for user in users}
+    return {user['uid']: {key: user[key] for key in user.keys()} for user in users}
 
 
 def get_user_address(user_id):
@@ -115,7 +115,8 @@ def get_package(paket_id):
     """Get package details."""
     with sql_connection() as sql:
         sql.execute('SELECT * FROM packages WHERE paket_id = ?', (paket_id,))
-        return sql.fetchone()
+        package = sql.fetchone()
+    return {key: package[key] for key in package.keys()}
 
 
 def update_custodian(paket_id, custodian_address):
