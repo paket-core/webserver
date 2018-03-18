@@ -14,9 +14,19 @@ VERSION = '1'
 LOGGER = logger.logging.getLogger('pkt.api')
 logger.setup()
 
-# Initialize database with debug values.
+# Initialize database with debug values and fund users.
 db.init_db()
-db.set_users({'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER})
+for user_id, user_address in {
+        'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
+}.items():
+    try:
+        db.create_user(user_address, user_id, user_id)
+        paket.transfer_buls(paket.OWNER, user_address, 1000)
+        LOGGER.debug("Created and funded user %s", user_id)
+    except db.sqlite3.IntegrityError:
+        LOGGER.debug("User %s already exists", user_id)
+    except Exception:
+        LOGGER.exception('!!!')
 
 # Initialize flask app.
 APP = flask.Flask('PaKeT')
@@ -341,9 +351,9 @@ def accept_package_handler(user_address, paket_id):
       200:
         description: Package accept requested
     """
-    LOGGER.warning(db.get_package(paket_id).keys())
+    package = db.get_package(paket_id)
     return {'status': 200, 'promise': paket.accept_paket(
-        user_address, int(paket_id, 10), db.get_package(paket_id)['custodian_address'])}
+        user_address, int(paket_id, 10), package['custodian_address'], package['collateral'])}
 
 
 @APP.route("/v{}/relay_package".format(VERSION))
@@ -546,27 +556,43 @@ def users_handler():
           example:
             {
                 "status": 200,
-                "users": [
-                    [
-                    "owner",
-                    "0x27936e0AFe9634E557c17aeA7FF7885D4D2901b6"
-                    ],
-                    [
-                    "launcher",
-                    "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-                    ],
-                    [
-                    "recipient",
-                    "0x00196f888b3eDa8C6F4a116511CAFeD93008763f"
-                    ],
-                    [
-                    "courier",
-                    "0x498e32Ae4B84f96CDD24a2d5b7270A15Ad8d9a26"
-                    ]
-                ]
+                "users": {
+                    "courier": {
+                    "address": "0x5A7DAfa89E49A73d2a324c91833E653f364c02D8",
+                    "email": null,
+                    "key": "courier",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "courier"
+                    },
+                    "launcher": {
+                    "address": "0x79ce35B014FC7860eb17B04937De00A053E432e5",
+                    "email": null,
+                    "key": "launcher",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "launcher"
+                    },
+                    "owner": {
+                    "address": "0xCd63572EeaA1eEdc1abc84A6542c16132aC4357e",
+                    "email": null,
+                    "key": "owner",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "owner"
+                    },
+                    "recipient": {
+                    "address": "0xA18401337598D0fc453e788Bf1cd0C5D69070125",
+                    "email": null,
+                    "key": "recipient",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "recipient"
+                    }
+                }
             }
     """
-    return flask.jsonify({'users': db.get_users()})
+    return flask.jsonify({'status': 200, 'users': db.get_users()})
 
 
 @APP.route('/')
