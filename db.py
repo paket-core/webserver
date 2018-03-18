@@ -75,17 +75,6 @@ def update_user_details(key, email, phone):
         sql.execute("UPDATE users SET email = ?, phone = ? WHERE key = ?", (email, phone, key))
 
 
-def set_users(users):
-    """Set some users for testing."""
-    for user_id, address in users.items():
-        try:
-            assert get_user(user_id) is None
-            LOGGER.debug("User %s exists", user_id)
-        except (sqlite3.ProgrammingError, AssertionError):
-            LOGGER.debug("Creating user %s", user_id)
-            create_user(address, user_id, user_id)
-
-
 def get_users():
     """Get list of users and addresses - for debug only."""
     with sql_connection() as sql:
