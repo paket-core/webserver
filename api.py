@@ -14,46 +14,41 @@ VERSION = '1'
 LOGGER = logger.logging.getLogger('pkt.api')
 logger.setup()
 
+# Initialize database with debug values.
+db.init_db()
+db.set_users({'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER})
+
+# Initialize flask app.
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
-
 APP.config['SWAGGER'] = {
     'title': 'PaKeT API',
     'uiversion': 3,
     'specs_route': '/',
-    "specs": [
-            {
-                "endpoint": 'apispec',
-                "route": '/apispec.json',
-                "rule_filter": lambda rule: True,  # all in
-                "model_filter": lambda tag: True,  # all in
-            }
-        ],
-}
-flasgger.Swagger(APP, template={
-    "swagger": "2.0",
-    "info": {
-        "title": "PaKeT API",
-        "description": "Web API Server for The PaKeT Project",
-        "contact": {
-            "name": "Israel Levin",
-            "email": "Israel@paket.global",
-            "url": "www.paket.global",
+    'info': {
+        'description': 'Web API Server for The PaKeT Project',
+        'contact': {
+            'name': 'Israel Levin',
+            'email': 'Israel@paket.global',
+            'url': 'www.paket.global',
         },
-        "version": VERSION,
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-          },
+        'version': VERSION,
+        'license': {
+            'name': 'Apache 2.0',
+            'url': 'http://www.apache.org/licenses/LICENSE-2.0.html'
+        },
     },
-    "schemes": [
-        "http",
-        "https"
-    ],
-})
+    'specs': [{
+        'endpoint': '/',
+        'route': '/apispec.json',
+        'rule_filter': lambda rule: True,  # all in
+        'model_filter': lambda tag: True,  # all in
+    }],
+}
+flasgger.Swagger(APP)
 
 
 class MissingFields(Exception):
@@ -80,11 +75,11 @@ def check_missing_fields(fields, required_fields):
 def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
-    "_buls" and "_timestamp" and "package_id" fields must be valid integers.
+    "_buls" and "_timestamp" fields must be valid integers.
     "_address" fields must be valid addresses.
     """
     for key, value in kwargs.items():
-        if key.endswith('_buls') or key.endswith('_timestamp') or key == 'package_id':
+        if key.endswith('_buls') or key.endswith('_timestamp'):
             try:
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
@@ -254,8 +249,10 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
 
 
 @APP.route("/v{}/launch_package".format(VERSION))
-@api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls'])
-def launch_package_handler(user_address, recipient_address, deadline_timestamp, courier_address, payment_buls):
+@api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls', 'collateral_buls'])
+def launch_package_handler(
+        user_address, recipient_address, deadline_timestamp, courier_address, payment_buls, collateral_buls
+):
     """
     Launch a package.
     Use this call to create a new package for delivery.
@@ -294,6 +291,12 @@ def launch_package_handler(user_address, recipient_address, deadline_timestamp, 
         description: BULs promised as payment
         required: true
         type: integer
+      - name: collateral_buls
+        in: query
+        default: 100
+        description: BULs required as collateral
+        required: true
+        type: integer
     responses:
       200:
         description: Package launched
@@ -304,14 +307,16 @@ def launch_package_handler(user_address, recipient_address, deadline_timestamp, 
           example:
             PKT-id: 1001
     """
-    return dict(status=200, **paket.launch_paket(
+    new_paket = paket.launch_paket(
         user_address, recipient_address, deadline_timestamp, courier_address, payment_buls
-    ))
+    )
+    db.create_package(new_paket['paket_id'], user_address, recipient_address, payment_buls, collateral_buls)
+    return dict(status=200, **new_paket)
 
 
 @APP.route("/v{}/accept_package".format(VERSION))
-@api_call(['package_id'])
-def accept_package_handler(user_address, package_id):
+@api_call(['paket_id'])
+def accept_package_handler(user_address, paket_id):
     """
     Accept a package.
     If the package requires collateral, commit it.
@@ -326,22 +331,24 @@ def accept_package_handler(user_address, package_id):
         schema:
             type: string
             format: string
-      - name: package_id
+      - name: paket_id
         in: query
         description: PKT id
         required: true
-        type: integer
+        type: string
         default: 0
     responses:
       200:
         description: Package accept requested
     """
-    return {'status': 200, 'promise': paket.accept_paket(user_address, package_id)}
+    LOGGER.warning(db.get_package(paket_id).keys())
+    return {'status': 200, 'promise': paket.accept_paket(
+        user_address, int(paket_id, 10), db.get_package(paket_id)['custodian_address'])}
 
 
 @APP.route("/v{}/relay_package".format(VERSION))
-@api_call(['package_id', 'courier_address', 'payment_buls'])
-def relay_package_handler(user_address, package_id, courier_address, payment_buls):
+@api_call(['paket_id', 'courier_address', 'payment_buls'])
+def relay_package_handler(user_address, paket_id, courier_address, payment_buls):
     """
     Relay a package to another courier, offering payment.
     ---
@@ -354,11 +361,11 @@ def relay_package_handler(user_address, package_id, courier_address, payment_bul
         schema:
             type: string
             format: string
-      - name: package_id
+      - name: paket_id
         in: query
         description: PKT id
         required: true
-        type: integer
+        type: string
         default: 0
       - name: courier_address
         in: query
@@ -382,8 +389,7 @@ def relay_package_handler(user_address, package_id, courier_address, payment_bul
           example:
             PKT-id: 1001
     """
-    LOGGER.warning("%s %s %s", type(package_id), type(courier_address), type(payment_buls))
-    return {'status': 200, 'promise': paket.relay_payment(user_address, package_id, courier_address, payment_buls)}
+    return {'status': 200, 'promise': paket.relay_payment(user_address, paket_id, courier_address, payment_buls)}
 
 
 # pylint: disable=unused-argument
@@ -451,7 +457,7 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
 
 @APP.route("/v{}/package".format(VERSION))
 @api_call()
-def package_handler(package_id):
+def package_handler(paket_id):
     """
     Get a info about a single package.
     This will return additional information, such as GPS location, custodian, etc.
@@ -465,11 +471,11 @@ def package_handler(package_id):
         schema:
             type: string
             format: string
-      - name: package_id
+      - name: paket_id
         in: query
         description: PKT id
         required: true
-        type: integer
+        type: string
         default: 0
     definitions:
       Package:
