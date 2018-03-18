@@ -24,6 +24,13 @@ def set_account(address):
     W3.eth.defaultAccount = address
 
 
+def new_account():
+    """Create a new account and unlock it."""
+    new_address = W3.personal.newAccount('pass')
+    W3.personal.unlockAccount(new_address, 'pass')
+    return new_address
+
+
 def get_balance(address):
     """Get balance for an address."""
     return PAKET.call().balanceOf(address)

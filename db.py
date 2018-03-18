@@ -11,6 +11,10 @@ class UnknownUser(Exception):
     """Invalid user ID."""
 
 
+class DuplicateUser(Exception):
+    """Duplicate user."""
+
+
 @contextlib.contextmanager
 def sql_connection(db_name=DB_NAME):
     """Context manager for querying the database."""
@@ -59,7 +63,10 @@ def init_db():
 def create_user(address, key, uid):
     """Create a new user."""
     with sql_connection() as sql:
-        sql.execute("INSERT INTO users (address, key, uid) VALUES (?, ?, ?)", (address, key, uid))
+        try:
+            sql.execute("INSERT INTO users (address, key, uid) VALUES (?, ?, ?)", (address, key, uid))
+        except sqlite3.IntegrityError:
+            raise DuplicateUser("User {} {} {} is non unique".format(uid, address, key))
 
 
 def get_user(key):
@@ -69,10 +76,11 @@ def get_user(key):
         return sql.fetchone()
 
 
-def update_user_details(key, email, phone):
+def update_user_details(address, email, phone):
     """Update user details."""
+    LOGGER.warning("upd %s", [address, email, phone])
     with sql_connection() as sql:
-        sql.execute("UPDATE users SET email = ?, phone = ? WHERE key = ?", (email, phone, key))
+        sql.execute("UPDATE users SET email = ?, phone = ? WHERE address = ?", (email, phone, address))
 
 
 def get_users():

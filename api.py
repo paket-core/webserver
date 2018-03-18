@@ -23,10 +23,8 @@ for uid, address in {
         db.create_user(address, uid, uid)
         paket.transfer_buls(paket.OWNER, address, 1000)
         LOGGER.debug("Created and funded user %s", uid)
-    except db.sqlite3.IntegrityError:
+    except db.DuplicateUser:
         LOGGER.debug("User %s already exists", uid)
-    except Exception:
-        LOGGER.exception('!!!')
 
 # Initialize flask app.
 APP = flask.Flask('PaKeT')
@@ -123,7 +121,7 @@ def optional_arg_decorator(decorator):
 # Since this is a decorator the handler argument will never be None, it is
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
-def api_call(handler=None, required_fields=None):
+def api_call(handler=None, required_fields=None, create_user=None):
     """
     A decorator to handle all API calls: extracts arguments, validates them,
     fixes them, handles authentication, and then passes them to the handler,
@@ -139,6 +137,9 @@ def api_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
+            if create_user:
+                user_id = flask.request.headers.get('X-User-ID')
+                db.create_user(paket.new_account(), user_id, user_id)
             kwargs['user_address'] = db.get_user_address(flask.request.headers.get('X-User-ID'))
             response = handler(**kwargs)
         except MissingFields as exception:
@@ -147,6 +148,8 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 400, 'error': str(exception)}
         except db.UnknownUser as exception:
             response = {'status': 403, 'error': str(exception)}
+        except db.DuplicateUser as exception:
+            response = {'status': 409, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
             response['debug'] = str(exception)
@@ -522,6 +525,40 @@ def package_handler(paket_id):
               status: in transit
     """
     return {'status': 501, 'error': 'Not implemented'}
+
+
+@APP.route("/v{}/register_user".format(VERSION))
+@api_call(['email', 'phone'], create_user=True)
+def register_user_handler(user_address, email, phone):
+    """
+    Register a new user.
+    ---
+    tags:
+    - users
+    parameters:
+      - name: X-User-ID
+        in: header
+        schema:
+            type: string
+            format: string
+      - name: email
+        in: query
+        default: user@domain.com
+        description: User email address
+        required: true
+        type: string
+      - name: phone
+        in: query
+        default: 123-456
+        description: User phone number
+        required: true
+        type: string
+    responses:
+      201:
+        description: User details updated
+    """
+    db.update_user_details(user_address, email, phone)
+    return {'status': 200}
 
 
 @APP.route("/v{}/price".format(VERSION))
