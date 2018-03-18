@@ -63,12 +63,15 @@ def confirm_delivery(user, paket_id):
     return PAKET.transact({'from': user}).payout(paket_id)
 
 
-def commit_collateral(user, paket_id, collateral_benificiery, collateral):
+def commit_collateral(user, paket_id, collateral_benificiery, collateral_buls):
     'Commit collateral on a paket.'
-    return PAKET.transact({'from': user}).commitCollateral(paket_id, collateral_benificiery, collateral)
+    LOGGER.warning("%s %s", paket_id, type(paket_id))
+    LOGGER.warning("%s %s", collateral_benificiery, type(collateral_benificiery))
+    LOGGER.warning("%s %s", collateral_buls, type(collateral_buls))
+    return PAKET.transact({'from': user}).commitCollateral(paket_id, collateral_benificiery, collateral_buls)
 
 
-def accept_paket(user, paket_id, collateral_benificiery):
+def accept_paket(user, paket_id, collateral_benificiery, collateral_buls):
     """
     Accept a paket.
     If user is the recipient, confirm the delivery.
@@ -78,7 +81,7 @@ def accept_paket(user, paket_id, collateral_benificiery):
     LOGGER.warning(get_paket_details(paket_id))
     if user == get_paket_details(paket_id)['recipient']:
         return confirm_delivery(user, paket_id)
-    return commit_collateral(user, paket_id, collateral_benificiery, collateral_benificiery)
+    return commit_collateral(user, paket_id, collateral_benificiery, collateral_buls)
 
 
 # pylint: disable=missing-docstring

@@ -16,15 +16,15 @@ logger.setup()
 
 # Initialize database with debug values and fund users.
 db.init_db()
-for user_id, user_address in {
+for uid, address in {
         'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
 }.items():
     try:
-        db.create_user(user_address, user_id, user_id)
-        paket.transfer_buls(paket.OWNER, user_address, 1000)
-        LOGGER.debug("Created and funded user %s", user_id)
+        db.create_user(address, uid, uid)
+        paket.transfer_buls(paket.OWNER, address, 1000)
+        LOGGER.debug("Created and funded user %s", uid)
     except db.sqlite3.IntegrityError:
-        LOGGER.debug("User %s already exists", user_id)
+        LOGGER.debug("User %s already exists", uid)
     except Exception:
         LOGGER.exception('!!!')
 
@@ -337,7 +337,7 @@ def accept_package_handler(user_address, paket_id):
     parameters:
       - name: X-User-ID
         in: header
-        default: recipient
+        default: courier
         schema:
             type: string
             format: string
@@ -352,8 +352,10 @@ def accept_package_handler(user_address, paket_id):
         description: Package accept requested
     """
     package = db.get_package(paket_id)
-    return {'status': 200, 'promise': paket.accept_paket(
-        user_address, int(paket_id, 10), package['custodian_address'], package['collateral'])}
+    promise = paket.accept_paket(
+        user_address, int(paket_id, 10), package['custodian_address'], package['collateral'])
+    db.update_custodian(paket_id, user_address)
+    return {'status': 200, 'promise': promise}
 
 
 @APP.route("/v{}/relay_package".format(VERSION))
