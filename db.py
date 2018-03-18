@@ -3,7 +3,7 @@ import contextlib
 import logging
 import sqlite3
 
-LOGGER = logging.getLogger("pkt.{}".format(__name__))
+LOGGER = logging.getLogger('pkt.db')
 DB_NAME = 'paket.db'
 
 
@@ -16,6 +16,7 @@ def sql_connection(db_name=DB_NAME):
     """Context manager for querying the database."""
     try:
         connection = sqlite3.connect(db_name)
+        connection.row_factory = sqlite3.Row
         yield connection.cursor()
         connection.commit()
     except sqlite3.Error as db_exception:
@@ -32,17 +33,25 @@ def init_db():
         # Not using IF EXISTS here in case we want different handling.
         sql.execute('SELECT name FROM sqlite_master WHERE type = "table" AND name = "users"')
         if len(sql.fetchall()) == 1:
-            LOGGER.debug('table already exists')
+            LOGGER.debug('database already exists')
             return
         sql.execute('''
             CREATE TABLE users(
                 address VARCHAR(42) PRIMARY KEY,
+                user_key VARCHAR(1024) UNIQUE,
                 user_id VARCHAR(32) UNIQUE,
                 kwargs VARCHAR(1024))''')
-        LOGGER.debug('table created')
-        sql.execute('CREATE UNIQUE INDEX address_index ON users(address);')
-        sql.execute('CREATE UNIQUE INDEX user_id_index ON users(user_id);')
-        LOGGER.debug('indices created')
+        LOGGER.debug('users table created')
+        sql.execute('''
+            CREATE TABLE packages(
+                paket_id VARCHAR(1024) UNIQUE,
+                launcher_address VARCHAR(42),
+                recipient_address VARCHAR(42),
+                custodian_address VARCHAR(42),
+                payment INTEGER,
+                collateral INTEGER,
+                kwargs VARCHAR(1024))''')
+        LOGGER.debug('packages table created')
 
 
 def set_users(users):
@@ -72,3 +81,20 @@ def get_user_address(user_id):
             return sql.fetchone()[0]
         except TypeError:
             raise UnknownUser("Unknown user {}".format(user_id))
+
+
+def create_package(paket_id, launcher_address, recipient_address, payment, collateral):
+    """Create a new package row."""
+    with sql_connection() as sql:
+        sql.execute("""
+            INSERT INTO packages (
+                paket_id, launcher_address, recipient_address, custodian_address, payment, collateral
+            ) VALUES (?, ?, ?, ?, ?, ?)""", (
+                str(paket_id), launcher_address, recipient_address, launcher_address, payment, collateral))
+
+
+def get_package(paket_id):
+    """Get package details."""
+    with sql_connection() as sql:
+        sql.execute('SELECT * FROM packages WHERE paket_id = ?', (paket_id,))
+        return sql.fetchone()
