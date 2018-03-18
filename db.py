@@ -108,3 +108,9 @@ def get_package(paket_id):
     with sql_connection() as sql:
         sql.execute('SELECT * FROM packages WHERE paket_id = ?', (paket_id,))
         return sql.fetchone()
+
+
+def update_custodian(paket_id, custodian_address):
+    """Update a package's custodian."""
+    with sql_connection() as sql:
+        sql.execute("UPDATE packages SET custodian_address = ? WHERE paket_id = ?", (custodian_address, paket_id))
