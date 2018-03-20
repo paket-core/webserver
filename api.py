@@ -103,17 +103,14 @@ def check_signature(call_footprint, signature, pubkey, *args, **kwargs):
     LOGGER.warning("Not checking signature for %s", call_footprint)
 
 
-def get_user_address(uid):
-    """Get a user's address from uid (for debug only). Create a user if none is found."""
+def get_user_address(paket_user):
+    """Get a user's address from paket_user (for debug only). Create a user if none is found."""
     try:
-        user_address = db.get_user_address(uid)
+        user_address = db.get_user_address(paket_user)
     except db.UnknownUser:
         user_address = paket.new_account()
         db.create_user(user_address)
-        db.update_user_details(user_address, uid=uid)
     return user_address
-
-
 # pylint: enable=unused-argument
 
 
@@ -149,7 +146,7 @@ def api_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-User-ID'))
+            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-User-Pubkey'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
@@ -157,8 +154,6 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 400, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
-        except db.InvalidUserDetail as exception:
-            response = {'status': 403, 'error': str(exception)}
         except paket.NotEnoughFunds as exception:
             response = {'status': 402, 'error': str(exception)}
         except Exception as exception:
@@ -180,7 +175,7 @@ def wallet_address_handler(user_address):
         tags:
         - wallet
         parameters:
-          - name: X-User-ID
+          - name: X-User-Pubkey
             in: header
             default: owner
             schema:
@@ -214,7 +209,7 @@ def balance_handler(user_address):
     tags:
     - wallet
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: owner
         schema:
@@ -248,7 +243,7 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
     tags:
     - wallet
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: owner
         schema:
@@ -285,7 +280,7 @@ def launch_package_handler(
     tags:
     - packages
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: owner
         schema:
@@ -350,7 +345,7 @@ def accept_package_handler(user_address, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: courier
         schema:
@@ -382,7 +377,7 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
     tags:
     - packages
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: courier
         schema:
@@ -432,7 +427,7 @@ def packages_handler(user_address, show_inactive=False, from_date=None, role_in_
     tags:
     - packages
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: owner
         schema:
@@ -487,7 +482,7 @@ def package_handler(user_address, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: owner
         schema:
@@ -536,34 +531,63 @@ def package_handler(user_address, paket_id):
 
 @APP.route("/v{}/register_user".format(VERSION))
 @api_call
-# TODO split to .... AND add PKT-user real name phone
-def register_user_handler(user_address, **kwargs):
+def register_user_handler(user_address, full_name, phone_number, paket_user):
     """
     Register a new user.
     ---
     tags:
     - users
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         schema:
             type: string
             format: string
+      - name: paket_user
+        in: query
+        default: none
+        description: User unique callsign
+        required: true
+        type: string
+      - name: full_name
+        in: query
+        default: First Last
+        description: Full name of user
+        required: true
+        type: string
       - name: phone_number
         in: query
         default: 123-456
         description: User phone number
-        required: false
+        required: true
         type: string
+    responses:
+      201:
+        description: user details registered.
+    """
+    return {'status': 201, 'user_details': db.update_user_details(
+        user_address, full_name, phone_number, paket_user)}
+
+
+@APP.route("/v{}/recover_user".format(VERSION))
+@api_call
+def recover_user_handler(user_address):
+    """
+    Recover user details.
+    ---
+    tags:
+    - users
+    parameters:
+      - name: X-User-Pubkey
+        in: header
+        schema:
+            type: string
+            format: string
     responses:
       200:
         description: user details retrieved.
-      201:
-        description: user details updated.
     """
-    if kwargs:
-        db.update_user_details(user_address, **kwargs)
-    return {'status': 201 if kwargs else 200, 'user_details': db.get_user(user_address)}
+    return {'status': 200, 'user_details': db.get_user(user_address)}
 
 
 @APP.route("/v{}/price".format(VERSION))
@@ -606,7 +630,7 @@ def users_handler():
     tags:
     - debug
     parameters:
-      - name: X-User-ID
+      - name: X-User-Pubkey
         in: header
         default: owner
         schema:
@@ -685,13 +709,13 @@ def ratelimit_handler(error):
 def init_sandbox():
     """Initialize database with debug values and fund users. For debug only."""
     db.init_db()
-    for uid, address in {
-        'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
+    for paket_user, address in {
+            'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
     }.items():
         try:
             db.create_user(address)
-            db.update_user_details(address, uid=uid)
+            db.update_user_details(address, paket_user, '123-456', paket_user)
             paket.transfer_buls(paket.OWNER, address, 1000)
-            LOGGER.debug("Created and funded user %s", uid)
+            LOGGER.debug("Created and funded user %s", paket_user)
         except db.DuplicateUser:
-            LOGGER.debug("User %s already exists", uid)
+            LOGGER.debug("User %s already exists", paket_user)

@@ -7,26 +7,31 @@
 missing_packages="$(comm -23 <(sort requirements.txt) <(pip freeze | grep -v '0.0.0' | sort))"
 if [ "$missing_packages" ]; then
     echo "The following packages are missing: $missing_packages"
+    return 1
     exit 1
 fi
 
 if ! which npm; then
     echo 'npm not found'
+    return 1
     exit 1
 fi
 
 if ! which truffle; then
     echo 'truffle not found'
+    return 1
     exit 1
 fi
 
 if ! which solc; then
     echo 'solc not found'
+    return 1
     exit 1
 fi
 
 if ! lsof -Pi :8545 -sTCP:LISTEN -t; then
     echo 'no running rpc server found on standard port'
+    return 1
     exit 1
 fi
 
