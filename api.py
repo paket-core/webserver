@@ -14,18 +14,6 @@ VERSION = '1'
 LOGGER = logger.logging.getLogger('pkt.api')
 logger.setup()
 
-# Initialize database with debug values and fund users.
-db.init_db()
-for uid, address in {
-        'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
-}.items():
-    try:
-        db.create_user(address, uid, uid)
-        paket.transfer_buls(paket.OWNER, address, 1000)
-        LOGGER.debug("Created and funded user %s", uid)
-    except db.DuplicateUser:
-        LOGGER.debug("User %s already exists", uid)
-
 # Initialize flask app.
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
@@ -99,10 +87,32 @@ def check_and_fix_values(kwargs):
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
             LOGGER.warning("Attempting conversion of user ID %s to address", value)
-            kwargs[key] = db.get_user_address(value)
+            kwargs[key] = get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
                 raise BadAddressField("value of {} is not a valid address".format(key))
     return kwargs
+
+
+# Because the whole function is not yet implemented.
+# pylint: disable=unused-argument
+def check_signature(call_footprint, signature, pubkey, *args, **kwargs):
+    """
+    Raise exception on invalid signature.
+    Currently does not do anything.
+    """
+    LOGGER.warning("Not checking signature for %s", call_footprint)
+
+
+def get_user_address(uid):
+    """Get a user's address from uid (for debug only). Create a user if none is found."""
+    try:
+        user_address = db.get_user_address(uid)
+    except db.UnknownUser:
+        user_address = paket.new_account()
+        db.create_user(user_address)
+        db.update_user_details(user_address, uid=uid)
+    return user_address
+# pylint: enable=unused-argument
 
 
 def optional_arg_decorator(decorator):
@@ -121,7 +131,7 @@ def optional_arg_decorator(decorator):
 # Since this is a decorator the handler argument will never be None, it is
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
-def api_call(handler=None, required_fields=None, create_user=None):
+def api_call(handler=None, required_fields=None):
     """
     A decorator to handle all API calls: extracts arguments, validates them,
     fixes them, handles authentication, and then passes them to the handler,
@@ -137,19 +147,16 @@ def api_call(handler=None, required_fields=None, create_user=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            if create_user:
-                user_id = flask.request.headers.get('X-User-ID')
-                db.create_user(paket.new_account(), user_id, user_id)
-            kwargs['user_address'] = db.get_user_address(flask.request.headers.get('X-User-ID'))
+            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-User-ID'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
         except BadNumberField as exception:
             response = {'status': 400, 'error': str(exception)}
-        except db.UnknownUser as exception:
-            response = {'status': 403, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
+        except db.InvalidUserDetail as exception:
+            response = {'status': 403, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
             response['debug'] = str(exception)
@@ -523,8 +530,8 @@ def package_handler(user_address, paket_id):
 
 
 @APP.route("/v{}/register_user".format(VERSION))
-@api_call(['email', 'phone'], create_user=True)
-def register_user_handler(user_address, email, phone):
+@api_call
+def register_user_handler(user_address, **kwargs):
     """
     Register a new user.
     ---
@@ -536,24 +543,21 @@ def register_user_handler(user_address, email, phone):
         schema:
             type: string
             format: string
-      - name: email
-        in: query
-        default: user@domain.com
-        description: User email address
-        required: true
-        type: string
-      - name: phone
+      - name: phone_number
         in: query
         default: 123-456
         description: User phone number
-        required: true
+        required: false
         type: string
     responses:
+      200:
+        description: user details retrieved.
       201:
-        description: User details updated
+        description: user details updated.
     """
-    db.update_user_details(user_address, email, phone)
-    return {'status': 200}
+    if kwargs:
+        db.update_user_details(user_address, **kwargs)
+    return {'status': 201 if kwargs else 200, 'user_details': db.get_user(user_address)}
 
 
 @APP.route("/v{}/price".format(VERSION))
@@ -670,3 +674,21 @@ def ratelimit_handler(error):
     error = 'Rate limit ({}) exceeded'.format(error.description)
     LOGGER.warning(error)
     return flask.make_response(flask.jsonify({'status': 429, 'error': error}), 429)
+
+
+def init_sandbox():
+    """Initialize database with debug values and fund users. For debug only."""
+    db.init_db()
+    for uid, address in {
+            'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
+    }.items():
+        try:
+            db.create_user(address)
+            db.update_user_details(address, uid=uid)
+            paket.transfer_buls(paket.OWNER, address, 1000)
+            LOGGER.debug("Created and funded user %s", uid)
+        except db.DuplicateUser:
+            LOGGER.debug("User %s already exists", uid)
+
+
+init_sandbox()

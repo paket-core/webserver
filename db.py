@@ -15,6 +15,10 @@ class DuplicateUser(Exception):
     """Duplicate user."""
 
 
+class InvalidUserDetail(Exception):
+    """Attempted update of invalid user details."""
+
+
 @contextlib.contextmanager
 def sql_connection(db_name=DB_NAME):
     """Context manager for querying the database."""
@@ -42,11 +46,8 @@ def init_db():
         sql.execute('''
             CREATE TABLE users(
                 address VARCHAR(42) PRIMARY KEY,
-                key VARCHAR(1024) UNIQUE,
-                uid VARCHAR(32) UNIQUE,
-                email VARCHAR(256),
-                phone VARCHAR(32),
-                kwargs VARCHAR(1024))''')
+                phone_number VARCHAR(32),
+                uid VARCHAR(32) UNIQUE)''')
         LOGGER.debug('users table created')
         sql.execute('''
             CREATE TABLE packages(
@@ -60,27 +61,33 @@ def init_db():
         LOGGER.debug('packages table created')
 
 
-def create_user(address, key, uid):
+def create_user(address):
     """Create a new user."""
     with sql_connection() as sql:
         try:
-            sql.execute("INSERT INTO users (address, key, uid) VALUES (?, ?, ?)", (address, key, uid))
+            sql.execute("INSERT INTO users (address) VALUES (?)", (address,))
         except sqlite3.IntegrityError:
-            raise DuplicateUser("User {} {} {} is non unique".format(uid, address, key))
+            raise DuplicateUser("User {} is non unique".format(address))
 
 
-def get_user(key):
+def get_user(address):
     """Get user details."""
     with sql_connection() as sql:
-        sql.execute("SELECT * FROM users WHERE address = ?", (key,))
-        return sql.fetchone()
+        sql.execute("SELECT * FROM users WHERE address = ?", (address,))
+        user = sql.fetchone()
+        return {key: user[key] for key in user.keys()}
 
 
-def update_user_details(address, email, phone):
+def update_user_details(address, **kwargs):
     """Update user details."""
-    LOGGER.warning("upd %s", [address, email, phone])
     with sql_connection() as sql:
-        sql.execute("UPDATE users SET email = ?, phone = ? WHERE address = ?", (email, phone, address))
+        for key, value in kwargs.items():
+            if key == 'uid':
+                sql.execute("UPDATE users SET uid = ? WHERE address = ?", (value, address))
+            elif key == 'phone_number':
+                sql.execute("UPDATE users SET phone_number = ? WHERE address = ?", (value, address))
+            else:
+                raise InvalidUserDetail("can not set {} = {}".format(key, value))
 
 
 def get_users():
@@ -88,17 +95,20 @@ def get_users():
     with sql_connection() as sql:
         sql.execute('SELECT * FROM users')
         users = sql.fetchall()
-    return {user['uid']: {key: user[key] for key in user.keys()} for user in users}
+    return {user['address']: {key: user[key] for key in user.keys() if key != 'address'} for user in users}
 
 
-def get_user_address(user_id):
-    """Get the address of a user. Raise exception if the user is unknown."""
+def get_user_address(uid):
+    """
+    Get the address associated with a uid. Raise exception if uid is unknown.
+    For debug only.
+    """
     with sql_connection() as sql:
-        sql.execute('SELECT address FROM users WHERE uid = ?', (user_id,))
+        sql.execute('SELECT address FROM users WHERE uid = ?', (uid,))
         try:
             return sql.fetchone()[0]
         except TypeError:
-            raise UnknownUser("Unknown user {}".format(user_id))
+            raise UnknownUser("Unknown user {}".format(uid))
 
 
 def create_package(paket_id, launcher_address, recipient_address, payment, collateral):
