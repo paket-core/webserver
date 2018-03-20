@@ -80,5 +80,9 @@ export PAKET_ADDRESS
 PAKET_ABI="$(solc --abi Paket.sol | sed -e '/Paket.sol:Paket/,/=======/{//!b};d' | tail -n+2)"
 export PAKET_ABI
 
+# Remove existing database and initialize a new one.
+rm paket.db
+python -c 'import api; api.init_sandbox()'
+
 # Run server if script is run directly (and not sourced).
 [ "$BASH_SOURCE" == "$0" ] && flask run --host=0.0.0.0

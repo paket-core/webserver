@@ -689,6 +689,3 @@ def init_sandbox():
             LOGGER.debug("Created and funded user %s", uid)
         except db.DuplicateUser:
             LOGGER.debug("User %s already exists", uid)
-
-
-init_sandbox()
