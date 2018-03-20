@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Test Instructions</title>
+</head>
+<body>
+    <ol>
+        <li><a href=/v1/register_user>register_user</a> - registers a new user</li>
+        <li><a href=/v1/balance>balance</a> - user balance should be zero</li>
+        <li><a href=/v1/balance>transfer_buls</a> - transfer from owner to new user</li>
+        <li><a href=/v1/balance>balance</a> - note change in user's balance</li>
+        <li><a href=/v1/launch_package>launch_package</a> - launch a new package with that user in one of the roles. For the others use two of the three pre-defined and pre-funded auxiliary users built in to the system: launcher, courier, and recipient.</li>
+        <li><a href=/v1/balance>balance</a> - note change in launcher's balance</li>
+        <li><a href=/v1/accept_package>accept_package</a> - accept the package as courier</li>
+        <li><a href=/v1/balance>balance</a> - note change in courier's balance</li>
+        <li><a href=/v1/accept_package>accept_package</a> - accept the package as recipient</li>
+        <li><a href=/v1/balance>balance</a> - note change in courier's balance</li>
+    </ol>
+</body>
+</html>

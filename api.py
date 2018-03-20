@@ -14,54 +14,45 @@ VERSION = '1'
 LOGGER = logger.logging.getLogger('pkt.api')
 logger.setup()
 
+# Initialize flask app.
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
-
 APP.config['SWAGGER'] = {
     'title': 'PaKeT API',
     'uiversion': 3,
     'specs_route': '/',
-    "specs": [
-            {
-                "endpoint": 'apispec',
-                "route": '/apispec.json',
-                "rule_filter": lambda rule: True,  # all in
-                "model_filter": lambda tag: True,  # all in
-            }
-        ],
-}
-flasgger.Swagger(APP, template={
-    "swagger": "2.0",
-    "info": {
-        "title": "PaKeT API",
-        "description": "Web API Server for The PaKeT Project",
-        "contact": {
-            "name": "Israel Levin",
-            "email": "Israel@paket.global",
-            "url": "www.paket.global",
+    'info': {
+        'description': 'Web API Server for The PaKeT Project',
+        'contact': {
+            'name': 'Israel Levin',
+            'email': 'Israel@paket.global',
+            'url': 'www.paket.global',
         },
-        "version": VERSION,
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-          },
+        'version': VERSION,
+        'license': {
+            'name': 'Apache 2.0',
+            'url': 'http://www.apache.org/licenses/LICENSE-2.0.html'
+        },
     },
-    "schemes": [
-        "http",
-        "https"
-    ],
-})
+    'specs': [{
+        'endpoint': '/',
+        'route': '/apispec.json',
+        'rule_filter': lambda rule: True,  # all in
+        'model_filter': lambda tag: True,  # all in
+    }],
+}
+flasgger.Swagger(APP)
 
 
 class MissingFields(Exception):
     """Missing field in args."""
 
 
-class BadBulNumberField(Exception):
-    """Invalid BUL number field."""
+class BadNumberField(Exception):
+    """Invalid number field."""
 
 
 class BadAddressField(Exception):
@@ -89,19 +80,39 @@ def check_and_fix_values(kwargs):
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
             except ValueError:
-                raise BadBulNumberField("the value of {}({}) is not an integer".format(key, value))
-            if int_val >= 10 ** 10:
-                raise BadBulNumberField("the value of {}({}) is too large".format(key, value))
-            elif int_val < 0:
-                raise BadBulNumberField("the value of {}({}) is less than zero".format(key, value))
+                raise BadNumberField("the value of {}({}) is not an integer".format(key, value))
+            if int_val < 0:
+                raise BadNumberField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
             LOGGER.warning("Attempting conversion of user ID %s to address", value)
-            kwargs[key] = db.get_user_address(value)
+            kwargs[key] = get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
                 raise BadAddressField("value of {} is not a valid address".format(key))
     return kwargs
+
+
+# Because the whole function is not yet implemented.
+# pylint: disable=unused-argument
+def check_signature(call_footprint, signature, pubkey, *args, **kwargs):
+    """
+    Raise exception on invalid signature.
+    Currently does not do anything.
+    """
+    LOGGER.warning("Not checking signature for %s", call_footprint)
+
+
+def get_user_address(uid):
+    """Get a user's address from uid (for debug only). Create a user if none is found."""
+    try:
+        user_address = db.get_user_address(uid)
+    except db.UnknownUser:
+        user_address = paket.new_account()
+        db.create_user(user_address)
+        db.update_user_details(user_address, uid=uid)
+    return user_address
+# pylint: enable=unused-argument
 
 
 def optional_arg_decorator(decorator):
@@ -136,13 +147,15 @@ def api_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            kwargs['user_address'] = db.get_user_address(flask.request.headers.get('X-User-ID'))
+            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-User-ID'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
-        except BadBulNumberField as exception:
+        except BadNumberField as exception:
             response = {'status': 400, 'error': str(exception)}
-        except db.UnknownUser as exception:
+        except db.DuplicateUser as exception:
+            response = {'status': 409, 'error': str(exception)}
+        except db.InvalidUserDetail as exception:
             response = {'status': 403, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
@@ -152,6 +165,39 @@ def api_call(handler=None, required_fields=None):
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
 
     return _api_call
+
+
+@APP.route("/v{}/wallet_address".format(VERSION))
+@api_call
+def wallet_address_handler(user_address):
+    """
+        Get the address of the wallet. This address can be used to send BULs to.
+        ---
+        tags:
+        - wallet
+        parameters:
+          - name: X-User-ID
+            in: header
+            default: owner
+            schema:
+                type: string
+                format: string
+        responses:
+          200:
+            description: an address
+            schema:
+              properties:
+                address:
+                  type: string
+                  format: string
+                  description: address of te BUL wallet
+              example:
+                {
+                    "status": 200,
+                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+                }
+        """
+    return {'status': 200, 'address': user_address}
 
 
 @APP.route("/v{}/balance".format(VERSION))
@@ -205,11 +251,13 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
             format: string
       - name: to_address
         in: query
+        default: launcher
         description: target address for transfer
         required: true
         type: string
       - name: amount_buls
         in: query
+        default: 111
         description: amount to transfer
         required: true
         type: integer
@@ -221,8 +269,10 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
 
 
 @APP.route("/v{}/launch_package".format(VERSION))
-@api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls'])
-def launch_handler(user_address, recipient_address, deadline_timestamp, courier_address, payment_buls):
+@api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls', 'collateral_buls'])
+def launch_package_handler(
+        user_address, recipient_address, deadline_timestamp, courier_address, payment_buls, collateral_buls
+):
     """
     Launch a package.
     Use this call to create a new package for delivery.
@@ -261,6 +311,12 @@ def launch_handler(user_address, recipient_address, deadline_timestamp, courier_
         description: BULs promised as payment
         required: true
         type: integer
+      - name: collateral_buls
+        in: query
+        default: 100
+        description: BULs required as collateral
+        required: true
+        type: integer
     responses:
       200:
         description: Package launched
@@ -271,15 +327,97 @@ def launch_handler(user_address, recipient_address, deadline_timestamp, courier_
           example:
             PKT-id: 1001
     """
-    return dict(status=200, **paket.launch_paket(
+    new_paket = paket.launch_paket(
         user_address, recipient_address, deadline_timestamp, courier_address, payment_buls
-    ))
+    )
+    db.create_package(new_paket['paket_id'], user_address, recipient_address, payment_buls, collateral_buls)
+    return dict(status=200, **new_paket)
+
+
+@APP.route("/v{}/accept_package".format(VERSION))
+@api_call(['paket_id'])
+def accept_package_handler(user_address, paket_id):
+    """
+    Accept a package.
+    If the package requires collateral, commit it.
+    If user is the package's recipient, release all funds from the escrow.
+    ---
+    tags:
+    - packages
+    parameters:
+      - name: X-User-ID
+        in: header
+        default: courier
+        schema:
+            type: string
+            format: string
+      - name: paket_id
+        in: query
+        description: PKT id
+        required: true
+        type: string
+        default: 0
+    responses:
+      200:
+        description: Package accept requested
+    """
+    package = db.get_package(paket_id)
+    promise = paket.accept_paket(
+        user_address, int(paket_id, 10), package['custodian_address'], package['collateral'])
+    db.update_custodian(paket_id, user_address)
+    return {'status': 200, 'promise': promise}
+
+
+@APP.route("/v{}/relay_package".format(VERSION))
+@api_call(['paket_id', 'courier_address', 'payment_buls'])
+def relay_package_handler(user_address, paket_id, courier_address, payment_buls):
+    """
+    Relay a package to another courier, offering payment.
+    ---
+    tags:
+    - packages
+    parameters:
+      - name: X-User-ID
+        in: header
+        default: courier
+        schema:
+            type: string
+            format: string
+      - name: paket_id
+        in: query
+        description: PKT id
+        required: true
+        type: string
+        default: 0
+      - name: courier_address
+        in: query
+        default: courier
+        description: Courier address
+        required: true
+        type: string
+      - name: payment_buls
+        in: query
+        default: 10
+        description: BULs promised as payment
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Package launched
+        content:
+          schema:
+            type: string
+            example: PKT-12345
+          example:
+            PKT-id: 1001
+    """
+    return {'status': 200, 'promise': paket.relay_payment(user_address, paket_id, courier_address, payment_buls)}
 
 
 # pylint: disable=unused-argument
 @APP.route("/v{}/packages".format(VERSION))
 @api_call()
-def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None):
+def packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
     Use this call to get a list of packages.
@@ -306,11 +444,6 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
         description: show only packages from this date forward
         required: false
         type: string
-      - name: collateral_buls
-        in: query
-        description: BULs required as collateral
-        required: true
-        type: integer
     responses:
       200:
         description: list of packages
@@ -336,12 +469,12 @@ def packages_handler(show_inactive=False, from_date=None, role_in_delivery=None)
               collateral: 40
               status: delivered
     """
-    return {'status': 501, 'error': 'Not implemented'}
+    return {'status': 200, 'packages': db.get_packages()}
 
 
 @APP.route("/v{}/package".format(VERSION))
 @api_call()
-def package_handler(package_id):
+def package_handler(user_address, paket_id):
     """
     Get a info about a single package.
     This will return additional information, such as GPS location, custodian, etc.
@@ -355,11 +488,11 @@ def package_handler(package_id):
         schema:
             type: string
             format: string
-      - name: package_id
+      - name: paket_id
         in: query
         description: PKT id
         required: true
-        type: integer
+        type: string
         default: 0
     definitions:
       Package:
@@ -393,54 +526,70 @@ def package_handler(package_id):
               collateral: 400
               status: in transit
     """
-    return {'status': 501, 'error': 'Not implemented'}
+    return {'status': 200, 'package': db.get_package(paket_id)}
 
 
-@APP.route("/v{}/accept".format(VERSION))
+@APP.route("/v{}/register_user".format(VERSION))
 @api_call
-def accept_handler():
-    """Put swagger YAML here."""
-    return {'status': 501, 'error': 'Not implemented'}
-
-
-@APP.route("/v{}/wallet_address".format(VERSION))
-@api_call
-def wallet_address_handler(user_address):
+def register_user_handler(user_address, **kwargs):
     """
-        Get the address of the wallet. This address can be used to send BULs to.
-        ---
-        tags:
-        - wallet
-        parameters:
-          - name: X-User-ID
-            in: header
-            default: owner
-            schema:
-                type: string
-                format: string
-        responses:
-          200:
-            description: an address
-            schema:
-              properties:
-                address:
-                  type: string
-                  format: string
-                  description: address of te BUL wallet
-              example:
-                {
-                    "status": 200,
-                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-                }
-        """
-    return {'status': 501, 'error': 'Not implemented'}
+    Register a new user.
+    ---
+    tags:
+    - users
+    parameters:
+      - name: X-User-ID
+        in: header
+        schema:
+            type: string
+            format: string
+      - name: phone_number
+        in: query
+        default: 123-456
+        description: User phone number
+        required: false
+        type: string
+    responses:
+      200:
+        description: user details retrieved.
+      201:
+        description: user details updated.
+    """
+    if kwargs:
+        db.update_user_details(user_address, **kwargs)
+    return {'status': 201 if kwargs else 200, 'user_details': db.get_user(user_address)}
 
 
 @APP.route("/v{}/price".format(VERSION))
-@api_call
 def price_handler():
-    """Put swagger YAML here."""
-    return {'status': 501, 'error': 'Not implemented'}
+    """
+    Get buy and sell prices.
+    ---
+    tags:
+    - wallet
+    responses:
+      200:
+        description: buy and sell prices
+        schema:
+          properties:
+            buy_price:
+              type: integer
+              format: int32
+              minimum: 0
+              description: price for which a BUL may me purchased
+            sell_price:
+              type: integer
+              format: int32
+              minimum: 0
+              description: price for which a BUL may me sold
+          example:
+            {
+                "status": 200,
+                "buy_price": 1,
+                "sell_price": 1
+            }
+    """
+    return flask.jsonify({'status': 200, 'buy_price': 1, 'sell_price': 1})
 
 
 @APP.route("/v{}/users".format(VERSION))
@@ -470,27 +619,43 @@ def users_handler():
           example:
             {
                 "status": 200,
-                "users": [
-                    [
-                    "owner",
-                    "0x27936e0AFe9634E557c17aeA7FF7885D4D2901b6"
-                    ],
-                    [
-                    "launcher",
-                    "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-                    ],
-                    [
-                    "recipient",
-                    "0x00196f888b3eDa8C6F4a116511CAFeD93008763f"
-                    ],
-                    [
-                    "courier",
-                    "0x498e32Ae4B84f96CDD24a2d5b7270A15Ad8d9a26"
-                    ]
-                ]
+                "users": {
+                    "courier": {
+                    "address": "0x5A7DAfa89E49A73d2a324c91833E653f364c02D8",
+                    "email": null,
+                    "key": "courier",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "courier"
+                    },
+                    "launcher": {
+                    "address": "0x79ce35B014FC7860eb17B04937De00A053E432e5",
+                    "email": null,
+                    "key": "launcher",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "launcher"
+                    },
+                    "owner": {
+                    "address": "0xCd63572EeaA1eEdc1abc84A6542c16132aC4357e",
+                    "email": null,
+                    "key": "owner",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "owner"
+                    },
+                    "recipient": {
+                    "address": "0xA18401337598D0fc453e788Bf1cd0C5D69070125",
+                    "email": null,
+                    "key": "recipient",
+                    "kwargs": null,
+                    "phone": null,
+                    "uid": "recipient"
+                    }
+                }
             }
     """
-    return flask.jsonify({'users': db.get_users()})
+    return flask.jsonify({'status': 200, 'users': db.get_users()})
 
 
 @APP.route('/')
@@ -509,3 +674,18 @@ def ratelimit_handler(error):
     error = 'Rate limit ({}) exceeded'.format(error.description)
     LOGGER.warning(error)
     return flask.make_response(flask.jsonify({'status': 429, 'error': error}), 429)
+
+
+def init_sandbox():
+    """Initialize database with debug values and fund users. For debug only."""
+    db.init_db()
+    for uid, address in {
+            'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
+    }.items():
+        try:
+            db.create_user(address)
+            db.update_user_details(address, uid=uid)
+            paket.transfer_buls(paket.OWNER, address, 1000)
+            LOGGER.debug("Created and funded user %s", uid)
+        except db.DuplicateUser:
+            LOGGER.debug("User %s already exists", uid)

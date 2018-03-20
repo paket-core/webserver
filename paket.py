@@ -10,8 +10,6 @@ import web3
 # pylint: disable=no-member
 # Pylint has a hard time with dynamic members.
 
-import db
-
 LOGGER = logging.getLogger('pkt.paket')
 
 WEB3_SERVER = os.environ.get('PAKET_WEB3_SERVER', 'http://localhost:8545')
@@ -21,14 +19,16 @@ ADDRESS = os.environ['PAKET_ADDRESS']
 ABI = json.loads(os.environ['PAKET_ABI'])
 PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
 
-# This is an ugly, temporary usage of ganache's internal keys.
-OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
-db.set_users({'owner': OWNER, 'launcher': LAUNCHER, 'recipient': RECIPIENT, 'courier': COURIER})
-
-
 def set_account(address):
     """Set the default account."""
     W3.eth.defaultAccount = address
+
+
+def new_account():
+    """Create a new account and unlock it."""
+    new_address = W3.personal.newAccount('pass')
+    W3.personal.unlockAccount(new_address, 'pass')
+    return new_address
 
 
 def get_balance(address):
@@ -45,12 +45,50 @@ def launch_paket(user, recipient, deadline, courier, payment):
     """Launch a paket."""
     # We are using only 128 bits here, out of the available 256.
     paket_id = uuid.uuid4().int
-    LOGGER.error("%s %s %s", paket_id, recipient, deadline)
-    LOGGER.error("%s %s %s", type(paket_id), type(recipient), type(deadline))
     return {
-        'paket_id': paket_id,
+        'paket_id': str(paket_id),
         'creation_promise': PAKET.transact({'from': user}).create(paket_id, recipient, deadline),
         'payment_promise': PAKET.transact({'from': user}).commitPayment(paket_id, courier, payment)}
+
+
+def get_paket_details(paket_id):
+    'Get paket details.'
+    (
+        recipient, deadline, payment_benificieries, collateral_refundees, payment_refundees, collateral_benificieries
+    ) = PAKET.call().get(paket_id)
+    return {
+        'recipient': recipient,
+        'deadline': deadline,
+        'payment_benificieries': payment_benificieries,
+        'collateral_refundees': collateral_refundees,
+        'payment_refundees': payment_refundees,
+        'collateral_benificieries': collateral_benificieries}
+
+
+def confirm_delivery(user, paket_id):
+    'Confirm a delivery.'
+    return PAKET.transact({'from': user}).payout(paket_id)
+
+
+def commit_collateral(user, paket_id, collateral_benificiery, collateral_buls):
+    'Commit collateral on a paket.'
+    LOGGER.warning("%s %s", paket_id, type(paket_id))
+    LOGGER.warning("%s %s", collateral_benificiery, type(collateral_benificiery))
+    LOGGER.warning("%s %s", collateral_buls, type(collateral_buls))
+    return PAKET.transact({'from': user}).commitCollateral(paket_id, collateral_benificiery, collateral_buls)
+
+
+def accept_paket(user, paket_id, collateral_benificiery, collateral_buls):
+    """
+    Accept a paket.
+    If user is the recipient, confirm the delivery.
+    If user is a courier, commit required collateral to collateral_benificiery.
+    """
+    LOGGER.warning(paket_id)
+    LOGGER.warning(get_paket_details(paket_id))
+    if user == get_paket_details(paket_id)['recipient']:
+        return confirm_delivery(user, paket_id)
+    return commit_collateral(user, paket_id, collateral_benificiery, collateral_buls)
 
 
 # pylint: disable=missing-docstring
@@ -58,29 +96,24 @@ def get_paket_balance(user, paket_id):
     return PAKET.call({'from': user}).paketSelfInterest(paket_id)
 
 
-def commit_collateral(user, paket_id, launcher, collateral):
-    PAKET.transact({'from': user}).commitCollateral(paket_id, launcher, collateral)
-
-
 def cover_collateral(user, paket_id, courier, collateral):
-    PAKET.transact({'from': user}).coverCollateral(paket_id, courier, collateral)
+    return PAKET.transact({'from': user}).coverCollateral(paket_id, courier, collateral)
 
 
 def relay_payment(user, paket_id, courier, payment):
-    PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
+    return PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
 
 
 def refund(user, paket_id):
-    PAKET.transact({'from': user}).refund(paket_id)
+    return PAKET.transact({'from': user}).refund(paket_id)
 
 
-def confirm_delivery(user, paket_id):
-    PAKET.transact({'from': user}).payout(paket_id)
+# This is an ugly, temporary usage of ganache's internal keys.
+OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
 
 
 def test():
-    # This is an ugly, temporary usage of ganache's internal keys.
-    addresses = owner, launcher, recipient, courier = W3.eth.accounts[:4]
+    addresses = OWNER, LAUNCHER, RECIPIENT, COURIER
 
     def show_balances():
         print("""
@@ -91,15 +124,15 @@ def test():
 
     show_balances()
 
-    transfer_buls(owner, launcher, 1000)
-    transfer_buls(owner, recipient, 1000)
-    transfer_buls(owner, courier, 1000)
+    transfer_buls(OWNER, LAUNCHER, 1000)
+    transfer_buls(OWNER, RECIPIENT, 1000)
+    transfer_buls(OWNER, COURIER, 1000)
     show_balances()
 
-    paket_idx = launch_paket(launcher, recipient, int(time.time()) + 100, courier, 100)
+    paket_id = launch_paket(LAUNCHER, RECIPIENT, int(time.time()) + 100, COURIER, 100)
     show_balances()
 
-    confirm_delivery(recipient, paket_idx)
+    confirm_delivery(RECIPIENT, paket_id)
     show_balances()
 
 
