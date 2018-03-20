@@ -112,6 +112,8 @@ def get_user_address(uid):
         db.create_user(user_address)
         db.update_user_details(user_address, uid=uid)
     return user_address
+
+
 # pylint: enable=unused-argument
 
 
@@ -157,6 +159,8 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 409, 'error': str(exception)}
         except db.InvalidUserDetail as exception:
             response = {'status': 403, 'error': str(exception)}
+        except paket.NotEnoughFunds as exception:
+            response = {'status': 402, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
             response['debug'] = str(exception)
@@ -234,6 +238,7 @@ def balance_handler(user_address):
 
 @APP.route("/v{}/transfer_buls".format(VERSION))
 @api_call(['to_address', 'amount_buls'])
+# TODO send
 def transfer_buls_handler(user_address, to_address, amount_buls):
     """
     Transfer BULs to another address.
@@ -531,6 +536,7 @@ def package_handler(user_address, paket_id):
 
 @APP.route("/v{}/register_user".format(VERSION))
 @api_call
+# TODO split to .... AND add PKT-user real name phone
 def register_user_handler(user_address, **kwargs):
     """
     Register a new user.
@@ -680,7 +686,7 @@ def init_sandbox():
     """Initialize database with debug values and fund users. For debug only."""
     db.init_db()
     for uid, address in {
-            'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
+        'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
     }.items():
         try:
             db.create_user(address)

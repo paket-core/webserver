@@ -19,6 +19,11 @@ ADDRESS = os.environ['PAKET_ADDRESS']
 ABI = json.loads(os.environ['PAKET_ABI'])
 PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
 
+
+class NotEnoughFunds(Exception):
+    """Not enough funds for operations."""
+
+
 def set_account(address):
     """Set the default account."""
     W3.eth.defaultAccount = address
@@ -45,10 +50,13 @@ def launch_paket(user, recipient, deadline, courier, payment):
     """Launch a paket."""
     # We are using only 128 bits here, out of the available 256.
     paket_id = uuid.uuid4().int
-    return {
-        'paket_id': str(paket_id),
-        'creation_promise': PAKET.transact({'from': user}).create(paket_id, recipient, deadline),
-        'payment_promise': PAKET.transact({'from': user}).commitPayment(paket_id, courier, payment)}
+    try:
+        return {
+            'paket_id': str(paket_id),
+            'creation_promise': PAKET.transact({'from': user}).create(paket_id, recipient, deadline),
+            'payment_promise': PAKET.transact({'from': user}).commitPayment(paket_id, courier, payment)}
+    except ValueError as ve:
+        raise NotEnoughFunds('Not Enough Funds. {} is needed'.format(payment))
 
 
 def get_paket_details(paket_id):
