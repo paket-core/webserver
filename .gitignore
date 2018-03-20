@@ -11,3 +11,5 @@ paket.log
 swagger-ui
 truffle-config.js
 truffle.js
+venv
+.idea
