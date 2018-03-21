@@ -93,25 +93,35 @@ def check_and_fix_values(kwargs):
     return kwargs
 
 
-# Because the whole function is not yet implemented.
-# pylint: disable=unused-argument
-def check_signature(call_footprint, signature, pubkey, *args, **kwargs):
+def check_footprint(footprint, path, kwargs):
     """
-    Raise exception on invalid signature.
+    Raise exception on invalid footprint.
     Currently does not do anything.
     """
-    LOGGER.warning("Not checking signature for %s", call_footprint)
+    LOGGER.warning("Not checking signature for %s - %s - %s", footprint, path, kwargs)
+    return footprint
 
 
 def get_user_address(paket_user):
-    """Get a user's address from paket_user (for debug only). Create a user if none is found."""
+    """
+    Get a user's address from paket_user (for debug only). Create a user if none is found.
+    Will eventually merge into check_signature.
+    """
     try:
         user_address = db.get_user_address(paket_user)
     except db.UnknownUser:
         user_address = paket.new_account()
         db.create_user(user_address)
     return user_address
-# pylint: enable=unused-argument
+
+
+def check_signature(pubkey, footprint, signature):
+    """
+    Raise exception on invalid signature.
+    Currently does not do anything.
+    """
+    pubkey = pubkey + signature
+    LOGGER.warning("Not checking signature for %s", footprint)
 
 
 def optional_arg_decorator(decorator):
@@ -143,7 +153,9 @@ def api_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-User-Pubkey'))
+            footprint = check_footprint(flask.request.headers.get('X-Footprint'), flask.request.path, kwargs)
+            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-Pubkey'))
+            check_signature(kwargs['user_address'], footprint, flask.request.headers.get('X-Signature'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
@@ -171,19 +183,19 @@ def wallet_address_handler(user_address):
     tags:
     - wallet
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -217,19 +229,19 @@ def balance_handler(user_address):
     tags:
     - wallet
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -262,19 +274,19 @@ def send_buls_handler(user_address, to_address, amount_buls):
     tags:
     - wallet
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -311,19 +323,19 @@ def launch_package_handler(
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -388,19 +400,19 @@ def accept_package_handler(user_address, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: courier
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -432,19 +444,19 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: courier
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -494,19 +506,19 @@ def packages_handler(user_address, show_inactive=False, from_date=None, role_in_
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -561,19 +573,19 @@ def package_handler(user_address, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -629,18 +641,18 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
     tags:
     - users
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
@@ -681,18 +693,18 @@ def recover_user_handler(user_address):
     tags:
     - users
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         schema:
             type: string
             format: string
-      - name: X-API-Call
+      - name: X-Footprint
         in: header
         default: http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
-      - name: X-API-Signature
+      - name: X-Signature
         in: header
         default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
