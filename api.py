@@ -51,12 +51,8 @@ class MissingFields(Exception):
     """Missing field in args."""
 
 
-class InvalidNumberField(Exception):
-    """Invalid number field."""
-
-
-class InvalidAddressField(Exception):
-    """Invalid address field."""
+class InvalidField(Exception):
+    """Invalid field."""
 
 
 class FootprintMismatch(Exception):
@@ -88,25 +84,42 @@ def check_and_fix_values(kwargs):
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
             except ValueError:
-                raise InvalidNumberField("the value of {}({}) is not an integer".format(key, value))
+                raise InvalidField("the value of {}({}) is not an integer".format(key, value))
             if int_val < 0:
-                raise InvalidNumberField("the value of {}({}) is less than zero".format(key, value))
+                raise InvalidField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
             LOGGER.warning("Attempting conversion of user ID %s to address", value)
             kwargs[key] = get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
-                raise InvalidAddressField("value of {} is not a valid address".format(key))
+                raise InvalidField("value of {} is not a valid address".format(key))
     return kwargs
 
 
-def check_footprint(footprint, path, kwargs):
+def check_footprint(footprint, url, kwargs):
     """
     Raise exception on invalid footprint.
     Currently does not do anything.
     """
-    LOGGER.warning("Not checking signature for %s - %s - %s", footprint, path, kwargs)
+    # Copy kwargs before we destroy it.
+    kwargs = dict(kwargs)
+    footprint = footprint.split(',')
+    if url != footprint[0]:
+        raise FootprintMismatch("footprint {} does not match call to {}".format(footprint[0], url))
+    try:
+        db.update_nonce(kwargs.pop('user_address'), footprint[-1])
+    except db.InvalidNonce as exception:
+        raise FootprintMismatch(str(exception))
+    for key, val in [keyval.split('=') for keyval in footprint[1:-1]]:
+        try:
+            call_val = str(kwargs.pop(key))
+        except KeyError:
+            raise FootprintMismatch("footprint has extra value {} = {}".format(key, val))
+        if call_val != val:
+            raise FootprintMismatch("footprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
+    if kwargs:
+        raise FootprintMismatch("footprint is missing a value for {}".format(', '.join((kwargs.keys()))))
     return footprint
 
 
@@ -162,14 +175,16 @@ def api_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            footprint = check_footprint(flask.request.headers.get('X-Footprint'), flask.request.path, kwargs)
             kwargs['user_address'] = get_user_address(flask.request.headers.get('X-Pubkey'))
+            footprint = check_footprint(flask.request.headers.get('X-Footprint'), flask.request.url, kwargs)
             check_signature(kwargs['user_address'], footprint, flask.request.headers.get('X-Signature'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
-        except InvalidNumberField as exception:
+        except InvalidField as exception:
             response = {'status': 400, 'error': str(exception)}
+        except FootprintMismatch as exception:
+            response = {'status': 403, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
         except paket.NotEnoughFunds as exception:
@@ -183,7 +198,7 @@ def api_call(handler=None, required_fields=None):
     return _api_call
 
 
-@APP.route("/v{}/wallet_address".format(VERSION))
+@APP.route("/v{}/wallet_address".format(VERSION), methods=['POST'])
 @api_call
 def wallet_address_handler(user_address):
     """
@@ -200,7 +215,7 @@ def wallet_address_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/wallet_address,1521650747
         schema:
             type: string
             format: string
@@ -228,7 +243,7 @@ def wallet_address_handler(user_address):
     return {'status': 200, 'address': user_address}
 
 
-@APP.route("/v{}/balance".format(VERSION))
+@APP.route("/v{}/balance".format(VERSION), methods=['POST'])
 @api_call
 def balance_handler(user_address):
     """
@@ -246,7 +261,7 @@ def balance_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/balance,1521650747
         schema:
             type: string
             format: string
@@ -272,7 +287,7 @@ def balance_handler(user_address):
     return {'available_buls': paket.get_balance(user_address)}
 
 
-@APP.route("/v{}/send_buls".format(VERSION))
+@APP.route("/v{}/send_buls".format(VERSION), methods=['POST'])
 @api_call(['to_address', 'amount_buls'])
 def send_buls_handler(user_address, to_address, amount_buls):
     """
@@ -291,7 +306,7 @@ def send_buls_handler(user_address, to_address, amount_buls):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/send_buls,to_address=address,amount_buls=amount,1521650747
         schema:
             type: string
             format: string
@@ -302,13 +317,13 @@ def send_buls_handler(user_address, to_address, amount_buls):
             type: string
             format: string
       - name: to_address
-        in: query
+        in: formData
         default: launcher
         description: target address for transfer
         required: true
         type: string
       - name: amount_buls
-        in: query
+        in: formData
         default: 111
         description: amount to transfer
         required: true
@@ -320,11 +335,12 @@ def send_buls_handler(user_address, to_address, amount_buls):
     return {'status': 200, 'promise': paket.send_buls(user_address, to_address, amount_buls)}
 
 
-@APP.route("/v{}/launch_package".format(VERSION))
+@APP.route("/v{}/launch_package".format(VERSION), methods=['POST'])
 @api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls', 'collateral_buls'])
 def launch_package_handler(
         user_address, recipient_address, deadline_timestamp, courier_address, payment_buls, collateral_buls
 ):
+    # pylint: disable=line-too-long
     """
     Launch a package.
     Use this call to create a new package for delivery.
@@ -340,7 +356,7 @@ def launch_package_handler(
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/launch_package,recipient_address=address,deadline_timestamp=timestamp,courier_address=address,payment_buls=buls,collateral_buls=buls,1521650747
         schema:
             type: string
             format: string
@@ -351,32 +367,32 @@ def launch_package_handler(
             type: string
             format: string
       - name: recipient_address
-        in: query
+        in: formData
         default: recipient
         description: Recipient address
         required: true
         type: string
       - name: deadline_timestamp
-        in: query
+        in: formData
         default: 9999999999
         description: Deadline timestamp
         required: true
         type: integer
         example: 1520948634
       - name: courier_address
-        in: query
+        in: formData
         default: courier
         description: Courier address
         required: true
         type: string
       - name: payment_buls
-        in: query
+        in: formData
         default: 10
         description: BULs promised as payment
         required: true
         type: integer
       - name: collateral_buls
-        in: query
+        in: formData
         default: 100
         description: BULs required as collateral
         required: true
@@ -391,6 +407,7 @@ def launch_package_handler(
           example:
             PKT-id: 1001
     """
+    # pylint: enable=line-too-long
     new_paket = paket.launch_paket(
         user_address, recipient_address, deadline_timestamp, courier_address, payment_buls
     )
@@ -398,7 +415,7 @@ def launch_package_handler(
     return dict(status=200, **new_paket)
 
 
-@APP.route("/v{}/accept_package".format(VERSION))
+@APP.route("/v{}/accept_package".format(VERSION), methods=['POST'])
 @api_call(['paket_id'])
 def accept_package_handler(user_address, paket_id):
     """
@@ -417,7 +434,7 @@ def accept_package_handler(user_address, paket_id):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/accept_package,paket_id=id,1521650747
         schema:
             type: string
             format: string
@@ -428,7 +445,7 @@ def accept_package_handler(user_address, paket_id):
             type: string
             format: string
       - name: paket_id
-        in: query
+        in: formData
         description: PKT id
         required: true
         type: string
@@ -444,7 +461,7 @@ def accept_package_handler(user_address, paket_id):
     return {'status': 200, 'promise': promise}
 
 
-@APP.route("/v{}/relay_package".format(VERSION))
+@APP.route("/v{}/relay_package".format(VERSION), methods=['POST'])
 @api_call(['paket_id', 'courier_address', 'payment_buls'])
 def relay_package_handler(user_address, paket_id, courier_address, payment_buls):
     """
@@ -461,7 +478,7 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/relay_package,paket_id=id,courier_address=address,payment_buls=buls,1521650747
         schema:
             type: string
             format: string
@@ -472,19 +489,19 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
             type: string
             format: string
       - name: paket_id
-        in: query
+        in: formData
         description: PKT id
         required: true
         type: string
         default: 0
       - name: courier_address
-        in: query
+        in: formData
         default: courier
         description: Courier address
         required: true
         type: string
       - name: payment_buls
-        in: query
+        in: formData
         default: 10
         description: BULs promised as payment
         required: true
@@ -503,7 +520,7 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
 
 
 # pylint: disable=unused-argument
-@APP.route("/v{}/my_packages".format(VERSION))
+@APP.route("/v{}/my_packages".format(VERSION), methods=['POST'])
 @api_call()
 def my_packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
     """
@@ -523,7 +540,7 @@ def my_packages_handler(user_address, show_inactive=False, from_date=None, role_
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/my_packages,1521650747
         schema:
             type: string
             format: string
@@ -534,13 +551,13 @@ def my_packages_handler(user_address, show_inactive=False, from_date=None, role_
             type: string
             format: string
       - name: show_inactive
-        in: query
+        in: formData
         description: include inactive packages in response
         required: false
         type: boolean
         default: false
       - name: from_date
-        in: query
+        in: formData
         description: show only packages from this date forward
         required: false
         type: string
@@ -570,9 +587,10 @@ def my_packages_handler(user_address, show_inactive=False, from_date=None, role_
               status: delivered
     """
     return {'status': 200, 'packages': db.get_packages()}
+# pylint: disable=unused-argument
 
 
-@APP.route("/v{}/package".format(VERSION))
+@APP.route("/v{}/package".format(VERSION), methods=['POST'])
 @api_call()
 def package_handler(user_address, paket_id):
     """
@@ -590,7 +608,7 @@ def package_handler(user_address, paket_id):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/package,paket_id=id,1521650747
         schema:
             type: string
             format: string
@@ -601,7 +619,7 @@ def package_handler(user_address, paket_id):
             type: string
             format: string
       - name: paket_id
-        in: query
+        in: formData
         description: PKT id
         required: true
         type: string
@@ -641,8 +659,8 @@ def package_handler(user_address, paket_id):
     return {'status': 200, 'package': db.get_package(paket_id)}
 
 
-@APP.route("/v{}/register_user".format(VERSION))
-@api_call
+@APP.route("/v{}/register_user".format(VERSION), methods=['POST'])
+@api_call(['full_name', 'phone_number', 'paket_user'])
 def register_user_handler(user_address, full_name, phone_number, paket_user):
     """
     Register a new user.
@@ -657,7 +675,7 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/register_user,full_name=name,phone_number=number,paket_user=user,1521650747
         schema:
             type: string
             format: string
@@ -668,19 +686,19 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
             type: string
             format: string
       - name: paket_user
-        in: query
+        in: formData
         default: none
         description: User unique callsign
         required: true
         type: string
       - name: full_name
-        in: query
+        in: formData
         default: First Last
         description: Full name of user
         required: true
         type: string
       - name: phone_number
-        in: query
+        in: formData
         default: 123-456
         description: User phone number
         required: true
@@ -693,7 +711,7 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
         user_address, full_name, phone_number, paket_user)}
 
 
-@APP.route("/v{}/recover_user".format(VERSION))
+@APP.route("/v{}/recover_user".format(VERSION), methods=['POST'])
 @api_call
 def recover_user_handler(user_address):
     """
@@ -709,7 +727,7 @@ def recover_user_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: http://localhost:5000/v1/recover_user,1521650747
         schema:
             type: string
             format: string
@@ -726,7 +744,7 @@ def recover_user_handler(user_address):
     return {'status': 200, 'user_details': db.get_user(user_address)}
 
 
-@APP.route("/v{}/price".format(VERSION))
+@APP.route("/v{}/price".format(VERSION), methods=['POST'])
 def price_handler():
     """
     Get buy and sell prices.
@@ -758,7 +776,7 @@ def price_handler():
     return flask.jsonify({'status': 200, 'buy_price': 1, 'sell_price': 1})
 
 
-@APP.route("/v{}/users".format(VERSION))
+@APP.route("/v{}/users".format(VERSION), methods=['GET'])
 def users_handler():
     """
     Get a list of users and their addresses - for debug only.
@@ -776,51 +794,37 @@ def users_handler():
               minimum: 0
               description: funds available for usage in buls
           example:
-            {
-                "status": 200,
-                "users": {
-                    "courier": {
-                    "address": "0x5A7DAfa89E49A73d2a324c91833E653f364c02D8",
-                    "email": null,
-                    "key": "courier",
-                    "kwargs": null,
-                    "phone": null,
-                    "uid": "courier"
-                    },
-                    "launcher": {
-                    "address": "0x79ce35B014FC7860eb17B04937De00A053E432e5",
-                    "email": null,
-                    "key": "launcher",
-                    "kwargs": null,
-                    "phone": null,
-                    "uid": "launcher"
-                    },
-                    "owner": {
-                    "address": "0xCd63572EeaA1eEdc1abc84A6542c16132aC4357e",
-                    "email": null,
-                    "key": "owner",
-                    "kwargs": null,
-                    "phone": null,
-                    "uid": "owner"
-                    },
-                    "recipient": {
-                    "address": "0xA18401337598D0fc453e788Bf1cd0C5D69070125",
-                    "email": null,
-                    "key": "recipient",
-                    "kwargs": null,
-                    "phone": null,
-                    "uid": "recipient"
-                    }
+            "status": 200,
+            "users": {
+                "0x5E764542CC5CaB16e2a5440b60c43792a2703361": {
+                "full_name": "courier",
+                "paket_user": "courier",
+                "phone_number": "123-456"
+                },
+                "0xC87CE45Af751367300bb8ea62B2f5442337211bE": {
+                "full_name": "recipient",
+                "paket_user": "recipient",
+                "phone_number": "123-456"
+                },
+                "0xb91927C0F744aB701eb7dBF0bCF30a77F14c922C": {
+                "full_name": "launcher",
+                "paket_user": "launcher",
+                "phone_number": "123-456"
+                },
+                "0xe77a8Ec88B5854B677C1B6Cc5447b199ACc1A94e": {
+                "full_name": "owner",
+                "paket_user": "owner",
+                "phone_number": "123-456"
                 }
             }
     """
     return flask.jsonify({'status': 200, 'users': db.get_users()})
 
 
-@APP.route("/v{}/packages".format(VERSION))
+@APP.route("/v{}/packages".format(VERSION), methods=['GET'])
 def packages_handler():
     """
-    Get list of packages
+    Get list of packages - for debug only.
     ---
     tags:
     - debug

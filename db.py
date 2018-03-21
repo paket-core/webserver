@@ -8,11 +8,15 @@ DB_NAME = 'paket.db'
 
 
 class UnknownUser(Exception):
-    """Invalid user ID."""
+    """Unknown user ID."""
 
 
 class DuplicateUser(Exception):
     """Duplicate user."""
+
+
+class InvalidNonce(Exception):
+    """Invalid nonce."""
 
 
 @contextlib.contextmanager
@@ -56,6 +60,11 @@ def init_db():
                 collateral INTEGER,
                 kwargs VARCHAR(1024))''')
         LOGGER.debug('packages table created')
+        sql.execute('''
+            CREATE TABLE nonces(
+                address VARCHAR(42) PRIMARY KEY,
+                nonce INTEGER NOT NULL DEFAULT 0)''')
+        LOGGER.debug('nonces table created')
 
 
 def create_user(address):
@@ -63,6 +72,7 @@ def create_user(address):
     with sql_connection() as sql:
         try:
             sql.execute("INSERT INTO users (address) VALUES (?)", (address,))
+            sql.execute("INSERT INTO nonces (address) VALUES (?)", (address,))
         except sqlite3.IntegrityError:
             raise DuplicateUser("Address {} is non unique".format(address))
 
@@ -128,6 +138,7 @@ def get_package(paket_id):
         package = sql.fetchone()
     return {key: package[key] for key in package.keys()}
 
+
 def get_packages():
     """Get a list of packages."""
     with sql_connection() as sql:
@@ -140,3 +151,17 @@ def update_custodian(paket_id, custodian_address):
     """Update a package's custodian."""
     with sql_connection() as sql:
         sql.execute("UPDATE packages SET custodian_address = ? WHERE paket_id = ?", (custodian_address, paket_id))
+
+
+def update_nonce(address, new_nonce):
+    """Update a user's nonce."""
+    with sql_connection() as sql:
+        sql.execute("SELECT nonce FROM nonces WHERE address = ?", (address,))
+        try:
+            if int(new_nonce) <= sql.fetchone()['nonce']:
+                raise InvalidNonce("nonce {} is not bigger than current nonce".format(new_nonce))
+        except TypeError:
+            raise UnknownUser("{} has no current nonce".format(address))
+        except ValueError:
+            raise InvalidNonce("nonce {} is not an integer".format(new_nonce))
+        sql.execute("UPDATE nonces SET nonce = ? WHERE address = ?", (new_nonce, address))
