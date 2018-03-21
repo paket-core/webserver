@@ -166,31 +166,43 @@ def api_call(handler=None, required_fields=None):
 @api_call
 def wallet_address_handler(user_address):
     """
-        Get the address of the wallet. This address can be used to send BULs to.
-        ---
-        tags:
-        - wallet
-        parameters:
-          - name: X-User-Pubkey
-            in: header
-            default: owner
-            schema:
-                type: string
-                format: string
-        responses:
-          200:
-            description: an address
-            schema:
-              properties:
-                address:
-                  type: string
-                  format: string
-                  description: address of te BUL wallet
-              example:
-                {
-                    "status": 200,
-                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-                }
+    Get the address of the wallet. This address can be used to send BULs to.
+    ---
+    tags:
+    - wallet
+    parameters:
+      - name: X-User-Pubkey
+        in: header
+        default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        schema:
+            type: string
+            format: string
+    responses:
+      200:
+        description: an address
+        schema:
+          properties:
+            address:
+              type: string
+              format: string
+              description: address of te BUL wallet
+          example:
+            {
+                "status": 200,
+                "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+            }
         """
     return {'status': 200, 'address': user_address}
 
@@ -208,6 +220,18 @@ def balance_handler(user_address):
       - name: X-User-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -241,6 +265,18 @@ def send_buls_handler(user_address, to_address, amount_buls):
       - name: X-User-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -278,6 +314,18 @@ def launch_package_handler(
       - name: X-User-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -346,6 +394,18 @@ def accept_package_handler(user_address, paket_id):
         schema:
             type: string
             format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        schema:
+            type: string
+            format: string
       - name: paket_id
         in: query
         description: PKT id
@@ -375,6 +435,18 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
       - name: X-User-Pubkey
         in: header
         default: courier
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -425,6 +497,18 @@ def packages_handler(user_address, show_inactive=False, from_date=None, role_in_
       - name: X-User-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -483,6 +567,18 @@ def package_handler(user_address, paket_id):
         schema:
             type: string
             format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        schema:
+            type: string
+            format: string
       - name: paket_id
         in: query
         description: PKT id
@@ -538,6 +634,18 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
         schema:
             type: string
             format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        schema:
+            type: string
+            format: string
       - name: paket_user
         in: query
         default: none
@@ -575,6 +683,18 @@ def recover_user_handler(user_address):
     parameters:
       - name: X-User-Pubkey
         in: header
+        schema:
+            type: string
+            format: string
+      - name: X-API-Call
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-API-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -624,13 +744,6 @@ def users_handler():
     ---
     tags:
     - debug
-    parameters:
-      - name: X-User-Pubkey
-        in: header
-        default: owner
-        schema:
-            type: string
-            format: string
     responses:
       200:
         description: a list of users
