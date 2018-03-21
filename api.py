@@ -116,14 +116,12 @@ def get_user_address(paket_user):
 
 def optional_arg_decorator(decorator):
     """A decorator for decorators than can accept optional arguments."""
-
     @functools.wraps(decorator)
     def wrapped_decorator(*args, **kwargs):
         """A wrapper to return a filled up function in case arguments are given."""
         if len(args) == 1 and not kwargs and callable(args[0]):
             return decorator(args[0])
         return lambda decoratee: decorator(decoratee, *args, **kwargs)
-
     return wrapped_decorator
 
 
@@ -136,7 +134,6 @@ def api_call(handler=None, required_fields=None):
     fixes them, handles authentication, and then passes them to the handler,
     dealing with exceptions and returning a valid response.
     """
-
     @functools.wraps(handler)
     def _api_call(*_, **kwargs):
         # pylint: disable=broad-except
@@ -162,7 +159,6 @@ def api_call(handler=None, required_fields=None):
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
-
     return _api_call
 
 
@@ -231,10 +227,9 @@ def balance_handler(user_address):
     return {'available_buls': paket.get_balance(user_address)}
 
 
-@APP.route("/v{}/transfer_buls".format(VERSION))
+@APP.route("/v{}/send_buls".format(VERSION))
 @api_call(['to_address', 'amount_buls'])
-# TODO send
-def transfer_buls_handler(user_address, to_address, amount_buls):
+def send_buls_handler(user_address, to_address, amount_buls):
     """
     Transfer BULs to another address.
     Use this call to send part of your balance to another user.
@@ -265,7 +260,7 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
       200:
         description: transfer request sent
     """
-    return {'status': 200, 'promise': paket.transfer_buls(user_address, to_address, amount_buls)}
+    return {'status': 200, 'promise': paket.send_buls(user_address, to_address, amount_buls)}
 
 
 @APP.route("/v{}/launch_package".format(VERSION))
@@ -715,7 +710,7 @@ def init_sandbox():
         try:
             db.create_user(address)
             db.update_user_details(address, paket_user, '123-456', paket_user)
-            paket.transfer_buls(paket.OWNER, address, 1000)
+            paket.send_buls(paket.OWNER, address, 1000)
             LOGGER.debug("Created and funded user %s", paket_user)
         except db.DuplicateUser:
             LOGGER.debug("User %s already exists", paket_user)
