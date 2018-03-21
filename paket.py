@@ -30,8 +30,9 @@ def set_account(address):
 
 
 def new_account():
-    """Create a new account and unlock it."""
+    """Create a new account, fund it with ether, and unlock it."""
     new_address = W3.personal.newAccount('pass')
+    W3.eth.sendTransaction({'from': W3.eth.accounts[0], 'to': new_address, 'value': 1000000000000})
     W3.personal.unlockAccount(new_address, 'pass')
     return new_address
 
@@ -80,9 +81,6 @@ def confirm_delivery(user, paket_id):
 
 def commit_collateral(user, paket_id, collateral_benificiery, collateral_buls):
     'Commit collateral on a paket.'
-    LOGGER.warning("%s %s", paket_id, type(paket_id))
-    LOGGER.warning("%s %s", collateral_benificiery, type(collateral_benificiery))
-    LOGGER.warning("%s %s", collateral_buls, type(collateral_buls))
     return PAKET.transact({'from': user}).commitCollateral(paket_id, collateral_benificiery, collateral_buls)
 
 
@@ -92,8 +90,6 @@ def accept_paket(user, paket_id, collateral_benificiery, collateral_buls):
     If user is the recipient, confirm the delivery.
     If user is a courier, commit required collateral to collateral_benificiery.
     """
-    LOGGER.warning(paket_id)
-    LOGGER.warning(get_paket_details(paket_id))
     if user == get_paket_details(paket_id)['recipient']:
         return confirm_delivery(user, paket_id)
     return commit_collateral(user, paket_id, collateral_benificiery, collateral_buls)

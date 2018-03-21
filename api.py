@@ -120,6 +120,7 @@ def get_user_address(paket_user):
     except db.UnknownUser:
         user_address = paket.new_account()
         db.create_user(user_address)
+        db.update_user_details(user_address, None, None, paket_user)
     return user_address
 
 
