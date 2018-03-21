@@ -503,9 +503,9 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
 
 
 # pylint: disable=unused-argument
-@APP.route("/v{}/packages".format(VERSION))
+@APP.route("/v{}/my_packages".format(VERSION))
 @api_call()
-def packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
+def my_packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
     Use this call to get a list of packages.
@@ -815,6 +815,41 @@ def users_handler():
             }
     """
     return flask.jsonify({'status': 200, 'users': db.get_users()})
+
+
+@APP.route("/v{}/packages".format(VERSION))
+def packages_handler():
+    """
+    Get list of packages
+    ---
+    tags:
+    - debug
+    responses:
+      200:
+        description: list of packages
+        schema:
+          properties:
+            packages:
+              type: array
+              items:
+                $ref: '#/definitions/Package'
+          example:
+            - PKT-id: 1001
+              Recipient-id: '@israel'
+              send-timestamp: 41234123
+              deadline-timestamp: 41244123
+              cost: 120
+              collateral: 400
+              status: in transit
+            - PKT-id: 1002
+              Recipient-id: '@oren'
+              send-timestamp: 41234123
+              deadline-timestamp: 41244123
+              cost: 20
+              collateral: 40
+              status: delivered
+    """
+    return flask.jsonify({'status': 200, 'packages': db.get_packages()})
 
 
 @APP.route('/')
