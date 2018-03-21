@@ -415,9 +415,9 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
 
 
 # pylint: disable=unused-argument
-@APP.route("/v{}/packages".format(VERSION))
+@APP.route("/v{}/my_packages".format(VERSION))
 @api_call()
-def packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
+def my_packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
     Use this call to get a list of packages.
@@ -625,6 +625,7 @@ def price_handler():
 @APP.route("/v{}/users".format(VERSION))
 def users_handler():
     """
+    TODO add balance for each
     Get a list of users and their addresses - for debug only.
     ---
     tags:
