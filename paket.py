@@ -41,7 +41,7 @@ def get_balance(address):
     return PAKET.call().balanceOf(address)
 
 
-def transfer_buls(user, to_address, amount):
+def send_buls(user, to_address, amount):
     """Transfer BULs."""
     return PAKET.transact({'from': user}).transfer(to_address, amount)
 
@@ -55,7 +55,7 @@ def launch_paket(user, recipient, deadline, courier, payment):
             'paket_id': str(paket_id),
             'creation_promise': PAKET.transact({'from': user}).create(paket_id, recipient, deadline),
             'payment_promise': PAKET.transact({'from': user}).commitPayment(paket_id, courier, payment)}
-    except ValueError as ve:
+    except ValueError:
         raise NotEnoughFunds('Not Enough Funds. {} is needed'.format(payment))
 
 
@@ -109,7 +109,7 @@ def cover_collateral(user, paket_id, courier, collateral):
 
 
 def relay_payment(user, paket_id, courier, payment):
-    return PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
+    return PAKET.transact({'from': user}).relayPayment(int(paket_id), courier, payment)
 
 
 def refund(user, paket_id):
@@ -132,9 +132,9 @@ def test():
 
     show_balances()
 
-    transfer_buls(OWNER, LAUNCHER, 1000)
-    transfer_buls(OWNER, RECIPIENT, 1000)
-    transfer_buls(OWNER, COURIER, 1000)
+    send_buls(OWNER, LAUNCHER, 1000)
+    send_buls(OWNER, RECIPIENT, 1000)
+    send_buls(OWNER, COURIER, 1000)
     show_balances()
 
     paket_id = launch_paket(LAUNCHER, RECIPIENT, int(time.time()) + 100, COURIER, 100)

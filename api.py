@@ -51,11 +51,19 @@ class MissingFields(Exception):
     """Missing field in args."""
 
 
-class BadNumberField(Exception):
+class InvalidNumberField(Exception):
     """Invalid number field."""
 
 
-class BadAddressField(Exception):
+class InvalidAddressField(Exception):
+    """Invalid address field."""
+
+
+class FootprintMismatch(Exception):
+    """Invalid address field."""
+
+
+class InvalidSignature(Exception):
     """Invalid address field."""
 
 
@@ -80,50 +88,58 @@ def check_and_fix_values(kwargs):
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
             except ValueError:
-                raise BadNumberField("the value of {}({}) is not an integer".format(key, value))
+                raise InvalidNumberField("the value of {}({}) is not an integer".format(key, value))
             if int_val < 0:
-                raise BadNumberField("the value of {}({}) is less than zero".format(key, value))
+                raise InvalidNumberField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
             LOGGER.warning("Attempting conversion of user ID %s to address", value)
             kwargs[key] = get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
-                raise BadAddressField("value of {} is not a valid address".format(key))
+                raise InvalidAddressField("value of {} is not a valid address".format(key))
     return kwargs
 
 
-# Because the whole function is not yet implemented.
-# pylint: disable=unused-argument
-def check_signature(call_footprint, signature, pubkey, *args, **kwargs):
+def check_footprint(footprint, path, kwargs):
     """
-    Raise exception on invalid signature.
+    Raise exception on invalid footprint.
     Currently does not do anything.
     """
-    LOGGER.warning("Not checking signature for %s", call_footprint)
+    LOGGER.warning("Not checking signature for %s - %s - %s", footprint, path, kwargs)
+    return footprint
 
 
 def get_user_address(paket_user):
-    """Get a user's address from paket_user (for debug only). Create a user if none is found."""
+    """
+    Get a user's address from paket_user (for debug only). Create a user if none is found.
+    Will eventually merge into check_signature.
+    """
     try:
         user_address = db.get_user_address(paket_user)
     except db.UnknownUser:
         user_address = paket.new_account()
         db.create_user(user_address)
     return user_address
-# pylint: enable=unused-argument
+
+
+def check_signature(pubkey, footprint, signature):
+    """
+    Raise exception on invalid signature.
+    Currently does not do anything.
+    """
+    pubkey = pubkey + signature
+    LOGGER.warning("Not checking signature for %s", footprint)
 
 
 def optional_arg_decorator(decorator):
     """A decorator for decorators than can accept optional arguments."""
-
     @functools.wraps(decorator)
     def wrapped_decorator(*args, **kwargs):
         """A wrapper to return a filled up function in case arguments are given."""
         if len(args) == 1 and not kwargs and callable(args[0]):
             return decorator(args[0])
         return lambda decoratee: decorator(decoratee, *args, **kwargs)
-
     return wrapped_decorator
 
 
@@ -136,7 +152,6 @@ def api_call(handler=None, required_fields=None):
     fixes them, handles authentication, and then passes them to the handler,
     dealing with exceptions and returning a valid response.
     """
-
     @functools.wraps(handler)
     def _api_call(*_, **kwargs):
         # pylint: disable=broad-except
@@ -146,11 +161,13 @@ def api_call(handler=None, required_fields=None):
             kwargs = flask.request.values.to_dict()
             check_missing_fields(kwargs.keys(), required_fields)
             kwargs = check_and_fix_values(kwargs)
-            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-User-Pubkey'))
+            footprint = check_footprint(flask.request.headers.get('X-Footprint'), flask.request.path, kwargs)
+            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-Pubkey'))
+            check_signature(kwargs['user_address'], footprint, flask.request.headers.get('X-Signature'))
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
-        except BadNumberField as exception:
+        except InvalidNumberField as exception:
             response = {'status': 400, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
@@ -162,7 +179,6 @@ def api_call(handler=None, required_fields=None):
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
-
     return _api_call
 
 
@@ -170,31 +186,43 @@ def api_call(handler=None, required_fields=None):
 @api_call
 def wallet_address_handler(user_address):
     """
-        Get the address of the wallet. This address can be used to send BULs to.
-        ---
-        tags:
-        - wallet
-        parameters:
-          - name: X-User-Pubkey
-            in: header
-            default: owner
-            schema:
-                type: string
-                format: string
-        responses:
-          200:
-            description: an address
-            schema:
-              properties:
-                address:
-                  type: string
-                  format: string
-                  description: address of te BUL wallet
-              example:
-                {
-                    "status": 200,
-                    "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-                }
+    Get the address of the wallet. This address can be used to send BULs to.
+    ---
+    tags:
+    - wallet
+    parameters:
+      - name: X-Pubkey
+        in: header
+        default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        schema:
+            type: string
+            format: string
+    responses:
+      200:
+        description: an address
+        schema:
+          properties:
+            address:
+              type: string
+              format: string
+              description: address of te BUL wallet
+          example:
+            {
+                "status": 200,
+                "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+            }
         """
     return {'status': 200, 'address': user_address}
 
@@ -209,9 +237,21 @@ def balance_handler(user_address):
     tags:
     - wallet
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -231,10 +271,9 @@ def balance_handler(user_address):
     return {'available_buls': paket.get_balance(user_address)}
 
 
-@APP.route("/v{}/transfer_buls".format(VERSION))
+@APP.route("/v{}/send_buls".format(VERSION))
 @api_call(['to_address', 'amount_buls'])
-# TODO send
-def transfer_buls_handler(user_address, to_address, amount_buls):
+def send_buls_handler(user_address, to_address, amount_buls):
     """
     Transfer BULs to another address.
     Use this call to send part of your balance to another user.
@@ -243,9 +282,21 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
     tags:
     - wallet
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -265,7 +316,7 @@ def transfer_buls_handler(user_address, to_address, amount_buls):
       200:
         description: transfer request sent
     """
-    return {'status': 200, 'promise': paket.transfer_buls(user_address, to_address, amount_buls)}
+    return {'status': 200, 'promise': paket.send_buls(user_address, to_address, amount_buls)}
 
 
 @APP.route("/v{}/launch_package".format(VERSION))
@@ -280,9 +331,21 @@ def launch_package_handler(
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -345,9 +408,21 @@ def accept_package_handler(user_address, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: courier
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -377,9 +452,21 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: courier
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -427,9 +514,21 @@ def my_packages_handler(user_address, show_inactive=False, from_date=None, role_
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -482,9 +581,21 @@ def package_handler(user_address, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
         default: owner
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -538,8 +649,20 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
     tags:
     - users
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -578,8 +701,20 @@ def recover_user_handler(user_address):
     tags:
     - users
     parameters:
-      - name: X-User-Pubkey
+      - name: X-Pubkey
         in: header
+        schema:
+            type: string
+            format: string
+      - name: X-Footprint
+        in: header
+        default: http://api.paket.global/v1/endpoint?param=value
+        schema:
+            type: string
+            format: string
+      - name: X-Signature
+        in: header
+        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -630,13 +765,6 @@ def users_handler():
     ---
     tags:
     - debug
-    parameters:
-      - name: X-User-Pubkey
-        in: header
-        default: owner
-        schema:
-            type: string
-            format: string
     responses:
       200:
         description: a list of users
@@ -716,7 +844,7 @@ def init_sandbox():
         try:
             db.create_user(address)
             db.update_user_details(address, paket_user, '123-456', paket_user)
-            paket.transfer_buls(paket.OWNER, address, 1000)
+            paket.send_buls(paket.OWNER, address, 1000)
             LOGGER.debug("Created and funded user %s", paket_user)
         except db.DuplicateUser:
             LOGGER.debug("User %s already exists", paket_user)
