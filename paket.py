@@ -109,7 +109,7 @@ def cover_collateral(user, paket_id, courier, collateral):
 
 
 def relay_payment(user, paket_id, courier, payment):
-    return PAKET.transact({'from': user}).relayPayment(paket_id, courier, payment)
+    return PAKET.transact({'from': user}).relayPayment(int(paket_id), courier, payment)
 
 
 def refund(user, paket_id):

@@ -51,11 +51,19 @@ class MissingFields(Exception):
     """Missing field in args."""
 
 
-class BadNumberField(Exception):
+class InvalidNumberField(Exception):
     """Invalid number field."""
 
 
-class BadAddressField(Exception):
+class InvalidAddressField(Exception):
+    """Invalid address field."""
+
+
+class FootprintMismatch(Exception):
+    """Invalid address field."""
+
+
+class InvalidSignature(Exception):
     """Invalid address field."""
 
 
@@ -80,16 +88,16 @@ def check_and_fix_values(kwargs):
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
             except ValueError:
-                raise BadNumberField("the value of {}({}) is not an integer".format(key, value))
+                raise InvalidNumberField("the value of {}({}) is not an integer".format(key, value))
             if int_val < 0:
-                raise BadNumberField("the value of {}({}) is less than zero".format(key, value))
+                raise InvalidNumberField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_address'):
             # For debug purposes, we allow user IDs as addresses.
             LOGGER.warning("Attempting conversion of user ID %s to address", value)
             kwargs[key] = get_user_address(value)
             if not paket.W3.isAddress(kwargs[key]):
-                raise BadAddressField("value of {} is not a valid address".format(key))
+                raise InvalidAddressField("value of {} is not a valid address".format(key))
     return kwargs
 
 
@@ -159,7 +167,7 @@ def api_call(handler=None, required_fields=None):
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
-        except BadNumberField as exception:
+        except InvalidNumberField as exception:
             response = {'status': 400, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
