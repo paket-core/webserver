@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import time
 import uuid
 
 import web3
@@ -18,6 +17,9 @@ W3 = web3.Web3(web3.HTTPProvider(WEB3_SERVER))
 ADDRESS = os.environ['PAKET_ADDRESS']
 ABI = json.loads(os.environ['PAKET_ABI'])
 PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
+
+# This is an ugly, temporary usage of ganache's internal keys.
+OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
 
 
 class NotEnoughFunds(Exception):
@@ -110,35 +112,3 @@ def relay_payment(user, paket_id, courier, payment):
 
 def refund(user, paket_id):
     return PAKET.transact({'from': user}).refund(paket_id)
-
-
-# This is an ugly, temporary usage of ganache's internal keys.
-OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
-
-
-def test():
-    addresses = OWNER, LAUNCHER, RECIPIENT, COURIER
-
-    def show_balances():
-        print("""
-        owner - {}
-        launcher - {}
-        recipient - {}
-        courier - {}""".format(*[get_balance(address) for address in addresses]))
-
-    show_balances()
-
-    send_buls(OWNER, LAUNCHER, 1000)
-    send_buls(OWNER, RECIPIENT, 1000)
-    send_buls(OWNER, COURIER, 1000)
-    show_balances()
-
-    paket_id = launch_paket(LAUNCHER, RECIPIENT, int(time.time()) + 100, COURIER, 100)
-    show_balances()
-
-    confirm_delivery(RECIPIENT, paket_id)
-    show_balances()
-
-
-if __name__ == '__main__':
-    test()

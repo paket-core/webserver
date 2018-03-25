@@ -11,6 +11,7 @@ import paket
 import logger
 
 VERSION = '1'
+DEBUG = True
 LOGGER = logger.logging.getLogger('pkt.api')
 logger.setup()
 
@@ -56,11 +57,11 @@ class InvalidField(Exception):
 
 
 class FootprintMismatch(Exception):
-    """Invalid address field."""
+    """Footprint does not match call."""
 
 
 class InvalidSignature(Exception):
-    """Invalid address field."""
+    """Invalid signature."""
 
 
 def check_missing_fields(fields, required_fields):
@@ -76,7 +77,7 @@ def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
     "_buls" and "_timestamp" fields must be valid integers.
-    "_address" fields must be valid addresses.
+    "_pubkey" fields must be valid addresses.
     """
     for key, value in kwargs.items():
         if key.endswith('_buls') or key.endswith('_timestamp'):
@@ -88,16 +89,16 @@ def check_and_fix_values(kwargs):
             if int_val < 0:
                 raise InvalidField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
-        elif key.endswith('_address'):
+        elif key.endswith('_pubkey'):
             # For debug purposes, we allow user IDs as addresses.
-            LOGGER.warning("Attempting conversion of user ID %s to address", value)
-            kwargs[key] = get_user_address(value)
+            LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
+            kwargs[key] = get_user_pubkey(value)
             if not paket.W3.isAddress(kwargs[key]):
-                raise InvalidField("value of {} is not a valid address".format(key))
+                raise InvalidField("value of {} is not a valid pubkey".format(key))
     return kwargs
 
 
-def check_footprint(footprint, url, kwargs):
+def check_footprint(footprint, url, kwargs, user_pubkey):
     """
     Raise exception on invalid footprint.
     Currently does not do anything.
@@ -108,7 +109,7 @@ def check_footprint(footprint, url, kwargs):
     if url != footprint[0]:
         raise FootprintMismatch("footprint {} does not match call to {}".format(footprint[0], url))
     try:
-        db.update_nonce(kwargs.pop('user_address'), footprint[-1])
+        db.update_nonce(user_pubkey, footprint[-1])
     except db.InvalidNonce as exception:
         raise FootprintMismatch(str(exception))
     for key, val in [keyval.split('=') for keyval in footprint[1:-1]]:
@@ -123,27 +124,43 @@ def check_footprint(footprint, url, kwargs):
     return footprint
 
 
-def get_user_address(paket_user):
+def get_user_pubkey(paket_user):
     """
-    Get a user's address from paket_user (for debug only). Create a user if none is found.
+    Get a user's pubkey from paket_user (for debug only). Create a user if none is found.
     Will eventually merge into check_signature.
     """
     try:
-        user_address = db.get_user_address(paket_user)
+        user_pubkey = db.get_pubkey_from_paket_user(paket_user)
     except db.UnknownUser:
-        user_address = paket.new_account()
-        db.create_user(user_address)
-        db.update_user_details(user_address, None, None, paket_user)
-    return user_address
+        user_pubkey = paket.new_account()
+        db.create_user(user_pubkey)
+        db.update_user_details(user_pubkey, None, None, paket_user)
+    return user_pubkey
 
 
-def check_signature(pubkey, footprint, signature):
+def check_signature(url, kwargs, user_pubkey, footprint, signature):
     """
     Raise exception on invalid signature.
     Currently does not do anything.
     """
-    pubkey = pubkey + signature
-    LOGGER.warning("Not checking signature for %s", footprint)
+    if DEBUG:
+        return get_user_pubkey(user_pubkey)
+    check_footprint(footprint, url, kwargs, user_pubkey)
+    raise NotImplementedError('Signature checking is not yet implemented.', signature)
+    #return pubkey
+
+
+def check_and_fix_call(request, required_fields):
+    """Check call and extract kwargs."""
+    kwargs = request.values.to_dict()
+    check_missing_fields(kwargs.keys(), required_fields)
+    kwargs = check_and_fix_values(kwargs)
+    kwargs['user_pubkey'] = check_signature(
+        request.url, kwargs,
+        request.headers.get('X-Pubkey'),
+        request.headers.get('X-Footprint'),
+        request.headers.get('X-Signature'))
+    return kwargs
 
 
 def optional_arg_decorator(decorator):
@@ -167,17 +184,12 @@ def api_call(handler=None, required_fields=None):
     dealing with exceptions and returning a valid response.
     """
     @functools.wraps(handler)
-    def _api_call(*_, **kwargs):
+    def _api_call(*_, **__):
         # pylint: disable=broad-except
         # If anything fails, we want to catch it here.
         response = {'status': 500, 'error': 'Internal server error'}
         try:
-            kwargs = flask.request.values.to_dict()
-            check_missing_fields(kwargs.keys(), required_fields)
-            kwargs = check_and_fix_values(kwargs)
-            kwargs['user_address'] = get_user_address(flask.request.headers.get('X-Pubkey'))
-            footprint = check_footprint(flask.request.headers.get('X-Footprint'), flask.request.url, kwargs)
-            check_signature(kwargs['user_address'], footprint, flask.request.headers.get('X-Signature'))
+            kwargs = check_and_fix_call(flask.request, required_fields)
             response = handler(**kwargs)
         except MissingFields as exception:
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
@@ -191,18 +203,19 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 402, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
-            response['debug'] = str(exception)
+            if DEBUG:
+                response['debug'] = str(exception)
         if 'error' in response:
             LOGGER.warning(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
     return _api_call
 
 
-@APP.route("/v{}/wallet_address".format(VERSION), methods=['POST'])
+@APP.route("/v{}/wallet_pubkey".format(VERSION), methods=['POST'])
 @api_call
-def wallet_address_handler(user_address):
+def wallet_pubkey_handler(user_pubkey):
     """
-    Get the address of the wallet. This address can be used to send BULs to.
+    Get the pubkey of the wallet. This pubkey can be used to send BULs to.
     ---
     tags:
     - wallet
@@ -215,7 +228,7 @@ def wallet_address_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://localhost:5000/v1/wallet_address,1521650747
+        default: http://localhost:5000/v1/wallet_pubkey,1521650747
         schema:
             type: string
             format: string
@@ -227,25 +240,25 @@ def wallet_address_handler(user_address):
             format: string
     responses:
       200:
-        description: an address
+        description: a pubkey
         schema:
           properties:
-            address:
+            pubkey:
               type: string
               format: string
-              description: address of te BUL wallet
+              description: address of a BUL wallet
           example:
             {
                 "status": 200,
-                "address": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
+                "pubkey": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
             }
         """
-    return {'status': 200, 'address': user_address}
+    return {'status': 200, 'pubkey': user_pubkey}
 
 
 @APP.route("/v{}/balance".format(VERSION), methods=['POST'])
 @api_call
-def balance_handler(user_address):
+def balance_handler(user_pubkey):
     """
     Get the balance of your account
     Use this call to get the balance of your account.
@@ -284,16 +297,16 @@ def balance_handler(user_address):
           example:
             available_buls: 850
     """
-    return {'available_buls': paket.get_balance(user_address)}
+    return {'available_buls': paket.get_balance(user_pubkey)}
 
 
 @APP.route("/v{}/send_buls".format(VERSION), methods=['POST'])
-@api_call(['to_address', 'amount_buls'])
-def send_buls_handler(user_address, to_address, amount_buls):
+@api_call(['to_pubkey', 'amount_buls'])
+def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
     """
-    Transfer BULs to another address.
+    Transfer BULs to another pubkey.
     Use this call to send part of your balance to another user.
-    The to_address can be either a user id, or a wallet address.
+    The to_pubkey can be either a user id, or a wallet pubkey.
     ---
     tags:
     - wallet
@@ -306,7 +319,7 @@ def send_buls_handler(user_address, to_address, amount_buls):
             format: string
       - name: X-Footprint
         in: header
-        default: http://localhost:5000/v1/send_buls,to_address=address,amount_buls=amount,1521650747
+        default: http://localhost:5000/v1/send_buls,to_pubkey=pubkey,amount_buls=amount,1521650747
         schema:
             type: string
             format: string
@@ -316,10 +329,10 @@ def send_buls_handler(user_address, to_address, amount_buls):
         schema:
             type: string
             format: string
-      - name: to_address
+      - name: to_pubkey
         in: formData
         default: launcher
-        description: target address for transfer
+        description: target pubkey for transfer
         required: true
         type: string
       - name: amount_buls
@@ -332,13 +345,13 @@ def send_buls_handler(user_address, to_address, amount_buls):
       200:
         description: transfer request sent
     """
-    return {'status': 200, 'promise': paket.send_buls(user_address, to_address, amount_buls)}
+    return {'status': 200, 'promise': paket.send_buls(user_pubkey, to_pubkey, amount_buls)}
 
 
 @APP.route("/v{}/launch_package".format(VERSION), methods=['POST'])
-@api_call(['recipient_address', 'deadline_timestamp', 'courier_address', 'payment_buls', 'collateral_buls'])
+@api_call(['recipient_pubkey', 'deadline_timestamp', 'courier_pubkey', 'payment_buls', 'collateral_buls'])
 def launch_package_handler(
-        user_address, recipient_address, deadline_timestamp, courier_address, payment_buls, collateral_buls
+        user_pubkey, recipient_pubkey, deadline_timestamp, courier_pubkey, payment_buls, collateral_buls
 ):
     # pylint: disable=line-too-long
     """
@@ -356,7 +369,7 @@ def launch_package_handler(
             format: string
       - name: X-Footprint
         in: header
-        default: http://localhost:5000/v1/launch_package,recipient_address=address,deadline_timestamp=timestamp,courier_address=address,payment_buls=buls,collateral_buls=buls,1521650747
+        default: http://localhost:5000/v1/launch_package,recipient_pubkey=pubkey,deadline_timestamp=timestamp,courier_pubkey=pubkey,payment_buls=buls,collateral_buls=buls,1521650747
         schema:
             type: string
             format: string
@@ -366,10 +379,10 @@ def launch_package_handler(
         schema:
             type: string
             format: string
-      - name: recipient_address
+      - name: recipient_pubkey
         in: formData
         default: recipient
-        description: Recipient address
+        description: Recipient pubkey
         required: true
         type: string
       - name: deadline_timestamp
@@ -379,10 +392,10 @@ def launch_package_handler(
         required: true
         type: integer
         example: 1520948634
-      - name: courier_address
+      - name: courier_pubkey
         in: formData
         default: courier
-        description: Courier address
+        description: Courier pubkey
         required: true
         type: string
       - name: payment_buls
@@ -409,15 +422,15 @@ def launch_package_handler(
     """
     # pylint: enable=line-too-long
     new_paket = paket.launch_paket(
-        user_address, recipient_address, deadline_timestamp, courier_address, payment_buls
+        user_pubkey, recipient_pubkey, deadline_timestamp, courier_pubkey, payment_buls
     )
-    db.create_package(new_paket['paket_id'], user_address, recipient_address, payment_buls, collateral_buls)
+    db.create_package(new_paket['paket_id'], user_pubkey, recipient_pubkey, payment_buls, collateral_buls)
     return dict(status=200, **new_paket)
 
 
 @APP.route("/v{}/accept_package".format(VERSION), methods=['POST'])
 @api_call(['paket_id'])
-def accept_package_handler(user_address, paket_id):
+def accept_package_handler(user_pubkey, paket_id):
     """
     Accept a package.
     If the package requires collateral, commit it.
@@ -456,14 +469,14 @@ def accept_package_handler(user_address, paket_id):
     """
     package = db.get_package(paket_id)
     promise = paket.accept_paket(
-        user_address, int(paket_id, 10), package['custodian_address'], package['collateral'])
-    db.update_custodian(paket_id, user_address)
+        user_pubkey, int(paket_id, 10), package['custodian_pubkey'], package['collateral'])
+    db.update_custodian(paket_id, user_pubkey)
     return {'status': 200, 'promise': promise}
 
 
 @APP.route("/v{}/relay_package".format(VERSION), methods=['POST'])
-@api_call(['paket_id', 'courier_address', 'payment_buls'])
-def relay_package_handler(user_address, paket_id, courier_address, payment_buls):
+@api_call(['paket_id', 'courier_pubkey', 'payment_buls'])
+def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
     """
     Relay a package to another courier, offering payment.
     ---
@@ -478,7 +491,7 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
             format: string
       - name: X-Footprint
         in: header
-        default: http://localhost:5000/v1/relay_package,paket_id=id,courier_address=address,payment_buls=buls,1521650747
+        default: http://localhost:5000/v1/relay_package,paket_id=id,courier_pubkey=pubkey,payment_buls=buls,1521650747
         schema:
             type: string
             format: string
@@ -494,10 +507,10 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
         required: true
         type: string
         default: 0
-      - name: courier_address
+      - name: courier_pubkey
         in: formData
         default: courier
-        description: Courier address
+        description: Courier pubkey
         required: true
         type: string
       - name: payment_buls
@@ -516,13 +529,13 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
           example:
             PKT-id: 1001
     """
-    return {'status': 200, 'promise': paket.relay_payment(user_address, paket_id, courier_address, payment_buls)}
+    return {'status': 200, 'promise': paket.relay_payment(user_pubkey, paket_id, courier_pubkey, payment_buls)}
 
 
 # pylint: disable=unused-argument
 @APP.route("/v{}/my_packages".format(VERSION), methods=['POST'])
 @api_call()
-def my_packages_handler(user_address, show_inactive=False, from_date=None, role_in_delivery=None):
+def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
     Use this call to get a list of packages.
@@ -592,7 +605,7 @@ def my_packages_handler(user_address, show_inactive=False, from_date=None, role_
 
 @APP.route("/v{}/package".format(VERSION), methods=['POST'])
 @api_call()
-def package_handler(user_address, paket_id):
+def package_handler(user_pubkey, paket_id):
     """
     Get a info about a single package.
     This will return additional information, such as GPS location, custodian, etc.
@@ -661,7 +674,7 @@ def package_handler(user_address, paket_id):
 
 @APP.route("/v{}/register_user".format(VERSION), methods=['POST'])
 @api_call(['full_name', 'phone_number', 'paket_user'])
-def register_user_handler(user_address, full_name, phone_number, paket_user):
+def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
     """
     Register a new user.
     ---
@@ -708,12 +721,12 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
         description: user details registered.
     """
     return {'status': 201, 'user_details': db.update_user_details(
-        user_address, full_name, phone_number, paket_user)}
+        user_pubkey, full_name, phone_number, paket_user)}
 
 
 @APP.route("/v{}/recover_user".format(VERSION), methods=['POST'])
 @api_call
-def recover_user_handler(user_address):
+def recover_user_handler(user_pubkey):
     """
     Recover user details.
     ---
@@ -741,7 +754,7 @@ def recover_user_handler(user_address):
       200:
         description: user details retrieved.
     """
-    return {'status': 200, 'user_details': db.get_user(user_address)}
+    return {'status': 200, 'user_details': db.get_user(user_pubkey)}
 
 
 @APP.route("/v{}/price".format(VERSION), methods=['POST'])
@@ -779,7 +792,7 @@ def price_handler():
 @APP.route("/v{}/users".format(VERSION), methods=['GET'])
 def users_handler():
     """
-    Get a list of users and their addresses - for debug only.
+    Get a list of users and their details - for debug only.
     ---
     tags:
     - debug
@@ -877,13 +890,13 @@ def ratelimit_handler(error):
 def init_sandbox():
     """Initialize database with debug values and fund users. For debug only."""
     db.init_db()
-    for paket_user, address in {
+    for paket_user, pubkey in {
             'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
     }.items():
         try:
-            db.create_user(address)
-            db.update_user_details(address, paket_user, '123-456', paket_user)
-            paket.send_buls(paket.OWNER, address, 1000)
+            db.create_user(pubkey)
+            db.update_user_details(pubkey, paket_user, '123-456', paket_user)
+            paket.send_buls(paket.OWNER, pubkey, 1000)
             LOGGER.debug("Created and funded user %s", paket_user)
         except db.DuplicateUser:
             LOGGER.debug("User %s already exists", paket_user)
