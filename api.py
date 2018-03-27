@@ -106,7 +106,7 @@ def check_footprint(footprint, path, kwargs):
     Raise exception on invalid footprint.
     Currently does not do anything.
     """
-    LOGGER.warning("Not checking signature for %s - %s - %s", footprint, path, kwargs)
+    LOGGER.warning("Not checking footprint for %s - %s - %s", footprint, path, kwargs)
     return footprint
 
 
@@ -199,13 +199,13 @@ def wallet_address_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -245,13 +245,13 @@ def balance_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -290,13 +290,13 @@ def send_buls_handler(user_address, to_address, amount_buls):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -325,6 +325,7 @@ def launch_package_handler(
         user_address, recipient_address, deadline_timestamp, courier_address, payment_buls, collateral_buls
 ):
     """
+    TODO courier_address to courier_pubkey
     Launch a package.
     Use this call to create a new package for delivery.
     ---
@@ -339,13 +340,13 @@ def launch_package_handler(
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -365,7 +366,7 @@ def launch_package_handler(
       - name: courier_address
         in: query
         default: courier
-        description: Courier address
+        description: Courier pubkey (can be id for now)
         required: true
         type: string
       - name: payment_buls
@@ -416,13 +417,13 @@ def accept_package_handler(user_address, paket_id):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -460,13 +461,13 @@ def relay_package_handler(user_address, paket_id, courier_address, payment_buls)
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -522,13 +523,13 @@ def my_packages_handler(user_address, show_inactive=False, from_date=None, role_
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -589,13 +590,13 @@ def package_handler(user_address, paket_id):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -656,13 +657,13 @@ def register_user_handler(user_address, full_name, phone_number, paket_user):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -708,13 +709,13 @@ def recover_user_handler(user_address):
             format: string
       - name: X-Footprint
         in: header
-        default: http://api.paket.global/v1/endpoint?param=value
+        default: NOT NEEDED YET http://api.paket.global/v1/endpoint?param=value
         schema:
             type: string
             format: string
       - name: X-Signature
         in: header
-        default: "0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
         schema:
             type: string
             format: string
@@ -761,6 +762,7 @@ def price_handler():
 def users_handler():
     """
     TODO add balance for each
+    TODO add packages
     Get a list of users and their addresses - for debug only.
     ---
     tags:
