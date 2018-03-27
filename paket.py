@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import time
 import uuid
 
 import web3
@@ -19,6 +18,9 @@ ADDRESS = os.environ['PAKET_ADDRESS']
 ABI = json.loads(os.environ['PAKET_ABI'])
 PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
 
+# This is an ugly, temporary usage of ganache's internal keys.
+OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
+
 
 class NotEnoughFunds(Exception):
     """Not enough funds for operations."""
@@ -30,8 +32,9 @@ def set_account(address):
 
 
 def new_account():
-    """Create a new account and unlock it."""
+    """Create a new account, fund it with ether, and unlock it."""
     new_address = W3.personal.newAccount('pass')
+    W3.eth.sendTransaction({'from': W3.eth.accounts[0], 'to': new_address, 'value': 1000000000000})
     W3.personal.unlockAccount(new_address, 'pass')
     return new_address
 
@@ -80,9 +83,6 @@ def confirm_delivery(user, paket_id):
 
 def commit_collateral(user, paket_id, collateral_benificiery, collateral_buls):
     'Commit collateral on a paket.'
-    LOGGER.warning("%s %s", paket_id, type(paket_id))
-    LOGGER.warning("%s %s", collateral_benificiery, type(collateral_benificiery))
-    LOGGER.warning("%s %s", collateral_buls, type(collateral_buls))
     return PAKET.transact({'from': user}).commitCollateral(paket_id, collateral_benificiery, collateral_buls)
 
 
@@ -92,8 +92,6 @@ def accept_paket(user, paket_id, collateral_benificiery, collateral_buls):
     If user is the recipient, confirm the delivery.
     If user is a courier, commit required collateral to collateral_benificiery.
     """
-    LOGGER.warning(paket_id)
-    LOGGER.warning(get_paket_details(paket_id))
     if user == get_paket_details(paket_id)['recipient']:
         return confirm_delivery(user, paket_id)
     return commit_collateral(user, paket_id, collateral_benificiery, collateral_buls)
@@ -114,35 +112,3 @@ def relay_payment(user, paket_id, courier, payment):
 
 def refund(user, paket_id):
     return PAKET.transact({'from': user}).refund(paket_id)
-
-
-# This is an ugly, temporary usage of ganache's internal keys.
-OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
-
-
-def test():
-    addresses = OWNER, LAUNCHER, RECIPIENT, COURIER
-
-    def show_balances():
-        print("""
-        owner - {}
-        launcher - {}
-        recipient - {}
-        courier - {}""".format(*[get_balance(address) for address in addresses]))
-
-    show_balances()
-
-    send_buls(OWNER, LAUNCHER, 1000)
-    send_buls(OWNER, RECIPIENT, 1000)
-    send_buls(OWNER, COURIER, 1000)
-    show_balances()
-
-    paket_id = launch_paket(LAUNCHER, RECIPIENT, int(time.time()) + 100, COURIER, 100)
-    show_balances()
-
-    confirm_delivery(RECIPIENT, paket_id)
-    show_balances()
-
-
-if __name__ == '__main__':
-    test()

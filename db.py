@@ -8,11 +8,15 @@ DB_NAME = 'paket.db'
 
 
 class UnknownUser(Exception):
-    """Invalid user ID."""
+    """Unknown user ID."""
 
 
 class DuplicateUser(Exception):
     """Duplicate user."""
+
+
+class InvalidNonce(Exception):
+    """Invalid nonce."""
 
 
 @contextlib.contextmanager
@@ -41,7 +45,7 @@ def init_db():
             return
         sql.execute('''
             CREATE TABLE users(
-                address VARCHAR(42) PRIMARY KEY,
+                pubkey VARCHAR(42) PRIMARY KEY,
                 full_name VARCHAR(256),
                 phone_number VARCHAR(32),
                 paket_user VARCHAR(32) UNIQUE)''')
@@ -49,33 +53,39 @@ def init_db():
         sql.execute('''
             CREATE TABLE packages(
                 paket_id VARCHAR(1024) UNIQUE,
-                launcher_address VARCHAR(42),
-                recipient_address VARCHAR(42),
-                custodian_address VARCHAR(42),
+                launcher_pubkey VARCHAR(42),
+                recipient_pubkey VARCHAR(42),
+                custodian_pubkey VARCHAR(42),
                 payment INTEGER,
                 collateral INTEGER,
                 kwargs VARCHAR(1024))''')
         LOGGER.debug('packages table created')
+        sql.execute('''
+            CREATE TABLE nonces(
+                pubkey VARCHAR(42) PRIMARY KEY,
+                nonce INTEGER NOT NULL DEFAULT 0)''')
+        LOGGER.debug('nonces table created')
 
 
-def create_user(address):
+def create_user(pubkey):
     """Create a new user."""
     with sql_connection() as sql:
         try:
-            sql.execute("INSERT INTO users (address) VALUES (?)", (address,))
+            sql.execute("INSERT INTO users (pubkey) VALUES (?)", (pubkey,))
+            sql.execute("INSERT INTO nonces (pubkey) VALUES (?)", (pubkey,))
         except sqlite3.IntegrityError:
-            raise DuplicateUser("Address {} is non unique".format(address))
+            raise DuplicateUser("Pubkey {} is non unique".format(pubkey))
 
 
-def get_user(address):
+def get_user(pubkey):
     """Get user details."""
     with sql_connection() as sql:
-        sql.execute("SELECT * FROM users WHERE address = ?", (address,))
+        sql.execute("SELECT * FROM users WHERE pubkey = ?", (pubkey,))
         user = sql.fetchone()
         return {key: user[key] for key in user.keys()} if user else None
 
 
-def update_user_details(address, full_name, phone_number, paket_user):
+def update_user_details(pubkey, full_name, phone_number, paket_user):
     """Update user details."""
     with sql_connection() as sql:
         try:
@@ -84,41 +94,41 @@ def update_user_details(address, full_name, phone_number, paket_user):
                 full_name = ?,
                 phone_number = ?,
                 paket_user = ?
-                WHERE address = ?""", (full_name, phone_number, paket_user, address))
+                WHERE pubkey = ?""", (full_name, phone_number, paket_user, pubkey))
         except sqlite3.IntegrityError:
             raise DuplicateUser("paket_user {} is not unique".format(paket_user))
-    return get_user(address)
+    return get_user(pubkey)
 
 
 def get_users():
-    """Get list of users and addresses - for debug only."""
+    """Get list of users and their details - for debug only."""
     with sql_connection() as sql:
         sql.execute('SELECT * FROM users')
         users = sql.fetchall()
-    return {user['address']: {key: user[key] for key in user.keys() if key != 'address'} for user in users}
+    return {user['pubkey']: {key: user[key] for key in user.keys() if key != 'pubkey'} for user in users}
 
 
-def get_user_address(paket_user):
+def get_pubkey_from_paket_user(paket_user):
     """
-    Get the address associated with a paket_user. Raise exception if paket_user is unknown.
+    Get the pubkey associated with a paket_user. Raise exception if paket_user is unknown.
     For debug only.
     """
     with sql_connection() as sql:
-        sql.execute('SELECT address FROM users WHERE paket_user = ?', (paket_user,))
+        sql.execute('SELECT pubkey FROM users WHERE paket_user = ?', (paket_user,))
         try:
             return sql.fetchone()[0]
         except TypeError:
             raise UnknownUser("Unknown user {}".format(paket_user))
 
 
-def create_package(paket_id, launcher_address, recipient_address, payment, collateral):
+def create_package(paket_id, launcher_pubkey, recipient_pubkey, payment, collateral):
     """Create a new package row."""
     with sql_connection() as sql:
         sql.execute("""
             INSERT INTO packages (
-                paket_id, launcher_address, recipient_address, custodian_address, payment, collateral
+                paket_id, launcher_pubkey, recipient_pubkey, custodian_pubkey, payment, collateral
             ) VALUES (?, ?, ?, ?, ?, ?)""", (
-                str(paket_id), launcher_address, recipient_address, launcher_address, payment, collateral))
+                str(paket_id), launcher_pubkey, recipient_pubkey, launcher_pubkey, payment, collateral))
 
 
 def get_package(paket_id):
@@ -128,15 +138,30 @@ def get_package(paket_id):
         package = sql.fetchone()
     return {key: package[key] for key in package.keys()}
 
+
 def get_packages():
     """Get a list of packages."""
     with sql_connection() as sql:
-        sql.execute('SELECT paket_id, launcher_address, custodian_address, recipient_address FROM packages')
+        sql.execute('SELECT paket_id, launcher_pubkey, custodian_pubkey, recipient_pubkey FROM packages')
         packages = sql.fetchall()
     return {package['paket_id']: {key: package[key] for key in package.keys()} for package in packages}
 
 
-def update_custodian(paket_id, custodian_address):
+def update_custodian(paket_id, custodian_pubkey):
     """Update a package's custodian."""
     with sql_connection() as sql:
-        sql.execute("UPDATE packages SET custodian_address = ? WHERE paket_id = ?", (custodian_address, paket_id))
+        sql.execute("UPDATE packages SET custodian_pubkey = ? WHERE paket_id = ?", (custodian_pubkey, paket_id))
+
+
+def update_nonce(pubkey, new_nonce):
+    """Update a user's nonce."""
+    with sql_connection() as sql:
+        sql.execute("SELECT nonce FROM nonces WHERE pubkey = ?", (pubkey,))
+        try:
+            if int(new_nonce) <= sql.fetchone()['nonce']:
+                raise InvalidNonce("nonce {} is not bigger than current nonce".format(new_nonce))
+        except TypeError:
+            raise UnknownUser("{} has no current nonce".format(pubkey))
+        except ValueError:
+            raise InvalidNonce("nonce {} is not an integer".format(new_nonce))
+        sql.execute("UPDATE nonces SET nonce = ? WHERE pubkey = ?", (new_nonce, pubkey))
