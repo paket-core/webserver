@@ -355,7 +355,6 @@ def launch_package_handler(
 ):
     # pylint: disable=line-too-long
     """
-    TODO courier_address to courier_pubkey
     Launch a package.
     Use this call to create a new package for delivery.
     ---
@@ -478,6 +477,7 @@ def accept_package_handler(user_pubkey, paket_id):
 @APP.route("/v{}/relay_package".format(VERSION), methods=['POST'])
 @api_call(['paket_id', 'courier_pubkey', 'payment_buls'])
 def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
+    # pylint: disable=line-too-long
     """
     Relay a package to another courier, offering payment.
     ---
@@ -530,6 +530,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
           example:
             PKT-id: 1001
     """
+    # pylint: enable=line-too-long
     return {'status': 200, 'promise': paket.relay_payment(user_pubkey, paket_id, courier_pubkey, payment_buls)}
 
 
@@ -677,6 +678,7 @@ def package_handler(user_pubkey, paket_id):
 @APP.route("/v{}/register_user".format(VERSION), methods=['POST'])
 @api_call(['full_name', 'phone_number', 'paket_user'])
 def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
+    # pylint: disable=line-too-long
     """
     Register a new user.
     ---
@@ -722,6 +724,7 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
       201:
         description: user details registered.
     """
+    # pylint: enable=line-too-long
     return {'status': 201, 'user_details': db.update_user_details(
         user_pubkey, full_name, phone_number, paket_user)}
 
@@ -794,8 +797,6 @@ def price_handler():
 @APP.route("/v{}/users".format(VERSION), methods=['GET'])
 def users_handler():
     """
-    TODO add balance for each
-    TODO add packages
     Get a list of users and their details - for debug only.
     ---
     tags:
@@ -835,7 +836,8 @@ def users_handler():
                 }
             }
     """
-    return flask.jsonify({'status': 200, 'users': db.get_users()})
+    return flask.jsonify({'status': 200, 'users': {
+        pubkey: dict(user, balance=paket.get_balance(pubkey)) for pubkey, user in db.get_users().items()}})
 
 
 @APP.route("/v{}/packages".format(VERSION), methods=['GET'])
