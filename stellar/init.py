@@ -33,8 +33,11 @@ else:
 PARTICIPANTS = [LAUNCHER, COURIER, RECIPIENT]
 
 
-def get_details(pubkey):
-    address = stellar_base.address.Address(pubkey)
+def get_details(account):
+    try:
+        address = stellar_base.address.Address(account.address().decode())
+    except AttributeError:
+        address = stellar_base.address.Address(account)
     address.get()
     return address
 
@@ -48,21 +51,20 @@ def trust(account):
 
 def get_bul_balance(account):
     'Get acount BUL balance. Create, fund and trust if needed.'
-    pubkey = account.address().decode()
     try:
-        balances = get_details(pubkey).balances
+        balances = get_details(account).balances
         for balance in balances:
             if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
                 return float(balance['balance'])
 
     # Create and fund non existing accounts.
     except stellar_base.utils.AccountNotExistError:
-        request = requests.get("https://friendbot.stellar.org/?addr={}".format(pubkey))
+        request = requests.get("https://friendbot.stellar.org/?addr={}".format(account.address().decode()))
         if request.status_code != 200:
             raise Exception("Funding request failed - {}".format(request.content))
 
     # If we are here, the account is not trusted. Fix it if possible and call again.
-    if pubkey == ISSUER.address().decode():
+    if account == ISSUER:
         return None
     else:
         trust(account)
@@ -84,7 +86,7 @@ def fund_buls(account):
         balance = get_bul_balance(account)
         assert balance >= 100
     except AssertionError:
-        pay(ISSUER, account, 100 - balance)
+        pay(ISSUER, account, 1000 - balance)
         balance = get_bul_balance(account)
     return (account.seed()[:5], balance)
 
@@ -94,34 +96,70 @@ def fund_participants():
         print(fund_buls(account))
 
 
-fund_participants()
-
-
 def print_balances():
     for account in PARTICIPANTS:
         print(account.seed()[:5], get_bul_balance(account))
 
 
-print_balances()
-
-
 def launch(launcher, courier, recipient, payment, collateral):
     escrow = get_keypair(random_seed())
+
     builder = stellar_base.builder.Builder(secret=courier.seed())
-    builder.append_create_account_op(escrow.address().decode(), 1)
-    builder.submit()
-    get_bul_balance(escrow)
-    builder = stellar_base.builder.Builder(secret=courier.seed())
-    builder.append_set_options_op(
-        master_weight=2, low_threshold=2, med_threshold=2, high_threshold=4)
-    builder.append_set_options_op(signer_address=recipient.address().decode())
-    builder.append_set_options_op(signer_address=launcher.address().decode())
+    builder.append_create_account_op(destination=escrow.address().decode(), starting_balance=5)
     builder.sign()
     builder.submit()
+    trust(escrow)
+
+    builder = stellar_base.builder.Builder(secret=escrow.seed())
+    builder.append_set_options_op(
+        source=escrow.address().decode(),
+        signer_address=courier.address().decode(),
+        signer_type='ed25519PublicKey',
+        signer_weight=2)
+    builder.append_set_options_op(
+        source=escrow.address().decode(),
+        signer_address=launcher.address().decode(),
+        signer_type='ed25519PublicKey',
+        signer_weight=1)
+    builder.append_set_options_op(
+        source=escrow.address().decode(),
+        signer_address=recipient.address().decode(),
+        signer_type='ed25519PublicKey',
+        signer_weight=1)
+    builder.append_set_options_op(
+        master_weight=0, low_threshold=1, med_threshold=1, high_threshold=3)
+    builder.sign()
+    builder.submit()
+
+    sequence = int(get_details(courier).sequence) + 1
+    builder = stellar_base.builder.Builder(secret=courier.seed(), sequence=sequence)
+    builder.append_payment_op(
+        courier.address().decode(), payment + collateral,
+        'BUL', ISSUER.address().decode(),
+        escrow.address().decode())
+    builder.sign()
+    refund_tx = builder.gen_xdr()
+
     pay(launcher, escrow, payment)
     pay(courier, escrow, collateral)
-    return get_bul_balance(escrow)
+
+    return escrow.address().decode(), refund_tx
 
 
-print(launch(LAUNCHER, COURIER, RECIPIENT, 10, 50))
-print_balances()
+def test():
+    escrow_address, ptx = launch(LAUNCHER, COURIER, RECIPIENT, 10, 50)
+    print(get_details(escrow_address).balances)
+    builder = stellar_base.builder.Builder(secret=RECIPIENT.seed())
+    builder.import_from_xdr(ptx)
+    builder.sign()
+    builder = stellar_base.builder.Builder(secret=LAUNCHER.seed())
+    builder.import_from_xdr(ptx)
+    #builder.sign()
+    print(builder.submit())
+
+
+if __name__ == '__main__':
+    #fund_participants()
+    print_balances()
+    test()
+    print_balances()
