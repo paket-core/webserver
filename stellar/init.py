@@ -112,29 +112,26 @@ def launch(launcher, courier, recipient, payment, collateral):
 
     builder = stellar_base.builder.Builder(secret=escrow.seed())
     builder.append_set_options_op(
-        source=escrow.address().decode(),
         signer_address=courier.address().decode(),
         signer_type='ed25519PublicKey',
         signer_weight=2)
     builder.append_set_options_op(
-        source=escrow.address().decode(),
         signer_address=launcher.address().decode(),
         signer_type='ed25519PublicKey',
         signer_weight=1)
     builder.append_set_options_op(
-        source=escrow.address().decode(),
         signer_address=recipient.address().decode(),
         signer_type='ed25519PublicKey',
         signer_weight=1)
     builder.append_set_options_op(
-        master_weight=0, low_threshold=1, med_threshold=1, high_threshold=3)
+        master_weight=0, low_threshold=1, med_threshold=3, high_threshold=4)
     builder.sign()
     builder.submit()
 
     sequence = int(get_details(courier).sequence) + 1
     builder = stellar_base.builder.Builder(secret=courier.seed(), sequence=sequence)
     builder.append_payment_op(
-        courier.address().decode(), payment + collateral,
+        launcher.address().decode(), payment + collateral,
         'BUL', ISSUER.address().decode(),
         escrow.address().decode())
     builder.sign()
@@ -149,17 +146,16 @@ def launch(launcher, courier, recipient, payment, collateral):
 def test():
     escrow_address, ptx = launch(LAUNCHER, COURIER, RECIPIENT, 10, 50)
     print(get_details(escrow_address).balances)
-    builder = stellar_base.builder.Builder(secret=RECIPIENT.seed())
-    builder.import_from_xdr(ptx)
-    builder.sign()
+    print(get_details(escrow_address).signers)
+    print(get_details(escrow_address).thresholds)
     builder = stellar_base.builder.Builder(secret=LAUNCHER.seed())
     builder.import_from_xdr(ptx)
-    #builder.sign()
+    builder.sign()
     print(builder.submit())
 
 
 if __name__ == '__main__':
-    #fund_participants()
+    fund_participants()
     print_balances()
     test()
     print_balances()
