@@ -1,15 +1,7 @@
 *.pyc
-build
-contracts
+.idea
 env
-ganache
-migrations
-node_modules
 paket.db
 paket.env
 paket.log
-swagger-ui
-truffle-config.js
-truffle.js
 venv
-.idea

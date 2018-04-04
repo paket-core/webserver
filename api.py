@@ -92,10 +92,9 @@ def check_and_fix_values(kwargs):
             kwargs[key] = int_val
         elif key.endswith('_pubkey'):
             # For debug purposes, we allow user IDs as addresses.
-            LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
-            kwargs[key] = get_user_pubkey(value)
-            if not paket.W3.isAddress(kwargs[key]):
-                raise InvalidField("value of {} is not a valid pubkey".format(key))
+            if not db.get_user(value):
+                LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
+                kwargs[key] = db.get_pubkey_from_paket_user(value)
     return kwargs
 
 
@@ -125,18 +124,22 @@ def check_footprint(footprint, url, kwargs, user_pubkey):
     return footprint
 
 
-def get_user_pubkey(paket_user):
+def get_user_pubkey(paket_user, seed=None):
     """
     Get a user's pubkey from paket_user (for debug only). Create a user if none is found.
     Will eventually merge into check_signature.
     """
     try:
-        user_pubkey = db.get_pubkey_from_paket_user(paket_user)
+        pubkey = db.get_pubkey_from_paket_user(paket_user)
     except db.UnknownUser:
-        user_pubkey = paket.new_account()
-        db.create_user(user_pubkey)
-        db.update_user_details(user_pubkey, None, None, paket_user)
-    return user_pubkey
+        keypair = paket.get_keypair(seed)
+        pubkey, seed = keypair.address().decode(), keypair.seed().decode()
+        try:
+            db.get_user(pubkey)
+        except db.UnknownUser:
+            db.create_user(pubkey, seed)
+        LOGGER.debug("Created user %s", paket_user)
+    return pubkey
 
 
 def check_signature(url, kwargs, user_pubkey, footprint, signature):
@@ -855,7 +858,7 @@ def users_handler():
             }
     """
     return flask.jsonify({'status': 200, 'users': {
-        pubkey: dict(user, balance=paket.get_balance(pubkey)) for pubkey, user in db.get_users().items()}})
+        pubkey: dict(user, balance=paket.get_bul_balance(pubkey)) for pubkey, user in db.get_users().items()}})
 
 
 @APP.route("/v{}/packages".format(VERSION), methods=['GET'])
@@ -919,13 +922,23 @@ def ratelimit_handler(error):
 def init_sandbox():
     """Initialize database with debug values and fund users. For debug only."""
     db.init_db()
-    for paket_user, pubkey in {
-            'owner': paket.OWNER, 'launcher': paket.LAUNCHER, 'recipient': paket.RECIPIENT, 'courier': paket.COURIER
-    }.items():
+
+    for paket_user, seed in [
+            (key.split('PAKET_USER_', 1)[1], value)
+            for key, value in os.environ.items()
+            if key.startswith('PAKET_USER_')
+    ]:
         try:
-            db.create_user(pubkey)
+            keypair = paket.get_keypair(seed)
+            pubkey, seed = keypair.address().decode(), keypair.seed().decode()
+            db.create_user(pubkey, seed)
             db.update_user_details(pubkey, paket_user, '123-456', paket_user)
-            paket.send_buls(paket.OWNER, pubkey, 1000)
-            LOGGER.debug("Created and funded user %s", paket_user)
+            LOGGER.debug("Created user %s", paket_user)
+
+            balance = paket.get_bul_balance(pubkey)
+            if balance and balance < 100:
+                LOGGER.warning("%s has only %s BUL", paket_user, balance)
+                paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)
+
         except db.DuplicateUser:
             LOGGER.debug("User %s already exists", paket_user)

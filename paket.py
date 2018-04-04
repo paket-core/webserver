@@ -1,25 +1,77 @@
-#!/usr/bin/env python3
 """Use PaKeT smart contract."""
-import json
 import logging
 import os
-import uuid
+import requests
 
-import web3
-# pylint: disable=no-member
-# Pylint has a hard time with dynamic members.
+import stellar_base.address
+import stellar_base.asset
+import stellar_base.builder
+import stellar_base.keypair
+
+import db
 
 LOGGER = logging.getLogger('pkt.paket')
 
-WEB3_SERVER = os.environ.get('PAKET_WEB3_SERVER', 'http://localhost:8545')
-W3 = web3.Web3(web3.HTTPProvider(WEB3_SERVER))
 
-ADDRESS = os.environ['PAKET_ADDRESS']
-ABI = json.loads(os.environ['PAKET_ABI'])
-PAKET = W3.eth.contract(address=ADDRESS, abi=ABI)
+def get_keypair(seed=None):
+    """Get a keypair from seed (default to random)."""
+    keypair = stellar_base.keypair.Keypair.from_seed(
+        seed if seed else stellar_base.keypair.Keypair.random().seed())
+    keypair.__class__ = type('DisplayKeypair', (stellar_base.keypair.Keypair,), {
+        '__repr__': lambda self: "KeyPair ({})".format(self.address().decode())})
+    return keypair
 
-# This is an ugly, temporary usage of ganache's internal keys.
-OWNER, LAUNCHER, RECIPIENT, COURIER = W3.eth.accounts[:4]
+
+def get_details(address):
+    """Get address details."""
+    details = stellar_base.address.Address(address)
+    try:
+        details.get()
+    # Create and fund non existing accounts.
+    except stellar_base.utils.AccountNotExistError:
+        LOGGER.warning("creating and funding account %s", address)
+        request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
+        if request.status_code != 200:
+            raise Exception("Funding request failed - {}".format(request.content))
+        details.get()
+    return details
+
+
+ISSUER = get_keypair(os.environ['PAKET_USER_ISSUER'])
+
+
+def trust(account):
+    """Trust BUL from account."""
+    LOGGER.debug("adding trust to %s", account.address().decode())
+    builder = stellar_base.builder.Builder(secret=account.seed())
+    builder.append_trust_op(ISSUER.address().decode(), 'BUL')
+    builder.sign()
+    return builder.submit()
+
+
+def get_bul_balance(address):
+    """Get acount BUL balance. Trust if needed."""
+    balances = get_details(address).balances
+    for balance in balances:
+        if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
+            return float(balance['balance'])
+    # If we are here, the account is not trusted. Fix it if possible and call again.
+    # This will continue ad infinitum if the backend is faulty :)
+    if address == ISSUER.address().decode():
+        return None
+    else:
+        trust(get_keypair(db.get_user(address)['seed']))
+    return get_bul_balance(address)
+
+
+def send_buls(from_address, to_address, amount):
+    """Transfer BULs."""
+    LOGGER.into("sending %s BUL from %s to %s", amount, from_address, to_address)
+    source = get_keypair(db.get_user(from_address)['seed'])
+    builder = stellar_base.builder.Builder(secret=source.seed())
+    builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
+    builder.sign()
+    return builder.submit()
 
 
 class NotEnoughFunds(Exception):
@@ -37,16 +89,6 @@ def new_account():
     W3.eth.sendTransaction({'from': W3.eth.accounts[0], 'to': new_address, 'value': 1000000000000})
     W3.personal.unlockAccount(new_address, 'pass')
     return new_address
-
-
-def get_balance(address):
-    """Get balance for an address."""
-    return PAKET.call().balanceOf(address)
-
-
-def send_buls(user, to_address, amount):
-    """Transfer BULs."""
-    return PAKET.transact({'from': user}).transfer(to_address, amount)
 
 
 def launch_paket(user, recipient, deadline, courier, payment):

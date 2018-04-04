@@ -87,14 +87,21 @@ def init_db():
                 pubkey VARCHAR(42) PRIMARY KEY,
                 nonce INTEGER NOT NULL DEFAULT 0)''')
         LOGGER.debug('nonces table created')
+        sql.execute('''
+            CREATE TABLE keys(
+                pubkey VARCHAR(42) PRIMARY KEY,
+                seed VARCHAR(42) UNIQUE)''')
+        LOGGER.debug('keys table created')
 
 
-def create_user(pubkey):
+def create_user(pubkey, seed=None):
     """Create a new user."""
     with sql_connection() as sql:
         try:
             sql.execute("INSERT INTO users (pubkey) VALUES (?)", (pubkey,))
             sql.execute("INSERT INTO nonces (pubkey) VALUES (?)", (pubkey,))
+            if seed is not None:
+                sql.execute("INSERT INTO keys (pubkey, seed) VALUES (?, ?)", (pubkey, seed))
         except sqlite3.IntegrityError:
             raise DuplicateUser("Pubkey {} is non unique".format(pubkey))
 
@@ -102,8 +109,14 @@ def create_user(pubkey):
 def get_user(pubkey):
     """Get user details."""
     with sql_connection() as sql:
-        sql.execute("SELECT * FROM users WHERE pubkey = ?", (pubkey,))
+        sql.execute("""
+            SELECT * FROM users
+            JOIN nonces on users.pubkey = nonces.pubkey
+            JOIN keys on users.pubkey = keys.pubkey
+            WHERE users.pubkey = ?""", (pubkey,))
         user = sql.fetchone()
+        if user is None:
+            raise UnknownUser("Unknown user with pubkey {}".format(pubkey))
         return {key: user[key] for key in user.keys()} if user else None
 
 
