@@ -6,13 +6,16 @@ import stellar_base.asset
 import stellar_base.builder
 import stellar_base.keypair
 
-
 PERSIST = True
 
+
 def get_keypair(seed=None):
-    return stellar_base.keypair.Keypair.from_seed(
+    keypair = stellar_base.keypair.Keypair.from_seed(
         seed if seed else stellar_base.keypair.Keypair.random().seed())
-get_keypair().seed().decode()
+    keypair.__class__ = type('DisplayKeypair', (stellar_base.keypair.Keypair,), {
+        '__repr__': lambda self: "KeyPair ({})".format(self.address().decode())})
+    return keypair
+str(get_keypair())
 
 
 def get_details(address):
