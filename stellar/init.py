@@ -9,14 +9,27 @@ import stellar_base.keypair
 
 PERSIST = True
 
+def get_keypair(seed=None):
+    return stellar_base.keypair.Keypair.from_seed(
+        seed if seed else stellar_base.keypair.Keypair.random().seed())
+get_keypair().seed().decode()
 
-def random_seed():
-    return stellar_base.keypair.Keypair.random().seed()
-random_seed()
 
-
-def get_keypair(seed):
-    return stellar_base.keypair.Keypair.from_seed(seed)
+def get_details(address):
+    # Allow keypairs as args.
+    if isinstance(address, stellar_base.keypair.Keypair):
+        address = address.address().decode()
+    details = stellar_base.address.Address(address)
+    try:
+        details.get()
+    # Create and fund non existing accounts.
+    except stellar_base.utils.AccountNotExistError:
+        print("creating and funding account {}".format(address))
+        request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
+        if request.status_code != 200:
+            raise Exception("Funding request failed - {}".format(request.content))
+        details.get()
+    return details
 
 
 if PERSIST:
@@ -26,44 +39,26 @@ if PERSIST:
         'SBOLPN4HNTCLA3BMRS6QG62PXZUFOZ5RRMT6LPJHUPGQLBP5PZY4YFIT',
         'SA5OXLJ2JCX4PF3G5WKSG66CXJQXQFCT62NQJ747XET5E2FR6TVIE4ET']]
 else:
-    ISSUER = get_keypair(random_seed())
-    LAUNCHER = get_keypair(random_seed())
-    COURIER = get_keypair(random_seed())
-    RECIPIENT = get_keypair(random_seed())
+    [ISSUER, LAUNCHER, COURIER, RECIPIENT] = [get_keypair() for seed in range(4)]
 PARTICIPANTS = [LAUNCHER, COURIER, RECIPIENT]
 
 
-def get_details(account):
-    try:
-        address = stellar_base.address.Address(account.address().decode())
-    except AttributeError:
-        address = stellar_base.address.Address(account)
-    address.get()
-    return address
-
-
 def trust(account):
+    print("adding trust to {}".format(account.address().decode()))
     builder = stellar_base.builder.Builder(secret=account.seed())
     builder.append_trust_op(ISSUER.address().decode(), 'BUL')
     builder.sign()
-    builder.submit()
+    return builder.submit()
 
 
 def get_bul_balance(account):
-    'Get acount BUL balance. Create, fund and trust if needed.'
-    try:
-        balances = get_details(account).balances
-        for balance in balances:
-            if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
-                return float(balance['balance'])
-
-    # Create and fund non existing accounts.
-    except stellar_base.utils.AccountNotExistError:
-        request = requests.get("https://friendbot.stellar.org/?addr={}".format(account.address().decode()))
-        if request.status_code != 200:
-            raise Exception("Funding request failed - {}".format(request.content))
-
+    'Get acount BUL balance. Trust if needed.'
+    balances = get_details(account).balances
+    for balance in balances:
+        if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
+            return float(balance['balance'])
     # If we are here, the account is not trusted. Fix it if possible and call again.
+    # This will continue ad infinitum if the backend is faulty :)
     if account == ISSUER:
         return None
     else:
@@ -71,10 +66,8 @@ def get_bul_balance(account):
     return get_bul_balance(account)
 
 
-assert get_bul_balance(ISSUER) is None
-
-
 def pay(source, target, amount):
+    print("sending {} BUL from {} to {}".format(amount, source.address().decode(), target.address().decode()))
     builder = stellar_base.builder.Builder(secret=source.seed())
     builder.append_payment_op(target.address().decode(), amount, 'BUL', ISSUER.address().decode())
     builder.sign()
@@ -86,23 +79,14 @@ def fund_buls(account):
         balance = get_bul_balance(account)
         assert balance >= 100
     except AssertionError:
+        print("{} has only {} BUL".format(account.address(), balance))
         pay(ISSUER, account, 1000 - balance)
         balance = get_bul_balance(account)
-    return (account.seed()[:5], balance)
-
-
-def fund_participants():
-    for account in PARTICIPANTS:
-        print(fund_buls(account))
-
-
-def print_balances():
-    for account in PARTICIPANTS:
-        print(account.seed()[:5], get_bul_balance(account))
+    return account.address().decode()[:5], balance
 
 
 def launch(launcher, courier, recipient, payment, collateral):
-    escrow = get_keypair(random_seed())
+    escrow = get_keypair()
 
     builder = stellar_base.builder.Builder(secret=courier.seed())
     builder.append_create_account_op(destination=escrow.address().decode(), starting_balance=5)
@@ -148,14 +132,14 @@ def test():
     print(get_details(escrow_address).balances)
     print(get_details(escrow_address).signers)
     print(get_details(escrow_address).thresholds)
+    print([(account.address().decode()[:5], get_bul_balance(account)) for account in PARTICIPANTS])
     builder = stellar_base.builder.Builder(secret=LAUNCHER.seed())
     builder.import_from_xdr(ptx)
     builder.sign()
     print(builder.submit())
+    print([(account.address().decode()[:5], get_bul_balance(account)) for account in PARTICIPANTS])
 
 
 if __name__ == '__main__':
-    fund_participants()
-    print_balances()
+    print([fund_buls(account) for account in PARTICIPANTS])
     test()
-    print_balances()
