@@ -211,51 +211,6 @@ def api_call(handler=None, required_fields=None):
     return _api_call
 
 
-@APP.route("/v{}/wallet_pubkey".format(VERSION), methods=['POST'])
-@api_call
-def wallet_pubkey_handler(user_pubkey):
-    """
-    Get the pubkey of the wallet. This pubkey can be used to send BULs to.
-    ---
-    tags:
-    - wallet
-    parameters:
-      - name: X-Pubkey
-        in: header
-        default: owner
-        schema:
-            type: string
-            format: string
-      - name: X-Footprint
-        in: header
-        default: NOT NEEDED YET http://localhost:5000/v1/wallet_pubkey,1521650747
-        schema:
-            type: string
-            format: string
-      - name: X-Signature
-        in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
-        schema:
-            type: string
-            format: string
-    responses:
-      200:
-        description: a pubkey
-        schema:
-          properties:
-            pubkey:
-              type: string
-              format: string
-              description: address of a BUL wallet
-          example:
-            {
-                "status": 200,
-                "pubkey": "0xa5F478281ED1b94bD7411Eb2d30255F28b833e28"
-            }
-        """
-    return {'status': 200, 'pubkey': user_pubkey}
-
-
 @APP.route("/v{}/balance".format(VERSION), methods=['POST'])
 @api_call
 def balance_handler(user_pubkey):
@@ -280,7 +235,7 @@ def balance_handler(user_pubkey):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -325,7 +280,7 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -375,7 +330,7 @@ def launch_package_handler(
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -453,7 +408,7 @@ def accept_package_handler(user_pubkey, paket_id):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -498,7 +453,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -535,7 +490,6 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
 
 
 # pylint: disable=unused-argument
-@APP.route("/v{}/my_packages".format(VERSION))
 @APP.route("/v{}/my_packages".format(VERSION), methods=['POST'])
 @api_call()
 def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_in_delivery=None):
@@ -562,7 +516,7 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -630,7 +584,7 @@ def package_handler(user_pubkey, paket_id):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -707,7 +661,7 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
@@ -760,7 +714,7 @@ def recover_user_handler(user_pubkey):
             format: string
       - name: X-Signature
         in: header
-        default: "NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc"
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
             type: string
             format: string
