@@ -591,14 +591,14 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
               Recipient-id: '@israel'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
-              cost: 120
+              payment: 120
               collateral: 400
               status: in transit
             - PKT-id: 1002
               Recipient-id: '@oren'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
-              cost: 20
+              payment: 20
               collateral: 40
               status: delivered
     """
@@ -652,12 +652,19 @@ def package_handler(user_pubkey, paket_id):
               type: integer
           deadline-timestamp:
               type: integer
-          cost:
+          payment:
               type: integer
           collateral:
               type: integer
           status:
               type: string
+          custodian-id:
+               type: string
+          paket-url:
+              type: string
+          blockchain-url:
+              type: string
+
     responses:
       200:
         description: a single packages
@@ -668,9 +675,11 @@ def package_handler(user_pubkey, paket_id):
               Recipient-id: '@israel'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
-              cost: 120
+              payment: 120
               collateral: 400
               status: in transit
+              paket-url: https://www.paket.global/paket-id/1001
+              blockchain-url: https://www.blockchain.info/423423423423424234534562
     """
     return {'status': 200, 'package': db.get_package(paket_id)}
 
@@ -861,16 +870,21 @@ def packages_handler():
               Recipient-id: '@israel'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
-              cost: 120
+              payment: 120
               collateral: 400
               status: in transit
+              paket-url: https://www.paket.global/paket-id/1001
+              blockchain-url: https://www.blockchain.info/423423423423424234534562
             - PKT-id: 1002
               Recipient-id: '@oren'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
-              cost: 20
+              payment: 20
               collateral: 40
               status: delivered
+              paket-url: https://www.paket.global/paket-id/1002
+              blockchain-url: https://www.blockchain.info/423423423423424234534562
+
     """
     return flask.jsonify({'status': 200, 'packages': db.get_packages()})
 
