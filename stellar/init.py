@@ -5,8 +5,10 @@ import stellar_base.address
 import stellar_base.asset
 import stellar_base.builder
 import stellar_base.keypair
+import stellar_base.horizon
 
 PERSIST = True
+HORIZON = stellar_base.horizon.Horizon('34.245.103.206')
 
 
 def get_keypair(seed=None):
@@ -48,7 +50,7 @@ PARTICIPANTS = [LAUNCHER, COURIER, RECIPIENT]
 
 def trust(account):
     print("adding trust to {}".format(account.address().decode()))
-    builder = stellar_base.builder.Builder(secret=account.seed())
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=account.seed())
     builder.append_trust_op(ISSUER.address().decode(), 'BUL')
     builder.sign()
     return builder.submit()
@@ -71,7 +73,7 @@ def get_bul_balance(account):
 
 def pay(source, target, amount):
     print("sending {} BUL from {} to {}".format(amount, source.address().decode(), target.address().decode()))
-    builder = stellar_base.builder.Builder(secret=source.seed())
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=source.seed())
     builder.append_payment_op(target.address().decode(), amount, 'BUL', ISSUER.address().decode())
     builder.sign()
     return builder.submit()
@@ -91,13 +93,13 @@ def fund_buls(account):
 def launch(launcher, courier, recipient, payment, collateral):
     escrow = get_keypair()
 
-    builder = stellar_base.builder.Builder(secret=courier.seed())
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=courier.seed())
     builder.append_create_account_op(destination=escrow.address().decode(), starting_balance=5)
     builder.sign()
     builder.submit()
     trust(escrow)
 
-    builder = stellar_base.builder.Builder(secret=escrow.seed())
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=escrow.seed())
     builder.append_set_options_op(
         signer_address=courier.address().decode(),
         signer_type='ed25519PublicKey',
@@ -116,7 +118,7 @@ def launch(launcher, courier, recipient, payment, collateral):
     builder.submit()
 
     sequence = int(get_details(courier).sequence) + 1
-    builder = stellar_base.builder.Builder(secret=courier.seed(), sequence=sequence)
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=courier.seed(), sequence=sequence)
     builder.append_payment_op(
         launcher.address().decode(), payment + collateral,
         'BUL', ISSUER.address().decode(),
@@ -136,7 +138,7 @@ def test():
     print(get_details(escrow_address).signers)
     print(get_details(escrow_address).thresholds)
     print([(account.address().decode()[:5], get_bul_balance(account)) for account in PARTICIPANTS])
-    builder = stellar_base.builder.Builder(secret=LAUNCHER.seed())
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=LAUNCHER.seed())
     builder.import_from_xdr(ptx)
     builder.sign()
     print(builder.submit())
