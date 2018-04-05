@@ -565,8 +565,7 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
 @api_call()
 def package_handler(user_pubkey, paket_id):
     """
-    Get a info about a single package.
-    This will return additional information, such as GPS location, custodian, etc.
+    Get a full info about a single package.
     ---
     tags:
     - packages
@@ -659,22 +658,32 @@ def package_handler(user_pubkey, paket_id):
             type: array
             items:
               $ref: '#/definitions/Event'
-
+        example:
+          PKT-id: 1001
+          recipient-id: '@israel'
+          custodian-id: '@moshe'
+          my-role: 'receiver'
+          send-timestamp: 41234123
+          deadline-timestamp: 41244123
+          payment: 120
+          collateral: 400
+          status: in transit
+          blockchain-url: https://www.blockchain.info/423423423423424234534562
+          paket-url: https://www.paket.global/paket-id/1001
+          events:
+             - event-type: launch
+               paket_user: 'Lily'
+               GPS: '112341234.12341234123'
+               timestamp: 1231234
+             - event-type: give to carrier
+               paket_user: 'moshe'
+               GPS: '112341234.12341234123'
+               timestamp: 1231288
     responses:
       200:
         description: a single packages
         schema:
           $ref: '#/definitions/Package-info'
-          example:
-            - PKT-id: 1001
-              recipient-id: '@israel'
-              send-timestamp: 41234123
-              deadline-timestamp: 41244123
-              payment: 120
-              collateral: 400
-              status: in transit
-              paket-url: https://www.paket.global/paket-id/1001
-              blockchain-url: https://www.blockchain.info/423423423423424234534562
     """
     return {'status': 200, 'package': db.get_package(paket_id)}
 
