@@ -26,11 +26,12 @@ APP.config['SWAGGER'] = {
     'uiversion': 3,
     'specs_route': '/',
     'info': {
+        'title': 'The PaKeT http server API',
         'description': 'Web API Server for The PaKeT Project',
         'contact': {
             'name': 'Israel Levin',
             'email': 'Israel@paket.global',
-            'url': 'www.paket.global',
+            'url': 'https://www.paket.global',
         },
         'version': VERSION,
         'license': {
@@ -539,17 +540,17 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
             packages:
               type: array
               items:
-                $ref: '#/definitions/Package'
+                $ref: '#/definitions/Package-info'
           example:
             - PKT-id: 1001
-              Recipient-id: '@israel'
+              recipient-id: '@israel'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
               payment: 120
               collateral: 400
               status: in transit
             - PKT-id: 1002
-              Recipient-id: '@oren'
+              recipient-id: '@oren'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
               payment: 20
@@ -595,12 +596,12 @@ def package_handler(user_pubkey, paket_id):
         type: string
         default: 0
     definitions:
-      Package:
+      My-Package:
         type: object
         properties:
           PKT-id:
               type: string
-          Recipient-id:
+          recipient-id:
               type: string
           send-timestamp:
               type: integer
@@ -618,15 +619,55 @@ def package_handler(user_pubkey, paket_id):
               type: string
           blockchain-url:
               type: string
+      Event:
+        type: object
+        properties:
+          event-type:
+            type: string
+          timestamp:
+            type: integer
+          paket_user:
+            type: string
+          GPS:
+            type: string
+      Package-info:
+        type: object
+        properties:
+          PKT-id:
+            type: string
+          blockchain-url:
+            type: string
+          collateral:
+            type: integer
+          custodian-id:
+            type: string
+          deadline-timestamp:
+            type: integer
+          my-role:
+            type: string
+          paket-url:
+            type: string
+          payment:
+            type: integer
+          recipient-id:
+            type: string
+          send-timestamp:
+            type: integer
+          status:
+            type: string
+          events:
+            type: array
+            items:
+              $ref: '#/definitions/Event'
 
     responses:
       200:
         description: a single packages
         schema:
-          $ref: '#/definitions/Package'
+          $ref: '#/definitions/Package-info'
           example:
             - PKT-id: 1001
-              Recipient-id: '@israel'
+              recipient-id: '@israel'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
               payment: 120
@@ -818,10 +859,10 @@ def packages_handler():
             packages:
               type: array
               items:
-                $ref: '#/definitions/Package'
+                $ref: '#/definitions/Package-info'
           example:
             - PKT-id: 1001
-              Recipient-id: '@israel'
+              recipient-id: '@israel'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
               payment: 120
@@ -830,7 +871,7 @@ def packages_handler():
               paket-url: https://www.paket.global/paket-id/1001
               blockchain-url: https://www.blockchain.info/423423423423424234534562
             - PKT-id: 1002
-              Recipient-id: '@oren'
+              recipient-id: '@oren'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
               payment: 20
