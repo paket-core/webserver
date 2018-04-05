@@ -544,18 +544,44 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
           example:
             - PKT-id: 1001
               recipient-id: '@israel'
+              custodian-id: '@moshe'
+              my-role: 'receiver'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
               payment: 120
               collateral: 400
               status: in transit
+              blockchain-url: https://www.blockchain.info/423423423423424234534562
+              paket-url: https://www.paket.global/paket-id/1001
+              events:
+                 - event-type: launch
+                   paket_user: 'Lily'
+                   GPS: '112341234.12341234123'
+                   timestamp: 1231234
+                 - event-type: give to carrier
+                   paket_user: 'moshe'
+                   GPS: '112341234.12341234123'
+                   timestamp: 1231288
             - PKT-id: 1002
-              recipient-id: '@oren'
+              recipient-id: '@Vowa'
+              custodian-id: '@moshe'
+              my-role: 'receiver'
               send-timestamp: 41234123
               deadline-timestamp: 41244123
-              payment: 20
-              collateral: 40
-              status: delivered
+              payment: 120
+              collateral: 400
+              status: in transit
+              blockchain-url: https://www.blockchain.info/423423423423424234534562
+              paket-url: https://www.paket.global/paket-id/1001
+              events:
+                 - event-type: launch
+                   paket_user: 'Lulu'
+                   GPS: '112341234.12341234123'
+                   timestamp: 1231234
+                 - event-type: give to carrier
+                   paket_user: 'Lily'
+                   GPS: '112341234.12341234123'
+                   timestamp: 1231288
     """
     return {'status': 200, 'packages': db.get_packages()}
 # pylint: disable=unused-argument
@@ -595,29 +621,6 @@ def package_handler(user_pubkey, paket_id):
         type: string
         default: 0
     definitions:
-      My-Package:
-        type: object
-        properties:
-          PKT-id:
-              type: string
-          recipient-id:
-              type: string
-          send-timestamp:
-              type: integer
-          deadline-timestamp:
-              type: integer
-          payment:
-              type: integer
-          collateral:
-              type: integer
-          status:
-              type: string
-          custodian-id:
-               type: string
-          paket-url:
-              type: string
-          blockchain-url:
-              type: string
       Event:
         type: object
         properties:
