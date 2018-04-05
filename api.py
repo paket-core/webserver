@@ -158,9 +158,9 @@ def check_and_fix_call(request, required_fields):
     kwargs = check_and_fix_values(kwargs)
     kwargs['user_pubkey'] = check_signature(
         request.url, kwargs,
-        request.headers.get('X-Pubkey'),
-        request.headers.get('X-Footprint'),
-        request.headers.get('X-Signature'))
+        request.headers.get('Pubkey'),
+        request.headers.get('Footprint'),
+        request.headers.get('Signature'))
     return kwargs
 
 
@@ -222,19 +222,19 @@ def balance_handler(user_pubkey):
     tags:
     - wallet
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/balance,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -253,7 +253,7 @@ def balance_handler(user_pubkey):
           example:
             available_buls: 850
     """
-    return {'available_buls': paket.get_balance(user_pubkey)}
+    return {'available_buls': paket.get_bul_balance(user_pubkey)}
 
 
 @APP.route("/v{}/send_buls".format(VERSION), methods=['POST'])
@@ -267,19 +267,19 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
     tags:
     - wallet
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/send_buls,to_pubkey=pubkey,amount_buls=amount,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -317,19 +317,19 @@ def launch_package_handler(
     tags:
     - packages
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/launch_package,recipient_pubkey=pubkey,deadline_timestamp=timestamp,courier_pubkey=pubkey,payment_buls=buls,collateral_buls=buls,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -395,19 +395,19 @@ def accept_package_handler(user_pubkey, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: courier
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/accept_package,paket_id=id,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -440,19 +440,19 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
     tags:
     - packages
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: courier
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/relay_package,paket_id=id,courier_pubkey=pubkey,payment_buls=buls,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -503,19 +503,19 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
     tags:
     - packages
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/my_packages,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -596,19 +596,19 @@ def package_handler(user_pubkey, paket_id):
     tags:
     - packages
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         default: owner
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/package,paket_id=id,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -701,18 +701,18 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
     tags:
     - users
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/register_user,full_name=name,phone_number=number,paket_user=user,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
@@ -754,18 +754,18 @@ def recover_user_handler(user_pubkey):
     tags:
     - users
     parameters:
-      - name: X-Pubkey
+      - name: Pubkey
         in: header
         schema:
             type: string
             format: string
-      - name: X-Footprint
+      - name: Footprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/recover_user,1521650747
         schema:
             type: string
             format: string
-      - name: X-Signature
+      - name: Signature
         in: header
         default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
         schema:
