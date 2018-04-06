@@ -5,10 +5,9 @@ import stellar_base.address
 import stellar_base.asset
 import stellar_base.builder
 import stellar_base.keypair
-import stellar_base.horizon
 
 PERSIST = True
-HORIZON = stellar_base.horizon.Horizon('34.245.103.206')
+HORIZON = 'https://horizon-testnet.stellar.org' #'https://34.245.103.20'
 
 
 def get_keypair(seed=None):
@@ -24,7 +23,7 @@ def get_details(address):
     # Allow keypairs as args.
     if isinstance(address, stellar_base.keypair.Keypair):
         address = address.address().decode()
-    details = stellar_base.address.Address(address)
+    details = stellar_base.address.Address(address, horizon=HORIZON)
     try:
         details.get()
     # Create and fund non existing accounts.
