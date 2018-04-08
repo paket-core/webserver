@@ -91,8 +91,10 @@ def check_and_fix_values(kwargs):
                 raise InvalidField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_pubkey'):
+            try:
+                db.get_user(value)
             # For debug purposes, we allow user IDs as addresses.
-            if not db.get_user(value):
+            except db.UnknownUser:
                 LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
                 kwargs[key] = db.get_pubkey_from_paket_user(value)
     return kwargs
@@ -201,6 +203,9 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 400, 'error': str(exception)}
         except FootprintMismatch as exception:
             response = {'status': 403, 'error': str(exception)}
+        except db.UnknownUser as exception:
+            LOGGER.exception('!!!')
+            response = {'status': 404, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
         except paket.NotEnoughFunds as exception:
@@ -229,7 +234,7 @@ def balance_handler(user_pubkey):
     parameters:
       - name: Pubkey
         in: header
-        default: owner
+        default: COURIER
         schema:
             type: string
             format: string
@@ -274,7 +279,7 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
     parameters:
       - name: Pubkey
         in: header
-        default: owner
+        default: LAUNCHER
         schema:
             type: string
             format: string
@@ -292,7 +297,7 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
             format: string
       - name: to_pubkey
         in: formData
-        default: launcher
+        default: COURIER
         description: target pubkey for transfer
         required: true
         type: string
@@ -310,9 +315,9 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
 
 
 @APP.route("/v{}/launch_package".format(VERSION), methods=['POST'])
-@api_call(['recipient_pubkey', 'deadline_timestamp', 'courier_pubkey', 'payment_buls', 'collateral_buls'])
+@api_call(['recipient_pubkey', 'courier_pubkey', 'deadline_timestamp', 'payment_buls', 'collateral_buls'])
 def launch_package_handler(
-        user_pubkey, recipient_pubkey, deadline_timestamp, courier_pubkey, payment_buls, collateral_buls
+        user_pubkey, recipient_pubkey, courier_pubkey, deadline_timestamp, payment_buls, collateral_buls
 ):
     # pylint: disable=line-too-long
     """
@@ -324,7 +329,7 @@ def launch_package_handler(
     parameters:
       - name: Pubkey
         in: header
-        default: owner
+        default: LAUNCHER
         schema:
             type: string
             format: string
@@ -342,8 +347,14 @@ def launch_package_handler(
             format: string
       - name: recipient_pubkey
         in: formData
-        default: recipient
+        default: RECIPIENT
         description: Recipient pubkey
+        required: true
+        type: string
+      - name: courier_pubkey
+        in: formData
+        default: COURIER
+        description: Courier pubkey (can be id for now)
         required: true
         type: string
       - name: deadline_timestamp
@@ -353,12 +364,6 @@ def launch_package_handler(
         required: true
         type: integer
         example: 1520948634
-      - name: courier_pubkey
-        in: formData
-        default: courier
-        description: Courier pubkey (can be id for now)
-        required: true
-        type: string
       - name: payment_buls
         in: formData
         default: 10
@@ -382,16 +387,17 @@ def launch_package_handler(
             PKT-id: 1001
     """
     # pylint: enable=line-too-long
-    new_paket = paket.launch_paket(
-        user_pubkey, recipient_pubkey, deadline_timestamp, courier_pubkey, payment_buls
+    escrow_address, refund_envelope, payment_envelope = paket.launch_paket(
+        user_pubkey, recipient_pubkey, deadline_timestamp, courier_pubkey, payment_buls, collateral_buls
     )
-    db.create_package(new_paket['paket_id'], user_pubkey, recipient_pubkey, payment_buls, collateral_buls)
-    return dict(status=200, **new_paket)
+    return {
+        'status': 200, 'escrow_address': escrow_address, 'refund_envelope':
+        refund_envelope, 'payment_envelope': payment_envelope}
 
 
 @APP.route("/v{}/accept_package".format(VERSION), methods=['POST'])
-@api_call(['paket_id'])
-def accept_package_handler(user_pubkey, paket_id):
+@api_call(['paket_id', 'payment_envelope'])
+def accept_package_handler(user_pubkey, paket_id, payment_envelope):
     """
     Accept a package.
     If the package requires collateral, commit it.
@@ -402,7 +408,7 @@ def accept_package_handler(user_pubkey, paket_id):
     parameters:
       - name: Pubkey
         in: header
-        default: courier
+        default: COURIER
         schema:
             type: string
             format: string
@@ -424,15 +430,18 @@ def accept_package_handler(user_pubkey, paket_id):
         required: true
         type: string
         default: 0
+      - name: payment_envelope
+        in: formData
+        description: Payment envelope of a previously launched package, required only if confirming receipt
+        required: false
+        type: string
+        default: 0
     responses:
       200:
         description: Package accept requested
     """
-    package = db.get_package(paket_id)
-    promise = paket.accept_paket(
-        user_pubkey, int(paket_id, 10), package['custodian_pubkey'], package['collateral'])
-    db.update_custodian(paket_id, user_pubkey)
-    return {'status': 200, 'promise': promise}
+    paket.accept_package(user_pubkey, paket_id, payment_envelope)
+    return {'status': 200}
 
 
 @APP.route("/v{}/relay_package".format(VERSION), methods=['POST'])
@@ -447,7 +456,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
     parameters:
       - name: Pubkey
         in: header
-        default: courier
+        default: COURIER
         schema:
             type: string
             format: string
@@ -471,7 +480,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
         default: 0
       - name: courier_pubkey
         in: formData
-        default: courier
+        default: NEWGUY
         description: Courier pubkey
         required: true
         type: string
@@ -510,7 +519,7 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
     parameters:
       - name: Pubkey
         in: header
-        default: owner
+        default: COURIER
         schema:
             type: string
             format: string
@@ -603,7 +612,7 @@ def package_handler(user_pubkey, paket_id):
     parameters:
       - name: Pubkey
         in: header
-        default: owner
+        default: COURIER
         schema:
             type: string
             format: string
@@ -725,7 +734,6 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
             format: string
       - name: paket_user
         in: formData
-        default: none
         description: User unique callsign
         required: true
         type: string
@@ -761,6 +769,7 @@ def recover_user_handler(user_pubkey):
     parameters:
       - name: Pubkey
         in: header
+        default: COURIER
         schema:
             type: string
             format: string

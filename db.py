@@ -74,10 +74,11 @@ def init_db():
         LOGGER.debug('users table created')
         sql.execute('''
             CREATE TABLE packages(
-                paket_id VARCHAR(1024) UNIQUE,
+                paket_id VARCHAR(42) UNIQUE,
                 launcher_pubkey VARCHAR(42),
                 recipient_pubkey VARCHAR(42),
                 custodian_pubkey VARCHAR(42),
+                deadline INTEGER,
                 payment INTEGER,
                 collateral INTEGER,
                 kwargs VARCHAR(1024))''')
@@ -87,11 +88,26 @@ def init_db():
                 pubkey VARCHAR(42) PRIMARY KEY,
                 nonce INTEGER NOT NULL DEFAULT 0)''')
         LOGGER.debug('nonces table created')
+        # This table should vanish once we are in production.
         sql.execute('''
             CREATE TABLE keys(
                 pubkey VARCHAR(42) PRIMARY KEY,
                 seed VARCHAR(42) UNIQUE)''')
-        LOGGER.debug('keys table created')
+        LOGGER.warning('keys table created')
+
+
+def get_pubkey_from_paket_user(paket_user):
+    """
+    Get the pubkey associated with a paket_user. Raise exception if paket_user is unknown.
+    For debug only.
+    """
+    LOGGER.warning("getting key for %s", paket_user)
+    with sql_connection() as sql:
+        sql.execute('SELECT pubkey FROM users WHERE paket_user = ?', (paket_user,))
+        try:
+            return sql.fetchone()[0]
+        except TypeError:
+            raise UnknownUser("Unknown user {}".format(paket_user))
 
 
 def create_user(pubkey, seed=None):
@@ -143,27 +159,14 @@ def get_users():
     return {user['pubkey']: {key: user[key] for key in user.keys() if key != 'pubkey'} for user in users}
 
 
-def get_pubkey_from_paket_user(paket_user):
-    """
-    Get the pubkey associated with a paket_user. Raise exception if paket_user is unknown.
-    For debug only.
-    """
-    with sql_connection() as sql:
-        sql.execute('SELECT pubkey FROM users WHERE paket_user = ?', (paket_user,))
-        try:
-            return sql.fetchone()[0]
-        except TypeError:
-            raise UnknownUser("Unknown user {}".format(paket_user))
-
-
-def create_package(paket_id, launcher_pubkey, recipient_pubkey, payment, collateral):
+def create_package(paket_id, launcher_pubkey, recipient_pubkey, deadline, payment, collateral):
     """Create a new package row."""
     with sql_connection() as sql:
         sql.execute("""
             INSERT INTO packages (
-                paket_id, launcher_pubkey, recipient_pubkey, custodian_pubkey, payment, collateral
-            ) VALUES (?, ?, ?, ?, ?, ?)""", (
-                str(paket_id), launcher_pubkey, recipient_pubkey, launcher_pubkey, payment, collateral))
+                paket_id, launcher_pubkey, recipient_pubkey, custodian_pubkey, deadline, payment, collateral
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)""", (
+                str(paket_id), launcher_pubkey, recipient_pubkey, launcher_pubkey, deadline, payment, collateral))
 
 
 def get_package(paket_id):
