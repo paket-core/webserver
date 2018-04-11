@@ -143,8 +143,7 @@ def get_packages():
     """Get a list of packages."""
     with sql_connection() as sql:
         sql.execute('SELECT paket_id, launcher_pubkey, custodian_pubkey, recipient_pubkey FROM packages')
-        packages = sql.fetchall()
-    return {package['paket_id']: {key: package[key] for key in package.keys()} for package in packages}
+        return [dict(row) for row in sql.fetchall()]
 
 
 def update_custodian(paket_id, custodian_pubkey):
