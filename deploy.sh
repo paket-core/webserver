@@ -20,9 +20,17 @@ set -o allexport
 . paket.env
 set +o allexport
 
+# Make sure horizon server is reachable.
+if ! curl "$PAKET_HORIZON_SERVER"; then
+    echo "Can't connect to horizon server $PAKET_HORIZON_SERVER"
+    return 1 2>/dev/null
+    exit 1
+fi
+
 # Remove existing database and initialize a new one.
 rm paket.db
 python -c 'import api; api.init_sandbox()'
 
 # Run server if script is run directly (and not sourced).
-[ "$BASH_SOURCE" == "$0" ] && flask run --host=0.0.0.0
+ret=$?
+[ "$BASH_SOURCE" == "$0" ] && flask run --host=0.0.0.0 || return $ret
