@@ -11,7 +11,7 @@ import paket
 import logger
 
 VERSION = '1'
-DEBUG = True
+DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logger.logging.getLogger('pkt.api')
 logger.setup()
 
@@ -92,10 +92,10 @@ def check_and_fix_values(kwargs):
             kwargs[key] = int_val
         elif key.endswith('_pubkey'):
             try:
-                db.get_user(value)
+                paket.stellar_base.keypair.Keypair.from_address(value)
             # For debug purposes, we allow user IDs as addresses.
-            except db.UnknownUser:
-                LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
+            except paket.stellar_base.utils.DecodeError:
+                LOGGER.exception("Attempting conversion of user ID %s to pubkey", value)
                 kwargs[key] = db.get_pubkey_from_paket_user(value)
     return kwargs
 
@@ -126,31 +126,16 @@ def check_footprint(footprint, url, kwargs, user_pubkey):
     return footprint
 
 
-def get_user_pubkey(paket_user, seed=None):
-    """
-    Get a user's pubkey from paket_user (for debug only). Create a user if none is found.
-    Will eventually merge into check_signature.
-    """
-    try:
-        pubkey = db.get_pubkey_from_paket_user(paket_user)
-    except db.UnknownUser:
-        keypair = paket.get_keypair(seed)
-        pubkey, seed = keypair.address().decode(), keypair.seed().decode()
-        try:
-            db.get_user(pubkey)
-        except db.UnknownUser:
-            db.create_user(pubkey, seed)
-        LOGGER.debug("Created user %s", paket_user)
-    return pubkey
-
-
 def check_signature(url, kwargs, user_pubkey, footprint, signature):
     """
     Raise exception on invalid signature.
     Currently does not do anything.
     """
     if DEBUG:
-        return get_user_pubkey(user_pubkey)
+        try:
+            return db.get_pubkey_from_paket_user(user_pubkey)
+        except db.UnknownUser:
+            return None
     check_footprint(footprint, url, kwargs, user_pubkey)
     raise NotImplementedError('Signature checking is not yet implemented.', signature)
     #return pubkey
@@ -203,15 +188,12 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 400, 'error': str(exception)}
         except FootprintMismatch as exception:
             response = {'status': 403, 'error': str(exception)}
-        except db.UnknownUser as exception:
-            LOGGER.exception('!!!')
+        except (db.UnknownUser, db.UnknownPaket, paket.stellar_base.utils.AccountNotExistError) as exception:
             response = {'status': 404, 'error': str(exception)}
         except db.DuplicateUser as exception:
             response = {'status': 409, 'error': str(exception)}
-        except paket.NotEnoughFunds as exception:
-            response = {'status': 402, 'error': str(exception)}
-        except db.UnknownPaket as exception:
-            response = {'status': 404, 'error': str(exception)}
+        except NotImplementedError as exception:
+            response = {'status': 501, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
             if DEBUG:
@@ -388,7 +370,7 @@ def launch_package_handler(
     """
     # pylint: enable=line-too-long
     escrow_address, refund_envelope, payment_envelope = paket.launch_paket(
-        user_pubkey, recipient_pubkey, deadline_timestamp, courier_pubkey, payment_buls, collateral_buls
+        user_pubkey, recipient_pubkey, courier_pubkey, deadline_timestamp, payment_buls, collateral_buls
     )
     return {
         'status': 200, 'escrow_address': escrow_address, 'refund_envelope':
@@ -396,8 +378,8 @@ def launch_package_handler(
 
 
 @APP.route("/v{}/accept_package".format(VERSION), methods=['POST'])
-@api_call(['paket_id', 'payment_envelope'])
-def accept_package_handler(user_pubkey, paket_id, payment_envelope):
+@api_call(['paket_id'])
+def accept_package_handler(user_pubkey, paket_id, payment_envelope=None):
     """
     Accept a package.
     If the package requires collateral, commit it.
@@ -754,8 +736,17 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
         description: user details registered.
     """
     # pylint: enable=line-too-long
-    return {'status': 201, 'user_details': db.update_user_details(
-        user_pubkey, full_name, phone_number, paket_user)}
+    try:
+        paket.stellar_base.keypair.Keypair.from_address(str(user_pubkey))
+    # For debug purposes, we generate a pubkey if no valid key is found.
+    except paket.stellar_base.utils.DecodeError:
+        keypair = paket.get_keypair()
+        user_pubkey, seed = keypair.address().decode(), keypair.seed().decode()
+        paket.new_account(user_pubkey)
+        paket.trust(keypair)
+        db.create_user(user_pubkey, paket_user, seed)
+    paket.new_account(user_pubkey)
+    return {'status': 201, 'user_details': db.update_user_details(user_pubkey, full_name, phone_number)}
 
 
 @APP.route("/v{}/recover_user".format(VERSION), methods=['POST'])
@@ -940,14 +931,14 @@ def init_sandbox():
         try:
             keypair = paket.get_keypair(seed)
             pubkey, seed = keypair.address().decode(), keypair.seed().decode()
-            db.create_user(pubkey, seed)
-            db.update_user_details(pubkey, paket_user, '123-456', paket_user)
+            db.create_user(pubkey, paket_user, seed)
+            db.update_user_details(pubkey, paket_user, '123-456')
+            paket.new_account(pubkey)
+            paket.trust(keypair)
             LOGGER.debug("Created user %s", paket_user)
-
-            balance = paket.get_bul_balance(pubkey)
-            if balance and balance < 100:
-                LOGGER.warning("%s has only %s BUL", paket_user, balance)
-                paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)
-
-        except db.DuplicateUser:
+        except (db.DuplicateUser, paket.StellarTransactionFailed, paket.stellar_base.utils.AccountNotExistError):
             LOGGER.debug("User %s already exists", paket_user)
+        balance = paket.get_bul_balance(pubkey)
+        if balance and balance < 100:
+            LOGGER.warning("%s has only %s BUL", paket_user, balance)
+            paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)

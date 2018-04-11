@@ -12,7 +12,12 @@ import db
 
 LOGGER = logging.getLogger('pkt.paket')
 
-HORIZON = os.environ.get('HORIZON_SERVER', 'https://horizon-testnet.stellar.org')
+HORIZON = os.environ['PAKET_HORIZON_SERVER']
+
+
+class StellarTransactionFailed(Exception):
+    """A stellar transaction failed."""
+
 
 def get_keypair(seed=None):
     """Get a keypair from seed (default to random)."""
@@ -25,34 +30,45 @@ def get_keypair(seed=None):
 
 def get_details(address):
     """Get address details."""
-    details = stellar_base.address.Address(address)
-    try:
-        details.get()
-    # Create and fund non existing accounts.
-    except stellar_base.utils.AccountNotExistError:
-        LOGGER.warning("creating and funding account %s", address)
-        request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
-        if request.status_code != 200:
-            raise Exception("Funding request failed - {}".format(request.content))
-        details.get()
+    details = stellar_base.address.Address(address, horizon=HORIZON)
+    details.get()
     return details
 
 
 ISSUER = get_keypair(os.environ['PAKET_USER_ISSUER'])
 
 
-def trust(account):
+def submit(builder):
+    """Submit a transaction an raise an exception if it fails."""
+    response = builder.submit()
+    if 'status' in response and response['status'] >= 300:
+        raise StellarTransactionFailed(response)
+    return response
+
+
+def new_account(address):
+    """Create a new account and fund it with lumens."""
+    LOGGER.info("creating and funding account %s", address)
+    request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
+    if request.status_code != 200:
+        LOGGER.warning("account %s already exists", address)
+
+
+def trust(keypair):
     """Trust BUL from account."""
-    LOGGER.debug("adding trust to %s", account.address().decode())
-    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=account.seed())
+    LOGGER.debug("adding trust to %s", keypair.address().decode())
+    builder = stellar_base.builder.Builder(horizon=HORIZON, secret=keypair.seed())
     builder.append_trust_op(ISSUER.address().decode(), 'BUL')
     builder.sign()
-    return builder.submit()
+    return submit(builder)
 
 
 def get_bul_balance(address):
     """Get acount BUL balance. Trust if needed."""
-    balances = get_details(address).balances
+    try:
+        balances = get_details(address).balances
+    except stellar_base.utils.AccountNotExistError:
+        return None
     for balance in balances:
         if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
             return float(balance['balance'])
@@ -72,20 +88,7 @@ def send_buls(from_address, to_address, amount):
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=source.seed())
     builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
     builder.sign()
-    return builder.submit()
-
-
-class NotEnoughFunds(Exception):
-    """Not enough funds for operations."""
-
-
-def new_account(address):
-    """Create a new account and fund it with lumens."""
-    LOGGER.info("creating and funding account %s", address)
-    request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
-    if request.status_code != 200:
-        raise Exception("Funding request failed - {}".format(request.content))
-    return get_details(address)
+    return submit(builder)
 
 
 def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
@@ -94,7 +97,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=db.get_user(launcher)['seed'])
     builder.append_create_account_op(destination=escrow.address().decode(), starting_balance=5)
     builder.sign()
-    builder.submit()
+    submit(builder)
     trust(escrow)
 
     sequence = int(get_details(escrow.address().decode()).sequence) + 1
@@ -133,9 +136,9 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
     builder.append_set_options_op(
         master_weight=0, low_threshold=1, med_threshold=2, high_threshold=3)
     builder.sign()
-    builder.submit()
+    submit(builder)
 
-    send_buls(launcher, escrow, payment)
+    send_buls(launcher, escrow.address().decode(), payment)
     db.create_package(escrow.address().decode(), launcher, recipient, deadline, payment, collateral)
     return escrow.address().decode(), refund_envelope.xdr().decode(), payment_envelope.xdr().decode()
 
@@ -146,15 +149,16 @@ def confirm_receipt(recipient_pubkey, payment_envelope):
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=recipient_seed)
     builder.import_from_xdr(payment_envelope)
     builder.sign()
-    return builder.submit()
+    return submit(builder)
 
 
 def accept_package(user_pubkey, paket_id, payment_envelope=None):
     """Accept a package - confirm delivery if recipient."""
     db.update_custodian(paket_id, user_pubkey)
     paket = db.get_package(paket_id)
-    if paket['recipient'] == user_pubkey:
-        confirm_receipt(user_pubkey, payment_envelope)
+    if paket['recipient_pubkey'] == user_pubkey:
+        return confirm_receipt(user_pubkey, payment_envelope)
+    return paket
 
 
 def relay_payment(*_, **__):

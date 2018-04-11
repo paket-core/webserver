@@ -70,7 +70,7 @@ def init_db():
                 pubkey VARCHAR(42) PRIMARY KEY,
                 full_name VARCHAR(256),
                 phone_number VARCHAR(32),
-                paket_user VARCHAR(32) UNIQUE)''')
+                paket_user VARCHAR(32) UNIQUE NOT NULL)''')
         LOGGER.debug('users table created')
         sql.execute('''
             CREATE TABLE packages(
@@ -110,11 +110,11 @@ def get_pubkey_from_paket_user(paket_user):
             raise UnknownUser("Unknown user {}".format(paket_user))
 
 
-def create_user(pubkey, seed=None):
+def create_user(pubkey, paket_user, seed=None):
     """Create a new user."""
     with sql_connection() as sql:
         try:
-            sql.execute("INSERT INTO users (pubkey) VALUES (?)", (pubkey,))
+            sql.execute("INSERT INTO users (pubkey, paket_user) VALUES (?, ?)", (pubkey, paket_user))
             sql.execute("INSERT INTO nonces (pubkey) VALUES (?)", (pubkey,))
             if seed is not None:
                 sql.execute("INSERT INTO keys (pubkey, seed) VALUES (?, ?)", (pubkey, seed))
@@ -136,18 +136,14 @@ def get_user(pubkey):
         return {key: user[key] for key in user.keys()} if user else None
 
 
-def update_user_details(pubkey, full_name, phone_number, paket_user):
+def update_user_details(pubkey, full_name, phone_number):
     """Update user details."""
     with sql_connection() as sql:
-        try:
-            sql.execute("""
-                UPDATE users SET
-                full_name = ?,
-                phone_number = ?,
-                paket_user = ?
-                WHERE pubkey = ?""", (full_name, phone_number, paket_user, pubkey))
-        except sqlite3.IntegrityError:
-            raise DuplicateUser("paket_user {} is not unique".format(paket_user))
+        sql.execute("""
+            UPDATE users SET
+            full_name = ?,
+            phone_number = ?
+            WHERE pubkey = ?""", (full_name, phone_number, pubkey))
     return get_user(pubkey)
 
 
