@@ -138,7 +138,6 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
     builder.sign()
     submit(builder)
 
-    send_buls(launcher, escrow.address().decode(), payment)
     db.create_package(escrow.address().decode(), launcher, recipient, deadline, payment, collateral)
     return escrow.address().decode(), refund_envelope.xdr().decode(), payment_envelope.xdr().decode()
 
