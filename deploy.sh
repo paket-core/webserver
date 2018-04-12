@@ -27,10 +27,16 @@ if ! curl "$PAKET_HORIZON_SERVER"; then
     exit 1
 fi
 
-# Remove existing database and initialize a new one.
-rm paket.db
-python -c 'import api; api.init_sandbox()'
+# Optionally remove existing database and initialize a new one.
+if ! [ "$1" = persist ]; then
+    rm paket.db
+    python -c 'import api; api.init_sandbox(True)'
+fi
 
-# Run server if script is run directly (and not sourced).
-ret=$?
-[ "$BASH_SOURCE" == "$0" ] && flask run --host=0.0.0.0 || return $ret
+# Run server if script is run directly.
+if [ "$BASH_SOURCE" == "$0" ]; then
+    flask run --host=0.0.0.0
+# If it is sourced run python shell.
+else
+    python -ic 'import logger; logger.setup(); import db; import api; import paket'
+fi
