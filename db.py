@@ -107,7 +107,7 @@ def get_pubkey_from_paket_user(paket_user):
         try:
             return sql.fetchone()[0]
         except TypeError:
-            raise UnknownUser("Unknown user {}".format(paket_user))
+            raise UnknownUser("unknown user {}".format(paket_user))
 
 
 def create_user(pubkey, paket_user, seed=None):
