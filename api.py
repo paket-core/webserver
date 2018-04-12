@@ -30,8 +30,8 @@ APP.config['SWAGGER'] = {
         'description': 'Web API Server for The PaKeT Project',
         'contact': {
             'name': 'Israel Levin',
-            'email': 'Israel@paket.global',
-            'url': 'https://www.paket.global',
+            'email': 'israel@paket.global',
+            'url': 'https://paket.global',
         },
         'version': VERSION,
         'license': {
@@ -202,6 +202,8 @@ def api_call(handler=None, required_fields=None):
             response = {'status': 409, 'error': str(exception)}
         except paket.NotEnoughFunds as exception:
             response = {'status': 402, 'error': str(exception)}
+        except db.UnknownPaket as exception:
+            response = {'status': 404, 'error': str(exception)}
         except Exception as exception:
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
             if DEBUG:

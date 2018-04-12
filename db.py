@@ -1,10 +1,28 @@
 """PaKeT database interface."""
 import contextlib
 import logging
+import random
 import sqlite3
 
 LOGGER = logging.getLogger('pkt.db')
 DB_NAME = 'paket.db'
+
+
+def enrich_package(package):
+    """Add some mock data to the package."""
+    return dict(
+        package,
+        blockchain_url="https://testnet.stellarchain.io/address/{}".format(package['launcher_pubkey']),
+        paket_url="https://paket.global/paket/{}".format(package['paket_id']),
+        deadline=random.randint(1523530844, 1555066871),
+        my_role=random.choice(['launcher', 'courier', 'recipient']),
+        status=random.choice(['waiting pickup', 'in transit', 'delivered']),
+        events=[dict(
+          event_type=random.choice(['change custodian', 'in transit', 'passed customs']),
+          timestamp=random.randint(1523530844, 1535066871),
+          paket_user=random.choice(['Israel', 'Oren', 'Chen']),
+          GPS=(random.uniform(-180,180), random.uniform(-90, 90))
+        ) for i in range(10)])
 
 
 class UnknownUser(Exception):
@@ -17,6 +35,10 @@ class DuplicateUser(Exception):
 
 class InvalidNonce(Exception):
     """Invalid nonce."""
+
+
+class UnknownPaket(Exception):
+    """Unknown paket ID."""
 
 
 @contextlib.contextmanager
@@ -136,14 +158,17 @@ def get_package(paket_id):
     with sql_connection() as sql:
         sql.execute("SELECT * FROM packages WHERE paket_id = ?", (paket_id,))
         package = sql.fetchone()
-    return {key: package[key] for key in package.keys()}
+        try:
+            return enrich_package(sql.fetchone())
+        except TypeError:
+            raise UnknownPaket("paket {} is not valid".format(paket_id))
 
 
 def get_packages():
     """Get a list of packages."""
     with sql_connection() as sql:
         sql.execute('SELECT paket_id, launcher_pubkey, custodian_pubkey, recipient_pubkey FROM packages')
-        return [dict(row) for row in sql.fetchall()]
+        return [enrich_package(row) for row in sql.fetchall()]
 
 
 def update_custodian(paket_id, custodian_pubkey):
