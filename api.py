@@ -78,7 +78,7 @@ def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
     "_buls" and "_timestamp" fields must be valid integers.
-    "_pubkey" fields must be valid addresses.
+    "_pubkey" fields must be valid addresses (or paket_user in debug mode).
     """
     for key, value in kwargs.items():
         if key.endswith('_buls') or key.endswith('_timestamp'):
@@ -93,14 +93,18 @@ def check_and_fix_values(kwargs):
         elif key.endswith('_pubkey'):
             try:
                 paket.stellar_base.keypair.Keypair.from_address(value)
-            # For debug purposes, we allow user IDs as addresses.
-            except paket.stellar_base.utils.DecodeError:
-                LOGGER.exception("Attempting conversion of user ID %s to pubkey", value)
-                kwargs[key] = db.get_pubkey_from_paket_user(value)
+            except (TypeError, paket.stellar_base.utils.DecodeError):
+                if DEBUG:
+                    if value is None:
+                        continue
+                    LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
+                    kwargs[key] = db.get_pubkey_from_paket_user(value)
+                else:
+                    raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
     return kwargs
 
 
-def check_footprint(footprint, url, kwargs, user_pubkey):
+def check_footprint(footprint, url, kwargs):
     """
     Raise exception on invalid footprint.
     Currently does not do anything.
@@ -111,7 +115,7 @@ def check_footprint(footprint, url, kwargs, user_pubkey):
     if url != footprint[0]:
         raise FootprintMismatch("footprint {} does not match call to {}".format(footprint[0], url))
     try:
-        db.update_nonce(user_pubkey, footprint[-1])
+        db.update_nonce(kwargs['user_pubkey'], footprint[-1])
     except db.InvalidNonce as exception:
         raise FootprintMismatch(str(exception))
     for key, val in [keyval.split('=') for keyval in footprint[1:-1]]:
@@ -126,33 +130,23 @@ def check_footprint(footprint, url, kwargs, user_pubkey):
     return footprint
 
 
-def check_signature(url, kwargs, user_pubkey, footprint, signature):
+def check_signature(user_pubkey, footprint, signature):
     """
     Raise exception on invalid signature.
-    Currently does not do anything.
     """
-    if DEBUG:
-        try:
-            paket.stellar_base.keypair.Keypair.from_address(str(user_pubkey))
-            return user_pubkey
-        # For debug purposes, we allow for a paket_user here.
-        except paket.stellar_base.utils.DecodeError:
-            return db.get_pubkey_from_paket_user(user_pubkey)
-    check_footprint(footprint, url, kwargs, user_pubkey)
-    raise NotImplementedError('Signature checking is not yet implemented.', signature)
-    #return pubkey
+    LOGGER.ERROR("can't check signature for %s on %s (%s)", user_pubkey, footprint, signature)
+    raise NotImplementedError('Signature checking is not yet implemented.')
 
 
 def check_and_fix_call(request, required_fields):
     """Check call and extract kwargs."""
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
-    kwargs['user_pubkey'] = check_signature(
-        request.url, kwargs,
-        request.headers.get('Pubkey'),
-        request.headers.get('Footprint'),
-        request.headers.get('Signature'))
+    kwargs['user_pubkey'] = request.headers.get('Pubkey')
     kwargs = check_and_fix_values(kwargs)
+    if not DEBUG:
+        check_footprint(request.headers.get('Footprint'), request.url, kwargs)
+        check_signature(kwargs['pubkey'], request.headers.get('Footprint'), request.headers.get('Signature'))
     return kwargs
 
 
@@ -206,12 +200,12 @@ def api_call(handler=None, required_fields=None):
     return _api_call
 
 
-@APP.route("/v{}/balance".format(VERSION), methods=['POST'])
+@APP.route("/v{}/bul_account".format(VERSION), methods=['POST'])
 @api_call
-def balance_handler(user_pubkey):
+def bul_account_handler(user_pubkey):
     """
-    Get the balance of your account
-    Use this call to get the balance of your account.
+    Get the details of your BUL account
+    Use this call to get the balance and details of your account.
     ---
     tags:
     - wallet
@@ -247,7 +241,7 @@ def balance_handler(user_pubkey):
           example:
             available_buls: 850
     """
-    return {'available_buls': paket.get_bul_balance(user_pubkey)}
+    return dict(status=200, **paket.get_bul_account(user_pubkey))
 
 
 @APP.route("/v{}/send_buls".format(VERSION), methods=['POST'])
@@ -371,17 +365,17 @@ def launch_package_handler(
             PKT-id: 1001
     """
     # pylint: enable=line-too-long
-    escrow_address, refund_envelope, payment_envelope = paket.launch_paket(
+    escrow_address, refund_transaction, payment_transaction = paket.launch_paket(
         user_pubkey, recipient_pubkey, courier_pubkey, deadline_timestamp, payment_buls, collateral_buls
     )
     return {
-        'status': 200, 'escrow_address': escrow_address, 'refund_envelope':
-        refund_envelope, 'payment_envelope': payment_envelope}
+        'status': 200, 'escrow_address': escrow_address,
+        'refund_transaction': refund_transaction, 'payment_transaction': payment_transaction}
 
 
 @APP.route("/v{}/accept_package".format(VERSION), methods=['POST'])
 @api_call(['paket_id'])
-def accept_package_handler(user_pubkey, paket_id, payment_envelope=None):
+def accept_package_handler(user_pubkey, paket_id, payment_transaction=None):
     """
     Accept a package.
     If the package requires collateral, commit it.
@@ -414,9 +408,9 @@ def accept_package_handler(user_pubkey, paket_id, payment_envelope=None):
         required: true
         type: string
         default: 0
-      - name: payment_envelope
+      - name: payment_transaction
         in: formData
-        description: Payment envelope of a previously launched package, required only if confirming receipt
+        description: Payment transaction of a previously launched package, required only if confirming receipt
         required: false
         type: string
         default: 0
@@ -424,7 +418,7 @@ def accept_package_handler(user_pubkey, paket_id, payment_envelope=None):
       200:
         description: Package accept requested
     """
-    paket.accept_package(user_pubkey, paket_id, payment_envelope)
+    paket.accept_package(user_pubkey, paket_id, payment_transaction)
     return {'status': 200}
 
 
@@ -860,7 +854,7 @@ def users_handler():
             }
     """
     return flask.jsonify({'status': 200, 'users': {
-        pubkey: dict(user, balance=paket.get_bul_balance(pubkey)) for pubkey, user in db.get_users().items()}})
+        pubkey: dict(user, bull_account=paket.get_bul_account(pubkey)) for pubkey, user in db.get_users().items()}})
 
 
 @APP.route("/v{}/packages".format(VERSION), methods=['GET'])
@@ -944,7 +938,7 @@ def init_sandbox(fund=None):
         try:
             paket.new_account(pubkey)
             paket.trust(keypair)
-            balance = paket.get_bul_balance(pubkey)
+            balance = paket.get_bul_account(pubkey)['balance']
             if balance and balance < 100:
                 LOGGER.warning("user %s has only %s BUL", paket_user, balance)
                 paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)

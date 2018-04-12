@@ -28,11 +28,28 @@ def get_keypair(seed=None):
     return keypair
 
 
-def get_details(address):
+def new_account(address):
+    """Create a new account and fund it with lumens."""
+    LOGGER.info("creating and funding account %s", address)
+    request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
+    if request.status_code != 200:
+        LOGGER.error("Request to friendbot failed: %s", request.json())
+        raise StellarTransactionFailed("unable to create account {}".format(address))
+
+
+def get_bul_account(address):
     """Get address details."""
-    details = stellar_base.address.Address(address, horizon=HORIZON)
-    details.get()
-    return details
+    try:
+        details = stellar_base.address.Address(address, horizon=HORIZON)
+        details.get()
+    except stellar_base.utils.AccountNotExistError:
+        return None
+    for balance in details.balances:
+        if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
+            return {
+                'balance': float(balance['balance']), 'sequence': details.sequence,
+                'signers': details.signers, 'thresholds': details.thresholds}
+    return None
 
 
 ISSUER = get_keypair(os.environ['PAKET_USER_ISSUER'])
@@ -46,14 +63,6 @@ def submit(builder):
     return response
 
 
-def new_account(address):
-    """Create a new account and fund it with lumens."""
-    LOGGER.info("creating and funding account %s", address)
-    request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
-    if request.status_code != 200:
-        raise StellarTransactionFailed("unable to create account {}".format(address))
-
-
 def trust(keypair):
     """Trust BUL from account."""
     LOGGER.debug("adding trust to %s", keypair.address().decode())
@@ -61,24 +70,6 @@ def trust(keypair):
     builder.append_trust_op(ISSUER.address().decode(), 'BUL')
     builder.sign()
     return submit(builder)
-
-
-def get_bul_balance(address):
-    """Get acount BUL balance. Trust if needed."""
-    try:
-        balances = get_details(address).balances
-    except stellar_base.utils.AccountNotExistError:
-        return None
-    for balance in balances:
-        if balance.get('asset_code') == 'BUL' and balance.get('asset_issuer') == ISSUER.address().decode():
-            return float(balance['balance'])
-    # If we are here, the account is not trusted. Fix it if possible and call again.
-    # This will continue ad infinitum if the backend is faulty :)
-    if address == ISSUER.address().decode():
-        return None
-    else:
-        trust(get_keypair(db.get_user(address)['seed']))
-    return get_bul_balance(address)
 
 
 def send_buls(from_address, to_address, amount):
@@ -100,7 +91,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
     submit(builder)
     trust(escrow)
 
-    sequence = int(get_details(escrow.address().decode()).sequence) + 1
+    sequence = int(get_bul_account(escrow.address().decode())['sequence']) + 1
 
     # Create refund transaction.
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=escrow.seed(), sequence=sequence)
