@@ -919,7 +919,7 @@ def ratelimit_handler(error):
     return flask.make_response(flask.jsonify({'status': 429, 'error': error}), 429)
 
 
-def init_sandbox():
+def init_sandbox(fund=None):
     """Initialize database with debug values and fund users. For debug only."""
     db.init_db()
 
@@ -933,12 +933,20 @@ def init_sandbox():
             pubkey, seed = keypair.address().decode(), keypair.seed().decode()
             db.create_user(pubkey, paket_user, seed)
             db.update_user_details(pubkey, paket_user, '123-456')
+            LOGGER.debug("Created user %s", paket_user)
+        except db.DuplicateUser:
+            LOGGER.debug("User %s already exists", paket_user)
+            continue
+        if not fund:
+            continue
+        try:
             paket.new_account(pubkey)
             paket.trust(keypair)
-            LOGGER.debug("Created user %s", paket_user)
-        except (db.DuplicateUser, paket.StellarTransactionFailed, paket.stellar_base.utils.AccountNotExistError):
-            LOGGER.debug("User %s already exists", paket_user)
-        balance = paket.get_bul_balance(pubkey)
-        if balance and balance < 100:
-            LOGGER.warning("%s has only %s BUL", paket_user, balance)
-            paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)
+            balance = paket.get_bul_balance(pubkey)
+            if balance and balance < 100:
+                LOGGER.warning("user %s has only %s BUL", paket_user, balance)
+                paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)
+        except paket.stellar_base.utils.AccountNotExistError:
+            LOGGER.error("address %s does not exist", pubkey)
+        except paket.StellarTransactionFailed:
+            LOGGER.warning("address %s already exists", pubkey)
