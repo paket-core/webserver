@@ -51,7 +51,7 @@ def new_account(address):
     LOGGER.info("creating and funding account %s", address)
     request = requests.get("https://friendbot.stellar.org/?addr={}".format(address))
     if request.status_code != 200:
-        LOGGER.warning("account %s already exists", address)
+        raise StellarTransactionFailed("unable to create account {}".format(address))
 
 
 def trust(keypair):
