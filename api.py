@@ -133,9 +133,11 @@ def check_signature(url, kwargs, user_pubkey, footprint, signature):
     """
     if DEBUG:
         try:
+            paket.stellar_base.keypair.Keypair.from_address(str(user_pubkey))
+            return user_pubkey
+        # For debug purposes, we allow for a paket_user here.
+        except paket.stellar_base.utils.DecodeError:
             return db.get_pubkey_from_paket_user(user_pubkey)
-        except db.UnknownUser:
-            return None
     check_footprint(footprint, url, kwargs, user_pubkey)
     raise NotImplementedError('Signature checking is not yet implemented.', signature)
     #return pubkey
@@ -145,12 +147,12 @@ def check_and_fix_call(request, required_fields):
     """Check call and extract kwargs."""
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
-    kwargs = check_and_fix_values(kwargs)
     kwargs['user_pubkey'] = check_signature(
         request.url, kwargs,
         request.headers.get('Pubkey'),
         request.headers.get('Footprint'),
         request.headers.get('Signature'))
+    kwargs = check_and_fix_values(kwargs)
     return kwargs
 
 

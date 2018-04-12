@@ -18,10 +18,10 @@ def enrich_package(package):
         my_role=random.choice(['launcher', 'courier', 'recipient']),
         status=random.choice(['waiting pickup', 'in transit', 'delivered']),
         events=[dict(
-          event_type=random.choice(['change custodian', 'in transit', 'passed customs']),
-          timestamp=random.randint(1523530844, 1535066871),
-          paket_user=random.choice(['Israel', 'Oren', 'Chen']),
-          GPS=(random.uniform(-180,180), random.uniform(-90, 90))
+            event_type=random.choice(['change custodian', 'in transit', 'passed customs']),
+            timestamp=random.randint(1523530844, 1535066871),
+            paket_user=random.choice(['Israel', 'Oren', 'Chen']),
+            GPS=(random.uniform(-180, 180), random.uniform(-90, 90))
         ) for i in range(10)])
 
 
@@ -169,7 +169,6 @@ def get_package(paket_id):
     """Get package details."""
     with sql_connection() as sql:
         sql.execute("SELECT * FROM packages WHERE paket_id = ?", (paket_id,))
-        package = sql.fetchone()
         try:
             return enrich_package(sql.fetchone())
         except TypeError:
