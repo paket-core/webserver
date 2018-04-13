@@ -42,10 +42,10 @@ class UnknownPaket(Exception):
 
 
 @contextlib.contextmanager
-def sql_connection(db_name=DB_NAME):
+def sql_connection(db_name=None):
     """Context manager for querying the database."""
     try:
-        connection = sqlite3.connect(db_name)
+        connection = sqlite3.connect(db_name or DB_NAME)
         connection.row_factory = sqlite3.Row
         yield connection.cursor()
         connection.commit()
