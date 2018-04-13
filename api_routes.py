@@ -320,7 +320,10 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
 
 @BLUEPRINT.route("/v{}/refund_package".format(VERSION), methods=['POST'])
 @api_validation.call(['paket_id', 'refund_transaction'])
-def refund_package_handler(_, paket_id, refund_transaction):
+# pylint: disable=unused-argument
+# user_pubkey is used in decorator.
+def refund_package_handler(user_pubkey, paket_id, refund_transaction):
+# pylint: enable=unused-argument
     # pylint: disable=line-too-long
     """
     Relay a package to another courier, offering payment.

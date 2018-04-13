@@ -163,6 +163,10 @@ def refund(paket_id, refund_envelope):
     builder = stellar_base.builder.Builder(horizon=HORIZON, address=paket_id)
     builder.import_from_xdr(refund_envelope)
     for time_bound in builder.time_bounds:
-        if time_bound.minTime > now or time_bound.maxTime < now:
-            raise StellarTransactionFailed("transaction is timelocked ({}), not sending".format(time_bound))
+        if time_bound.minTime > 0 and time_bound.minTime > now:
+            raise StellarTransactionFailed(
+                "transaction can't be sent before {} and it's {}".format(time_bound.minTime, now))
+        if time_bound.maxTime > 0 and time_bound.maxTime < now:
+            raise StellarTransactionFailed(
+                "transaction can't be sent after {} and it's {}".format(time_bound.maxTime, now))
     submit(builder)
