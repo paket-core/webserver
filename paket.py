@@ -1,8 +1,9 @@
 """Use PaKeT smart contract."""
 import logging
 import os
-import requests
+import time
 
+import requests
 import stellar_base.address
 import stellar_base.asset
 import stellar_base.builder
@@ -99,7 +100,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
         launcher, payment + collateral,
         'BUL', ISSUER.address().decode(),
         escrow.address().decode())
-    builder.add_time_bounds(type('TimeBounds', (), {'minTime': deadline, 'maxTime': 0})())
+    builder.add_time_bounds(type('Time_Bound', (), {'minTime': deadline, 'maxTime': 0})())
     refund_envelope = builder.gen_te()
 
     # Create payment transaction.
@@ -154,3 +155,14 @@ def accept_package(user_pubkey, paket_id, payment_envelope=None):
 def relay_payment(*_, **__):
     """Relay payment to another courier."""
     raise NotImplementedError('Relay payment not yet implemented.')
+
+
+def refund(paket_id, refund_envelope):
+    """Claim a refund if deadline has passed."""
+    now = time.time()
+    builder = stellar_base.builder.Builder(horizon=HORIZON, address=paket_id)
+    builder.import_from_xdr(refund_envelope)
+    for time_bound in builder.time_bounds:
+        if time_bound.minTime > now or time_bound.maxTime < now:
+            raise StellarTransactionFailed("transaction is timelocked ({}), not sending".format(time_bound))
+    submit(builder)
