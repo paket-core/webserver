@@ -734,14 +734,14 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
     # pylint: enable=line-too-long
     try:
         paket.stellar_base.keypair.Keypair.from_address(str(user_pubkey))
+        seed = None
     # For debug purposes, we generate a pubkey if no valid key is found.
     except paket.stellar_base.utils.DecodeError:
         keypair = paket.get_keypair()
         user_pubkey, seed = keypair.address().decode(), keypair.seed().decode()
-        paket.new_account(user_pubkey)
-        paket.trust(keypair)
-        db.create_user(user_pubkey, paket_user, seed)
     paket.new_account(user_pubkey)
+    paket.trust(keypair)
+    db.create_user(user_pubkey, paket_user, seed)
     return {'status': 201, 'user_details': db.update_user_details(user_pubkey, full_name, phone_number)}
 
 
