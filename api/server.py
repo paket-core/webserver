@@ -5,7 +5,7 @@ import flasgger
 import flask
 import flask_limiter.util
 
-import api_routes
+import api.routes
 import db
 import paket
 import logger
@@ -20,9 +20,9 @@ APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
-APP.config['SWAGGER'] = api_routes.SWAGGER_CONFIG
+APP.config['SWAGGER'] = api.routes.SWAGGER_CONFIG
 flasgger.Swagger(APP)
-APP.register_blueprint(api_routes.BLUEPRINT)
+APP.register_blueprint(api.routes.BLUEPRINT)
 
 
 @APP.route('/')
@@ -53,6 +53,7 @@ def init_sandbox(fund=None):
             if key.startswith('PAKET_USER_')
     ]:
         try:
+            LOGGER.debug("Creating user %s", paket_user)
             keypair = paket.get_keypair(seed)
             pubkey, seed = keypair.address().decode(), keypair.seed().decode()
             db.create_user(pubkey, paket_user, seed)

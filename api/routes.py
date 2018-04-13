@@ -1,14 +1,14 @@
 """JSON swagger API to PaKeT."""
 import flask
 
-import api_validation
+import api.validation
 import db
 import paket
 import logger
 
 VERSION = '1'
 LOGGER = logger.logging.getLogger('pkt.api')
-BLUEPRINT = flask.Blueprint('api_routes', __name__)
+BLUEPRINT = flask.Blueprint('api.routes', __name__)
 SWAGGER_CONFIG = {
     'title': 'PaKeT API',
     'uiversion': 2,
@@ -37,7 +37,7 @@ SWAGGER_CONFIG = {
 
 
 @BLUEPRINT.route("/v{}/bul_account".format(VERSION), methods=['POST'])
-@api_validation.call
+@api.validation.call
 def bul_account_handler(user_pubkey):
     """
     Get the details of your BUL account
@@ -81,7 +81,7 @@ def bul_account_handler(user_pubkey):
 
 
 @BLUEPRINT.route("/v{}/send_buls".format(VERSION), methods=['POST'])
-@api_validation.call(['to_pubkey', 'amount_buls'])
+@api.validation.call(['to_pubkey', 'amount_buls'])
 def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
     """
     Transfer BULs to another pubkey.
@@ -129,7 +129,7 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
 
 
 @BLUEPRINT.route("/v{}/launch_package".format(VERSION), methods=['POST'])
-@api_validation.call(['recipient_pubkey', 'courier_pubkey', 'deadline_timestamp', 'payment_buls', 'collateral_buls'])
+@api.validation.call(['recipient_pubkey', 'courier_pubkey', 'deadline_timestamp', 'payment_buls', 'collateral_buls'])
 def launch_package_handler(
         user_pubkey, recipient_pubkey, courier_pubkey, deadline_timestamp, payment_buls, collateral_buls
 ):
@@ -210,7 +210,7 @@ def launch_package_handler(
 
 
 @BLUEPRINT.route("/v{}/accept_package".format(VERSION), methods=['POST'])
-@api_validation.call(['paket_id'])
+@api.validation.call(['paket_id'])
 def accept_package_handler(user_pubkey, paket_id, payment_transaction=None):
     """
     Accept a package.
@@ -259,7 +259,7 @@ def accept_package_handler(user_pubkey, paket_id, payment_transaction=None):
 
 
 @BLUEPRINT.route("/v{}/relay_package".format(VERSION), methods=['POST'])
-@api_validation.call(['paket_id', 'courier_pubkey', 'payment_buls'])
+@api.validation.call(['paket_id', 'courier_pubkey', 'payment_buls'])
 def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
     # pylint: disable=line-too-long
     """
@@ -319,7 +319,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
 
 
 @BLUEPRINT.route("/v{}/refund_package".format(VERSION), methods=['POST'])
-@api_validation.call(['paket_id', 'refund_transaction'])
+@api.validation.call(['paket_id', 'refund_transaction'])
 # pylint: disable=unused-argument
 # user_pubkey is used in decorator.
 def refund_package_handler(user_pubkey, paket_id, refund_transaction):
@@ -377,7 +377,7 @@ def refund_package_handler(user_pubkey, paket_id, refund_transaction):
 
 # pylint: disable=unused-argument
 @BLUEPRINT.route("/v{}/my_packages".format(VERSION), methods=['POST'])
-@api_validation.call()
+@api.validation.call()
 def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_in_delivery=None):
     """
     Get list of packages
@@ -473,7 +473,7 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
 
 
 @BLUEPRINT.route("/v{}/package".format(VERSION), methods=['POST'])
-@api_validation.call()
+@api.validation.call()
 def package_handler(user_pubkey, paket_id):
     """
     Get a full info about a single package.
@@ -577,7 +577,7 @@ def package_handler(user_pubkey, paket_id):
 
 
 @BLUEPRINT.route("/v{}/register_user".format(VERSION), methods=['POST'])
-@api_validation.call(['full_name', 'phone_number', 'paket_user'])
+@api.validation.call(['full_name', 'phone_number', 'paket_user'])
 def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
     # pylint: disable=line-too-long
     """
@@ -639,7 +639,7 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
 
 
 @BLUEPRINT.route("/v{}/recover_user".format(VERSION), methods=['POST'])
-@api_validation.call
+@api.validation.call
 def recover_user_handler(user_pubkey):
     """
     Recover user details.

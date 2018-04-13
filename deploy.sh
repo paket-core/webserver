@@ -30,12 +30,16 @@ fi
 # Optionally remove existing database and initialize a new one.
 if ! [ "$1" = persist ]; then
     rm paket.db
-    python -c 'import api_server; api_server.init_sandbox(True)'
+    if [ "$1" = db_only ]; then
+        python -c 'import api.server; api.server.init_sandbox(False)'
+    else
+        python -c 'import api.server; api.server.init_sandbox(True)'
+    fi
 fi
 
 # Run web server if script is run directly.
 if [ "$BASH_SOURCE" == "$0" ]; then
-    FLASK_APP=api_server.py flask run --host=0.0.0.0
+    FLASK_APP=api/server.py flask run --host=0.0.0.0
 # If it is sourced run python shell.
 else
     python -ic 'import logger; logger.setup(); import db; import paket'
