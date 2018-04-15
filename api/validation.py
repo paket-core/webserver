@@ -37,6 +37,40 @@ def check_missing_fields(fields, required_fields):
         raise MissingFields(', '.join(missing_fields))
 
 
+def check_footprint(footprint, url, kwargs):
+    """
+    Raise exception on invalid footprint.
+    Currently does not do anything.
+    """
+    # Copy kwargs before we destroy it.
+    kwargs = dict(kwargs)
+    footprint = footprint.split(',')
+    if url != footprint[0]:
+        raise FootprintMismatch("footprint {} does not match call to {}".format(footprint[0], url))
+    try:
+        db.update_nonce(kwargs['user_pubkey'], footprint[-1])
+    except db.InvalidNonce as exception:
+        raise FootprintMismatch(str(exception))
+    for key, val in [keyval.split('=') for keyval in footprint[1:-1]]:
+        try:
+            call_val = str(kwargs.pop(key))
+        except KeyError:
+            raise FootprintMismatch("footprint has extra value {} = {}".format(key, val))
+        if call_val != val:
+            raise FootprintMismatch("footprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
+    if kwargs:
+        raise FootprintMismatch("footprint is missing a value for {}".format(', '.join((kwargs.keys()))))
+    return
+
+
+def check_signature(user_pubkey, footprint, signature):
+    """
+    Raise exception on invalid signature.
+    """
+    LOGGER.ERROR("can't check signature for %s on %s (%s)", user_pubkey, footprint, signature)
+    raise NotImplementedError('Signature checking is not yet implemented.')
+
+
 def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
@@ -67,49 +101,20 @@ def check_and_fix_values(kwargs):
     return kwargs
 
 
-def check_footprint(footprint, url, kwargs):
-    """
-    Raise exception on invalid footprint.
-    Currently does not do anything.
-    """
-    # Copy kwargs before we destroy it.
-    kwargs = dict(kwargs)
-    footprint = footprint.split(',')
-    if url != footprint[0]:
-        raise FootprintMismatch("footprint {} does not match call to {}".format(footprint[0], url))
-    try:
-        db.update_nonce(kwargs['user_pubkey'], footprint[-1])
-    except db.InvalidNonce as exception:
-        raise FootprintMismatch(str(exception))
-    for key, val in [keyval.split('=') for keyval in footprint[1:-1]]:
-        try:
-            call_val = str(kwargs.pop(key))
-        except KeyError:
-            raise FootprintMismatch("footprint has extra value {} = {}".format(key, val))
-        if call_val != val:
-            raise FootprintMismatch("footprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
-    if kwargs:
-        raise FootprintMismatch("footprint is missing a value for {}".format(', '.join((kwargs.keys()))))
-    return footprint
-
-
-def check_signature(user_pubkey, footprint, signature):
-    """
-    Raise exception on invalid signature.
-    """
-    LOGGER.ERROR("can't check signature for %s on %s (%s)", user_pubkey, footprint, signature)
-    raise NotImplementedError('Signature checking is not yet implemented.')
-
-
 def check_and_fix_call(request, required_fields):
     """Check call and extract kwargs."""
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
-    kwargs['user_pubkey'] = request.headers.get('Pubkey')
-    kwargs = check_and_fix_values(kwargs)
+    if request.method == 'POST':
+        check_missing_fields(request.headers.keys(), ['Pubkey', 'Footprint', 'Signature'])
     if not DEBUG:
-        check_footprint(request.headers.get('Footprint'), request.url, kwargs)
-        check_signature(kwargs['pubkey'], request.headers.get('Footprint'), request.headers.get('Signature'))
+        if '/debug/' in request.path:
+            raise FootprintMismatch("{} only accesible in debug mode".format(request.path))
+        check_footprint(request.headers['Footprint'], request.url, kwargs)
+        check_signature(kwargs['pubkey'], request.headers['Footprint'], request.headers['Signature'])
+    if 'Pubkey' in request.headers:
+        kwargs['user_pubkey'] = request.headers['Pubkey']
+    kwargs = check_and_fix_values(kwargs)
     return kwargs
 
 
