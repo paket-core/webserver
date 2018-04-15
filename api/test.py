@@ -9,9 +9,8 @@ import db
 db.DB_NAME = 'test.db'
 
 
-class TestCase(unittest.TestCase):
+class TestAPI(unittest.TestCase):
     """Test our API."""
-
 
     def setUp(self):
         try:
@@ -23,21 +22,27 @@ class TestCase(unittest.TestCase):
         with api.server.APP.app_context():
             db.init_db()
 
-
     def tearDown(self):
         os.unlink(db.DB_NAME)
-
 
     # pylint: disable=no-self-use
     def test_fresh_db(self):
         """Make sure packages table exists and is empty."""
-        assert not db.get_packages()
-    # pylint: enable=no-self-use
+        self.assertFalse(db.get_packages(), "Fresh DB should have no packages")
 
+    # pylint: enable=no-self-use
 
     def test_register(self):
         """Register a new user."""
         response = self.app.post("/v{}/register_user".format(api.routes.VERSION), data={
             'paket_user': 'stam'
         })
-        assert response.status_code == 400
+
+        self.assertEqual(response.status_code, 400, "missing Params")
+        response = self.app.post("/v{}/register_user".format(api.routes.VERSION),
+                                 data={'paket_user': 'stam', 'phone_number': '123', 'full_name': 'first last'},
+                                 headers={'Pubkey': 'replace with good key', 'Signature': 'sig', 'Footprint': 'foot'}
+                                 )
+
+        self.assertEqual(response.status_code, 404, "TODO")
+
