@@ -36,6 +36,47 @@ SWAGGER_CONFIG = {
 }
 
 
+@BLUEPRINT.route("/v{}/submit_transaction".format(VERSION), methods=['POST'])
+@api.validation.call(['transaction'])
+def submit_transaction_handler(user_pubkey, transaction):
+    """
+    Get the details of your BUL account
+    Use this call to get the balance and details of your account.
+    ---
+    tags:
+    - wallet
+    parameters:
+      - name: Pubkey
+        in: header
+        default: COURIER
+        schema:
+            type: string
+            format: string
+      - name: Footprint
+        in: header
+        default: NOT NEEDED YET http://localhost:5000/v1/balance,1521650747
+        schema:
+            type: string
+            format: string
+      - name: Signature
+        in: header
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
+        schema:
+            type: string
+            format: string
+      - name: transaction
+        in: formData
+        description: Transaction to submit
+        required: true
+        type: string
+        default: 0
+    responses:
+      200:
+        description: success
+    """
+    return {'status': 200, 'transaction': paket.submit_transaction_envelope(user_pubkey, transaction)}
+
+
 @BLUEPRINT.route("/v{}/bul_account".format(VERSION), methods=['POST'])
 @api.validation.call
 def bul_account_handler(user_pubkey):
@@ -126,6 +167,56 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
         description: transfer request sent
     """
     return {'status': 200, 'transaction': paket.send_buls(user_pubkey, to_pubkey, amount_buls)}
+
+
+@BLUEPRINT.route("/v{}/prepare_send_buls".format(VERSION), methods=['POST'])
+@api.validation.call(['to_pubkey', 'amount_buls'])
+def prepare_send_buls_handler(user_pubkey, to_pubkey, amount_buls):
+    # pylint: disable=line-too-long
+    """
+    Transfer BULs to another pubkey.
+    Use this call to send part of your balance to another user.
+    The to_pubkey can be either a user id, or a wallet pubkey.
+    ---
+    tags:
+    - wallet
+    parameters:
+      - name: Pubkey
+        in: header
+        default: LAUNCHER
+        schema:
+            type: string
+            format: string
+      - name: Footprint
+        in: header
+        default: NOT NEEDED YET http://localhost:5000/v1/prepare_send_buls,to_pubkey=pubkey,amount_buls=amount,1521650747
+        schema:
+            type: string
+            format: string
+      - name: Signature
+        in: header
+        default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
+        schema:
+            type: string
+            format: string
+      - name: to_pubkey
+        in: formData
+        default: COURIER
+        description: target pubkey for transfer
+        required: true
+        type: string
+      - name: amount_buls
+        in: formData
+        default: 111
+        description: amount to transfer
+        required: true
+        type: integer
+    responses:
+      200:
+        description: transfer request sent
+    """
+    # pylint: enable=line-too-long
+    return {'status': 200, 'transaction': paket.prepare_send_buls(user_pubkey, to_pubkey, amount_buls)}
 
 
 @BLUEPRINT.route("/v{}/launch_package".format(VERSION), methods=['POST'])
@@ -630,6 +721,8 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
         seed = None
     # For debug purposes, we generate a pubkey if no valid key is found.
     except paket.stellar_base.utils.DecodeError:
+        if not api.validation.DEBUG:
+            raise
         keypair = paket.get_keypair()
         user_pubkey, seed = keypair.address().decode(), keypair.seed().decode()
     paket.new_account(user_pubkey)
@@ -704,7 +797,8 @@ def price_handler():
     return flask.jsonify({'status': 200, 'buy_price': 1, 'sell_price': 1})
 
 
-@BLUEPRINT.route("/v{}/users".format(VERSION), methods=['GET'])
+@BLUEPRINT.route("/v{}/debug/users".format(VERSION), methods=['GET'])
+@api.validation.call
 def users_handler():
     """
     Get a list of users and their details - for debug only.
@@ -746,11 +840,12 @@ def users_handler():
                 }
             }
     """
-    return flask.jsonify({'status': 200, 'users': {
-        pubkey: dict(user, bull_account=paket.get_bul_account(pubkey)) for pubkey, user in db.get_users().items()}})
+    return {'status': 200, 'users': {
+        pubkey: dict(user, bul_account=paket.get_bul_account(pubkey)) for pubkey, user in db.get_users().items()}}
 
 
-@BLUEPRINT.route("/v{}/packages".format(VERSION), methods=['GET'])
+@BLUEPRINT.route("/v{}/debug/packages".format(VERSION), methods=['GET'])
+@api.validation.call
 def packages_handler():
     """
     Get list of packages - for debug only.
@@ -787,4 +882,4 @@ def packages_handler():
               blockchain-url: https://www.blockchain.info/423423423423424234534562
 
     """
-    return flask.jsonify({'status': 200, 'packages': db.get_packages()})
+    return {'status': 200, 'packages': db.get_packages()}
