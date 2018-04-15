@@ -10,7 +10,6 @@ import db
 import paket
 import logger
 
-DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logger.logging.getLogger('pkt.web')
 logger.setup()
 
