@@ -57,11 +57,18 @@ ISSUER = get_keypair(os.environ['PAKET_USER_ISSUER'])
 
 
 def submit(builder):
-    """Submit a transaction an raise an exception if it fails."""
+    """Submit a transaction and raise an exception if it fails."""
     response = builder.submit()
     if 'status' in response and response['status'] >= 300:
         raise StellarTransactionFailed(response)
     return response
+
+
+def submit_transaction_envelope(envelope, from_address):
+    """Submit a transaction from an XDR of the envelope."""
+    builder = stellar_base.builder.Builder(horizon=HORIZON, address=from_address)
+    builder.import_from_xdr(envelope)
+    return submit(builder)
 
 
 def trust(keypair):
@@ -81,6 +88,14 @@ def send_buls(from_address, to_address, amount):
     builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
     builder.sign()
     return submit(builder)
+
+
+def prepare_send_buls(from_address, to_address, amount):
+    """Transfer BULs."""
+    LOGGER.info("sending %s BUL from %s to %s", amount, from_address, to_address)
+    builder = stellar_base.builder.Builder(horizon=HORIZON, address=from_address)
+    builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
+    return builder.gen_te().xdr().decode()
 
 
 def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
@@ -169,4 +184,4 @@ def refund(paket_id, refund_envelope):
         if time_bound.maxTime > 0 and time_bound.maxTime < now:
             raise StellarTransactionFailed(
                 "transaction can't be sent after {} and it's {}".format(time_bound.maxTime, now))
-    submit(builder)
+    return submit(builder)
