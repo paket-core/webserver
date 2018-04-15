@@ -747,7 +747,7 @@ def users_handler():
             }
     """
     return flask.jsonify({'status': 200, 'users': {
-        pubkey: dict(user, bull_account=paket.get_bul_account(pubkey)) for pubkey, user in db.get_users().items()}})
+        pubkey: dict(user, bul_account=paket.get_bul_account(pubkey)) for pubkey, user in db.get_users().items()}})
 
 
 @BLUEPRINT.route("/v{}/packages".format(VERSION), methods=['GET'])
