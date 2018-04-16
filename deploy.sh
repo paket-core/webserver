@@ -1,6 +1,52 @@
 #!/bin/bash
 # Deploy a PaKeT server.
 
+# Parse options
+usage() { echo 'Usage: ./deploy.sh [a|create-all] [l|create-stellar] [f|fund-stellar] [d|create-db] [t|test] [s|shell] [r|run-server]'; }
+if ! [ "$1" ]; then
+    if [ "$BASH_SOURCE" == "$0" ]; then
+        usage
+        return 0 2>/dev/null
+        exit 0
+    fi
+fi
+while [ "$1" ]; do
+    case "$1" in
+    a|all)
+        create_stellar=1
+        fund_stellar=1
+        create_db=1
+        _test=1
+        shell=1
+        run=1
+    ;;
+    l|create-stellar)
+        create_stellar=1
+    ;;
+    f|fund-stellar)
+        fund_stellar=1
+    ;;
+    d|create-db)
+        create_db=1
+    ;;
+    t|test)
+        _test=1
+    ;;
+    s|shell)
+        shell=1
+    ;;
+    r|run-server)
+        run=1
+    ;;
+    esac
+    shift
+done
+
+# Export environment variables.
+set -o allexport
+. paket.env
+set +o allexport
+
 # Requires python3 and python packages (as specified in requirements.txt).
 if ! which python3; then
     echo 'python3 not found'
@@ -15,11 +61,6 @@ if [ "$missing_packages" ]; then
     exit 1
 fi
 
-# Export environment variables.
-set -o allexport
-. paket.env
-set +o allexport
-
 # Make sure horizon server is reachable.
 if ! curl "$PAKET_HORIZON_SERVER"; then
     echo "Can't connect to horizon server $PAKET_HORIZON_SERVER"
@@ -27,25 +68,16 @@ if ! curl "$PAKET_HORIZON_SERVER"; then
     exit 1
 fi
 
-# Optionally remove existing database and initialize a new one.
-if [ "$1" = persist ]; then
-    shift
-else
-    rm paket.db
-    if [ "$1" = db_only ]; then
-        shift
-        python -c 'import api.server; api.server.init_sandbox(False)'
-    else
-        python -c 'import api.server; api.server.init_sandbox(True)'
-    fi
-fi
+[ "$create_db" ] && export PAKET_CREATE_DB=1 && rm paket.db
+[ "$create_stellar" ] && export PAKET_CREATE_STELLAR=1
+[ "$fund_stellar" ] && export PAKET_FUND_STELLAR=1
+python -c "import api.server; api.server.init_sandbox()"
 
-# Run web server if script is run directly.
-if [ "$BASH_SOURCE" == "$0" ]; then
-    FLASK_APP=api/server.py flask run --host=0.0.0.0
-# If it is sourced run python shell.
-else
-    if [ "$1" = shell ]; then
-        python -ic 'import logger; logger.setup(); import db; import paket'
-    fi
-fi
+[ "$_test" ] && python -m unittest api/test.py
+
+[ "$shell" ] && python -ic 'import logger; logger.setup(); import db; import paket; p = paket'
+
+[ "$run" ] && FLASK_APP=api/server.py flask run --host=0.0.0.0
+
+return 0 2>/dev/null
+exit 0
