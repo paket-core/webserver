@@ -115,7 +115,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
         launcher, payment + collateral,
         'BUL', ISSUER.address().decode(),
         escrow.address().decode())
-    builder.add_time_bounds(type('Time_Bound', (), {'minTime': deadline, 'maxTime': 0})())
+    builder.add_time_bounds(type('TimeBound', (), {'minTime': deadline, 'maxTime': 0})())
     builder.add_text_memo("refund {}BULs minTime:{}".format(payment + collateral, deadline))
     refund_envelope = builder.gen_te()
 
