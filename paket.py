@@ -65,8 +65,9 @@ def submit(builder):
 
 
 def add_memo(builder, memo):
+    """Add a memo with limited length."""
     if len(memo) > 28:
-        LOGGER.warning("memo length too long: {}>28. Memo truncated!".format(len(memo)))
+        LOGGER.warning("memo length too long: %s>28. Memo truncated!", len(memo))
     builder.add_text_memo(memo[:28])
 
 

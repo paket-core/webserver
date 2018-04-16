@@ -414,7 +414,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
 # pylint: disable=unused-argument
 # user_pubkey is used in decorator.
 def refund_package_handler(user_pubkey, paket_id, refund_transaction):
-# pylint: enable=unused-argument
+    # pylint: enable=unused-argument
     # pylint: disable=line-too-long
     """
     Relay a package to another courier, offering payment.
