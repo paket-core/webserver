@@ -678,6 +678,7 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
     - users
     parameters:
       - name: Pubkey
+        default: debug
         in: header
         schema:
             type: string

@@ -112,7 +112,10 @@ def check_and_fix_call(request, required_fields):
             raise FootprintMismatch("{} only accesible in debug mode".format(request.path))
         check_footprint(request.headers['Footprint'], request.url, kwargs)
         check_signature(kwargs['pubkey'], request.headers['Footprint'], request.headers['Signature'])
-    if 'Pubkey' in request.headers:
+    if DEBUG and '/register_user' in request.path:
+        kwargs = check_and_fix_values(kwargs)
+        kwargs['user_pubkey'] = None
+    elif 'Pubkey' in request.headers:
         kwargs['user_pubkey'] = request.headers['Pubkey']
     kwargs = check_and_fix_values(kwargs)
     return kwargs
