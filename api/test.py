@@ -38,9 +38,8 @@ class MockPaket:
 api.server.paket = api.routes.paket = MockPaket()
 
 
-class TestCase(unittest.TestCase):
+class TestAPI(unittest.TestCase):
     """Test our API."""
-
 
     def setUp(self):
         try:
@@ -51,7 +50,6 @@ class TestCase(unittest.TestCase):
         self.app = api.server.APP.test_client()
         with api.server.APP.app_context():
             db.init_db()
-
 
     def tearDown(self):
         os.unlink(db.DB_NAME)

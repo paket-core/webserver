@@ -64,6 +64,12 @@ def submit(builder):
     return response
 
 
+def add_memo(builder, memo):
+    if len(memo) > 28:
+        LOGGER.warning("memo length too long: {}>28. Memo truncated!".format(len(memo)))
+    builder.add_text_memo(memo[:28])
+
+
 def submit_transaction_envelope(from_address, envelope):
     """Submit a transaction from an XDR of the envelope."""
     builder = stellar_base.builder.Builder(horizon=HORIZON, address=from_address)
@@ -125,7 +131,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
         courier, payment + collateral,
         'BUL', ISSUER.address().decode(),
         escrow.address().decode())
-    builder.add_text_memo("payment {}BULs".format(payment + collateral))
+    # add_memo(builder, "payment {}BULs".format(payment + collateral))
     payment_envelope = builder.gen_te()
 
     # Set transactions and recipient as only signers.
