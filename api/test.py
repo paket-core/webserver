@@ -57,8 +57,8 @@ class TestAPI(unittest.TestCase):
 
     def test_fresh_db(self):
         """Make sure packages table exists and is empty."""
-        self.assertEqual(db.get_packages(), [])
-        self.assertEqual(db.get_users(), {})
+        self.assertEqual(db.get_packages(), [], 'packages found in empty db')
+        self.assertEqual(db.get_users(), {}, 'users found in empty db')
 
     def test_register(self):
         """Register a new user."""
@@ -69,6 +69,6 @@ class TestAPI(unittest.TestCase):
         }, headers={
             'Pubkey': '',
             'Footprint': '',
-            'Signature': '',
+            'Signature': ''
         })
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 201, 'user creation failed')
