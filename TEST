@@ -1,9 +1,0 @@
-1) Export environment variables. Easiest way is probably to source deploy.sh:
-```
-. deploy.sh persist
-```
-
-2) Run the tests:
-```
-python -m unittest api/test.py
-```
