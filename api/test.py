@@ -5,8 +5,37 @@ import unittest
 import api.server
 import api.routes
 import db
+import paket
 
 db.DB_NAME = 'test.db'
+
+class MockPaket:
+    """Mock paket package."""
+
+
+    def __init__(self):
+        self.balances = {}
+
+
+    def __getattr__(self, name):
+        """Inherit all paket attributes that are not overwritten."""
+        return getattr(paket, name)
+
+
+    def new_account(self, address):
+        """Create a new account."""
+        if address in self.balances:
+            raise paket.StellarTransactionFailed
+        self.balances[address] = 0
+
+
+    def trust(self, keypair):
+        """Trust an account."""
+        if keypair.address().decode() not in self.balances:
+            raise paket.StellarTransactionFailed
+
+
+api.server.paket = api.routes.paket = MockPaket()
 
 
 class TestCase(unittest.TestCase):
@@ -28,16 +57,20 @@ class TestCase(unittest.TestCase):
         os.unlink(db.DB_NAME)
 
 
-    # pylint: disable=no-self-use
     def test_fresh_db(self):
         """Make sure packages table exists and is empty."""
-        assert not db.get_packages()
-    # pylint: enable=no-self-use
-
+        self.assertEqual(db.get_packages(), [])
+        self.assertEqual(db.get_users(), {})
 
     def test_register(self):
         """Register a new user."""
         response = self.app.post("/v{}/register_user".format(api.routes.VERSION), data={
+            'full_name': 'Full Name',
+            'phone_number': '123',
             'paket_user': 'stam'
+        }, headers={
+            'Pubkey': '',
+            'Footprint': '',
+            'Signature': '',
         })
-        assert response.status_code == 400
+        self.assertEqual(response.status_code, 201)
