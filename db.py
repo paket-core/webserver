@@ -118,8 +118,10 @@ def create_user(pubkey, paket_user, seed=None):
             sql.execute("INSERT INTO nonces (pubkey) VALUES (?)", (pubkey,))
             if seed is not None:
                 sql.execute("INSERT INTO keys (pubkey, seed) VALUES (?, ?)", (pubkey, seed))
-        except sqlite3.IntegrityError:
-            raise DuplicateUser("Pubkey {} is non unique".format(pubkey))
+        except sqlite3.IntegrityError as exception:
+            bad_column_name = str(exception).split('.')[-1]
+            bad_value = locals().get(bad_column_name)
+            raise DuplicateUser("{} {} is non unique".format(bad_column_name, bad_value))
 
 
 def get_user(pubkey):
