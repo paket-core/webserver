@@ -8,7 +8,7 @@ import api.routes
 import db
 import paket
 
-USE_HORIZON = False
+USE_HORIZON = bool(os.environ.get('PAKET_TEST_USE_HORIZON', False))
 db.DB_NAME = 'test.db'
 
 
