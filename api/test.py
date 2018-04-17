@@ -1,5 +1,6 @@
 """Test the PaKeT API."""
 import json
+import logging
 import os
 import unittest
 
@@ -8,8 +9,9 @@ import api.routes
 import db
 import paket
 
-USE_HORIZON = bool(os.environ.get('PAKET_TEST_USE_HORIZON', False))
+USE_HORIZON = bool(os.environ.get('PAKET_TEST_USE_HORIZON'))
 db.DB_NAME = 'test.db'
+LOGGER = logging.getLogger('pkt.api.test')
 
 
 class MockPaket:
@@ -66,14 +68,18 @@ class TestAPI(unittest.TestCase):
     def tearDown(self):
         os.unlink(db.DB_NAME)
 
-    def post(self, path, pubkey='', **kwargs):
+    def post(self, path, expected_code=None, fail_message=None, pubkey='', **kwargs):
         """Post data to API server."""
         response = self.app.post("/v{}/{}".format(api.routes.VERSION, path), headers={
             'Pubkey': pubkey,
             'Footprint': '',
             'Signature': ''
         }, data=kwargs)
-        return response.status_code, json.loads(response.data.decode('utf-8'))
+        response = dict(status_code=response.status_code, **json.loads(response.data.decode()))
+        if expected_code:
+            self.assertEqual(response['status_code'], expected_code, "{} ({})".format(
+                fail_message, response.get('error')))
+        return response
 
     def test_fresh_db(self):
         """Make sure packages table exists and is empty."""
@@ -83,22 +89,19 @@ class TestAPI(unittest.TestCase):
     def test_register(self):
         """Register a new user and recover it."""
         phone_number = str(os.urandom(8))
-        self.assertEqual(self.post(
-            'register_user',
-            full_name='First Last',
-            phone_number=phone_number,
-            paket_user='stam'
-        )[0], 201, 'user creation failed')
+        self.post(
+            'register_user', 201, 'user creation failed', pubkey='debug',
+            full_name='First Last', phone_number=phone_number, paket_user='stam')
         self.assertEqual(
-            self.post('recover_user', 'stam')[1]['user_details']['phone_number'],
+            self.post('recover_user', 200, 'can not recover user', 'stam')['user_details']['phone_number'],
             phone_number, 'user phone_number does not match')
 
     def test_send_buls(self):
         """Send BULs and check balance."""
         api.server.init_sandbox(True, False, False)
-        self.post('register_user', full_name='First Last', phone_number='123', paket_user='stam')
-        start_balance = self.post('bul_account', 'stam')[1]['balance']
-        amount = 123
-        self.post('send_buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
-        end_balance = self.post('bul_account', 'stam')[1]['balance']
+        self.test_register()
+        start_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
+        amount = -123
+        self.post('send_buls', 'ISSUER', 200, 'can not send buls', to_pubkey='stam', amount_buls=amount)
+        end_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
         self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')
