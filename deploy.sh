@@ -12,32 +12,29 @@ if ! [ "$1" ]; then
 fi
 while [ "$1" ]; do
     case "$1" in
-    a|all)
-        create_stellar=1
-        fund_stellar=1
-        create_db=1
-        _test=1
-        shell=1
-        run=1
-    ;;
-    l|create-stellar)
-        create_stellar=1
-    ;;
-    f|fund-stellar)
-        fund_stellar=1
-    ;;
-    d|create-db)
-        create_db=1
-    ;;
-    t|test)
-        _test=1
-    ;;
-    s|shell)
-        shell=1
-    ;;
-    r|run-server)
-        run=1
-    ;;
+        a|all)
+            create_stellar=1
+            fund_stellar=1
+            create_db=1
+            _test=1
+            shell=1
+            run=1;;
+        l|create-stellar)
+            create_stellar=1;;
+        f|fund-stellar)
+            fund_stellar=1;;
+        d|create-db)
+            create_db=1;;
+        t|test)
+            _test=1;;
+        s|shell)
+            shell=1;;
+        r|run-server)
+            run=1;;
+        *)
+            usage
+            return 0 2>/dev/null
+            exit 0;;
     esac
     shift
 done
@@ -73,7 +70,7 @@ fi
 [ "$fund_stellar" ] && export PAKET_FUND_STELLAR=1
 python -c "import api.server; api.server.init_sandbox()"
 
-[ "$_test" ] && python -m unittest api/test.py
+[ "$_test" ] && python -m unittest api.test
 
 [ "$shell" ] && python -ic 'import logger; logger.setup(); import db; import paket; p = paket'
 
