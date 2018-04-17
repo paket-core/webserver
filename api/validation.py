@@ -1,15 +1,15 @@
 """Validations for API calls."""
 import functools
+import logging
 import os
 
 import flask
 
 import db
 import paket
-import logger
 
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
-LOGGER = logger.logging.getLogger('pkt.api.validation')
+LOGGER = logging.getLogger('pkt.api.validation')
 
 
 class MissingFields(Exception):
@@ -88,6 +88,8 @@ def check_and_fix_values(kwargs):
                 raise InvalidField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_pubkey'):
+            if DEBUG and value == 'debug':
+                continue
             try:
                 paket.stellar_base.keypair.Keypair.from_address(value)
             except (TypeError, paket.stellar_base.utils.DecodeError):
@@ -112,13 +114,9 @@ def check_and_fix_call(request, required_fields):
             raise FootprintMismatch("{} only accesible in debug mode".format(request.path))
         check_footprint(request.headers['Footprint'], request.url, kwargs)
         check_signature(kwargs['pubkey'], request.headers['Footprint'], request.headers['Signature'])
-    if DEBUG and '/register_user' in request.path:
-        kwargs = check_and_fix_values(kwargs)
-        kwargs['user_pubkey'] = None
-    elif 'Pubkey' in request.headers:
+    if 'Pubkey' in request.headers:
         kwargs['user_pubkey'] = request.headers['Pubkey']
-    kwargs = check_and_fix_values(kwargs)
-    return kwargs
+    return check_and_fix_values(kwargs)
 
 
 def optional_arg_decorator(decorator):
@@ -166,6 +164,6 @@ def call(handler=None, required_fields=None):
             if DEBUG:
                 response['debug'] = str(exception)
         if 'error' in response:
-            LOGGER.warning(response['error'])
+            LOGGER.error(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
     return _call
