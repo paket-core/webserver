@@ -73,7 +73,7 @@ class TestAPI(unittest.TestCase):
             'Footprint': '',
             'Signature': ''
         }, data=kwargs)
-        return response.status_code, json.loads(response.data)
+        return response.status_code, json.loads(response.data.decode())
 
     def test_fresh_db(self):
         """Make sure packages table exists and is empty."""
