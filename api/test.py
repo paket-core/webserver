@@ -89,16 +89,15 @@ class TestAPI(unittest.TestCase):
             phone_number=phone_number,
             paket_user='stam'
         )[0], 201, 'user creation failed')
-        self.assertEqual(
-            self.post('recover_user', 'stam')[1]['user_details']['phone_number'],
-            phone_number, 'user phone_number does not match')
+        self.assertEqual(self.post('recover_user', 'stam')[1]['user_details']['phone_number'], phone_number,
+                         'user phone_number does not match')
 
     def test_send_buls(self):
         """Send BULs and check balance."""
         api.server.init_sandbox(True, False, False)
         self.post('register_user', full_name='First Last', phone_number='123', paket_user='stam')
         start_balance = self.post('bul_account', 'stam')[1]['balance']
-        amount = 123
+        amount = 123  # TODO check why -123 fails too early
         self.post('send_buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
         end_balance = self.post('bul_account', 'stam')[1]['balance']
         self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')
