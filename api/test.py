@@ -1,4 +1,5 @@
 """Test the PaKeT API."""
+import json
 import os
 import unittest
 
@@ -7,6 +8,7 @@ import api.routes
 import db
 import paket
 
+USE_HORIZON = False
 db.DB_NAME = 'test.db'
 
 
@@ -20,19 +22,32 @@ class MockPaket:
         """Inherit all paket attributes that are not overwritten."""
         return getattr(paket, name)
 
-    def new_account(self, address):
+    def new_account(self, pubkey):
         """Create a new account."""
-        if address in self.balances:
-            raise paket.StellarTransactionFailed
-        self.balances[address] = 0
+        if pubkey in self.balances:
+            raise paket.StellarTransactionFailed('account exists')
+        self.balances[pubkey] = 0.0
 
     def trust(self, keypair):
         """Trust an account."""
         if keypair.address().decode() not in self.balances:
-            raise paket.StellarTransactionFailed
+            raise paket.StellarTransactionFailed('account does not exists')
+
+    def get_bul_account(self, pubkey):
+        """Get account details of pubkey."""
+        return {'balance': self.balances[pubkey]}
+
+    def send_buls(self, from_pubkey, to_pubkey, amount):
+        """Get account details of pubkey."""
+        if from_pubkey != paket.ISSUER.address().decode():
+            if self.balances[from_pubkey] < amount:
+                raise paket.StellarTransactionFailed('insufficient funds')
+            self.balances[from_pubkey] -= amount
+        self.balances[to_pubkey] += amount
 
 
-api.server.paket = api.routes.paket = MockPaket()
+if not USE_HORIZON:
+    api.server.paket = api.routes.paket = MockPaket()
 
 
 class TestAPI(unittest.TestCase):
@@ -51,22 +66,39 @@ class TestAPI(unittest.TestCase):
     def tearDown(self):
         os.unlink(db.DB_NAME)
 
+    def post(self, path, pubkey='', **kwargs):
+        """Post data to API server."""
+        response = self.app.post("/v{}/{}".format(api.routes.VERSION, path), headers={
+            'Pubkey': pubkey,
+            'Footprint': '',
+            'Signature': ''
+        }, data=kwargs)
+        return response.status_code, json.loads(response.data)
+
     def test_fresh_db(self):
         """Make sure packages table exists and is empty."""
         self.assertEqual(db.get_packages(), [], 'packages found in empty db')
         self.assertEqual(db.get_users(), {}, 'users found in empty db')
 
     def test_register(self):
-        """Register a new user."""
-        response = self.app.post(
-            "/v{}/register_user".format(api.routes.VERSION),
-            data={
-                'full_name': 'Full Name',
-                'phone_number': '123',
-                'paket_user': 'stam'},
-            headers={
-                'Pubkey': '',
-                'Footprint': '',
-                'Signature': ''
-            })
-        self.assertEqual(response.status_code, 201, 'user creation failed')
+        """Register a new user and recover it."""
+        phone_number = str(os.urandom(8))
+        self.assertEqual(self.post(
+            'register_user',
+            full_name='First Last',
+            phone_number=phone_number,
+            paket_user='stam'
+        )[0], 201, 'user creation failed')
+        self.assertEqual(
+            self.post('recover_user', 'stam')[1]['user_details']['phone_number'],
+            phone_number, 'user phone_number does not match')
+
+    def test_send_buls(self):
+        """Send BULs and check balance."""
+        api.server.init_sandbox(True, False, False)
+        self.post('register_user', full_name='First Last', phone_number='123', paket_user='stam')
+        start_balance = self.post('bul_account', 'stam')[1]['balance']
+        amount = 123
+        self.post('send_buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
+        end_balance = self.post('bul_account', 'stam')[1]['balance']
+        self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')

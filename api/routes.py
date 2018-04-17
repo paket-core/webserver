@@ -7,7 +7,7 @@ import paket
 import logger
 
 VERSION = '1'
-LOGGER = logger.logging.getLogger('pkt.api')
+LOGGER = logger.logging.getLogger('pkt.api.routes')
 BLUEPRINT = flask.Blueprint('api.routes', __name__)
 SWAGGER_CONFIG = {
     'title': 'PaKeT API',

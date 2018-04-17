@@ -10,7 +10,7 @@ import db
 import paket
 import logger
 
-LOGGER = logger.logging.getLogger('pkt.web')
+LOGGER = logger.logging.getLogger('pkt.api.server')
 logger.setup()
 
 # Initialize flask app.
