@@ -1,13 +1,14 @@
 """JSON swagger API to PaKeT."""
+import logging
+
 import flask
 
 import api.validation
 import db
 import paket
-import logger
 
 VERSION = '1'
-LOGGER = logger.logging.getLogger('pkt.api.routes')
+LOGGER = logging.getLogger('pkt.api.routes')
 BLUEPRINT = flask.Blueprint('api.routes', __name__)
 SWAGGER_CONFIG = {
     'title': 'PaKeT API',
@@ -719,16 +720,18 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
     # pylint: enable=line-too-long
     try:
         paket.stellar_base.keypair.Keypair.from_address(str(user_pubkey))
-        seed = None
+        db.create_user(user_pubkey, paket_user)
+
     # For debug purposes, we generate a pubkey if no valid key is found.
     except paket.stellar_base.utils.DecodeError:
         if not api.validation.DEBUG:
             raise
         keypair = paket.get_keypair()
         user_pubkey, seed = keypair.address().decode(), keypair.seed().decode()
-    paket.new_account(user_pubkey)
-    paket.trust(keypair)
-    db.create_user(user_pubkey, paket_user, seed)
+        db.create_user(user_pubkey, paket_user, seed)
+        paket.new_account(user_pubkey)
+        paket.trust(keypair)
+
     return {'status': 201, 'user_details': db.update_user_details(user_pubkey, full_name, phone_number)}
 
 
