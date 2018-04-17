@@ -42,8 +42,15 @@ def ratelimit_handler(error):
     return flask.make_response(flask.jsonify({'code': 429, 'error': msg}), 429)
 
 
-def init_sandbox(create_db=False, create_stellar=False, fund_stellar=False):
+def init_sandbox(create_db=None, create_stellar=None, fund_stellar=None):
     """Initialize database with debug values and fund users. For debug only."""
+    if create_db is None and bool(os.environ.get('PAKET_CREATE_DB')):
+        create_db = True
+    if create_stellar is None and bool(os.environ.get('PAKET_CREATE_STELLAR')):
+        create_stellar = True
+    if fund_stellar is None and bool(os.environ.get('PAKET_FUND_STELLAR')):
+        fund_stellar = True
+
     if create_db:
         db.init_db()
 
