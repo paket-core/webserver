@@ -1,17 +1,18 @@
 """Test the PaKeT API."""
 import json
-import logging
 import os
 import unittest
 
 import api.server
 import api.routes
 import db
+import logger
 import paket
 
 USE_HORIZON = bool(os.environ.get('PAKET_TEST_USE_HORIZON'))
 db.DB_NAME = 'test.db'
-LOGGER = logging.getLogger('pkt.api.test')
+LOGGER = logger.logging.getLogger('pkt.api.test')
+logger.setup()
 
 
 class MockPaket:
@@ -101,7 +102,29 @@ class TestAPI(unittest.TestCase):
         api.server.init_sandbox(True, False, False)
         self.test_register()
         start_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
-        amount = -123
-        self.post('send_buls', 'ISSUER', 200, 'can not send buls', to_pubkey='stam', amount_buls=amount)
+        amount = 123
+        self.post('send_buls', 200, 'can not send buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
         end_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
         self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')
+
+    def test_two_stage_send_buls(self):
+        """Send BULs and check balance without holding private keys in the server."""
+        if not USE_HORIZON:
+            return LOGGER.error('not running two stage test with mock paket')
+        api.server.init_sandbox(True, False, False)
+        source = db.get_user(db.get_pubkey_from_paket_user('ISSUER'))
+        target = db.get_user(db.get_pubkey_from_paket_user('RECIPIENT'))
+        start_balance = self.post('bul_account', 200, 'can not get balance', target['pubkey'])['balance']
+        amount = 123
+        unsigned_tx = self.post(
+            'prepare_send_buls', 200, 'can not prepare send', source['pubkey'],
+            to_pubkey=target['pubkey'], amount_buls=amount)['transaction']
+        builder = paket.stellar_base.builder.Builder(horizon=paket.HORIZON, secret=source['seed'])
+        builder.import_from_xdr(unsigned_tx)
+        builder.sign()
+        signed_tx = builder.gen_te().xdr().decode()
+        self.post(
+            'submit_transaction', 200, 'submit transaction failed',
+            source['pubkey'], transaction=signed_tx)
+        end_balance = self.post('bul_account', 200, 'can not get balance', target['pubkey'])['balance']
+        return self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')

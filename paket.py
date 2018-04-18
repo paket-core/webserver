@@ -99,7 +99,6 @@ def send_buls(from_address, to_address, amount):
 
 def prepare_send_buls(from_address, to_address, amount):
     """Transfer BULs."""
-    LOGGER.info("sending %s BUL from %s to %s", amount, from_address, to_address)
     builder = stellar_base.builder.Builder(horizon=HORIZON, address=from_address)
     builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
     return builder.gen_te().xdr().decode()
