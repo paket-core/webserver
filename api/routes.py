@@ -16,7 +16,36 @@ SWAGGER_CONFIG = {
     'specs_route': '/',
     'info': {
         'title': 'The PaKeT http server API',
-        'description': 'Web API Server for The PaKeT Project',
+        'description': """
+Web API Server for The PaKeT Project
+What is this?
+=============
+This page is used as both a documentation of our server API and as a sandbox to test interaction with it.
+You can this page to call the RESTful API while specifying any required or optional parameter. 
+The page also present a 'curl' command that can be used to call the server.
+
+Our Server
+----------
+We run a centralized server that can be used to interact with PaKeT's 1st and 2nd layer.
+Since Layer one is completely implemented on the Stellar network it's completely decentralized. 
+We created this server as a gateway to the 1st layer to simplify the interaction with it.
+
+Another aspect of the server is to interact with our user information. 
+Ultimately, we would use decentralize user information solutions, such as Civic, 
+but right now we are keeping user for both KYC and app usage. 
+Please review our roadmap too see our plans for decentralizing the user data.
+
+Security
+--------
+        
+The API
+==
+
+Walkthrough sample
+--
+
+another line
+""",
         'contact': {
             'name': 'Israel Levin',
             'email': 'israel@paket.global',
