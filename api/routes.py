@@ -20,24 +20,27 @@ SWAGGER_CONFIG = {
 Web API Server for The PaKeT Project
 What is this?
 =============
-This page is used as both a documentation of our server API and as a sandbox to test interaction with it.
-You can this page to call the RESTful API while specifying any required or optional parameter. 
-The page also present a 'curl' command that can be used to call the server.
+This page is used as both documentation of our server API and as a sandbox to
+test interaction with it. You can this page to call the RESTful API while
+specifying any required or optional parameter. The page also presents curl
+commands that can be used to call the server.
 
 Our Server
 ----------
-We run a centralized server that can be used to interact with PaKeT's 1st and 2nd layer.
-Since Layer one is completely implemented on the Stellar network it's completely decentralized. 
-We created this server as a gateway to the 1st layer to simplify the interaction with it.
+We run a centralized server that can be used to interact with PaKeT's bottom
+layers.  Since Layer one is completely implemented on top of the Stellar
+network, it can be interacted with directly in a fully decentralized fashion.
+We created this server only as a gateway to the bottom layers in order to
+simplify the interaction with them.
 
-Another aspect of the server is to interact with our user information. 
-Ultimately, we would use decentralize user information solutions, such as Civic, 
-but right now we are keeping user for both KYC and app usage. 
-Please review our roadmap too see our plans for decentralizing the user data.
+Another aspect of the server is to interact with our user information.
+Ultimately, we will use decentralize user information solutions, such as Civic,
+but right now we are keeping user for both KYC and app usage. Please review our
+roadmap too see our plans for decentralizing the user data.
 
 Security
 --------
-        
+
 The API
 ==
 
