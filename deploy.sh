@@ -59,7 +59,7 @@ if [ "$missing_packages" ]; then
 fi
 
 # Make sure horizon server is reachable.
-if ! curl "$PAKET_HORIZON_SERVER"; then
+if ! curl -m 1 "$PAKET_HORIZON_SERVER"; then
     echo "Can't connect to horizon server $PAKET_HORIZON_SERVER"
     return 1 2>/dev/null
     exit 1
