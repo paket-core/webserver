@@ -20,8 +20,8 @@ class InvalidField(Exception):
     """Invalid field."""
 
 
-class FootprintMismatch(Exception):
-    """Footprint does not match call."""
+class FingerprintMismatch(Exception):
+    """Fingerprint does not match call."""
 
 
 class InvalidSignature(Exception):
@@ -37,37 +37,37 @@ def check_missing_fields(fields, required_fields):
         raise MissingFields(', '.join(missing_fields))
 
 
-def check_footprint(footprint, url, kwargs):
+def check_fingerprint(fingerprint, url, kwargs):
     """
-    Raise exception on invalid footprint.
+    Raise exception on invalid fingerprint.
     Currently does not do anything.
     """
     # Copy kwargs before we destroy it.
     kwargs = dict(kwargs)
-    footprint = footprint.split(',')
-    if url != footprint[0]:
-        raise FootprintMismatch("footprint {} does not match call to {}".format(footprint[0], url))
+    fingerprint = fingerprint.split(',')
+    if url != fingerprint[0]:
+        raise FingerprintMismatch("fingerprint {} does not match call to {}".format(fingerprint[0], url))
     try:
-        db.update_nonce(kwargs['user_pubkey'], footprint[-1])
+        db.update_nonce(kwargs['user_pubkey'], fingerprint[-1])
     except db.InvalidNonce as exception:
-        raise FootprintMismatch(str(exception))
-    for key, val in [keyval.split('=') for keyval in footprint[1:-1]]:
+        raise FingerprintMismatch(str(exception))
+    for key, val in [keyval.split('=') for keyval in fingerprint[1:-1]]:
         try:
             call_val = str(kwargs.pop(key))
         except KeyError:
-            raise FootprintMismatch("footprint has extra value {} = {}".format(key, val))
+            raise FingerprintMismatch("fingerprint has extra value {} = {}".format(key, val))
         if call_val != val:
-            raise FootprintMismatch("footprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
+            raise FingerprintMismatch("fingerprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
     if kwargs:
-        raise FootprintMismatch("footprint is missing a value for {}".format(', '.join((kwargs.keys()))))
+        raise FingerprintMismatch("fingerprint is missing a value for {}".format(', '.join((kwargs.keys()))))
     return
 
 
-def check_signature(user_pubkey, footprint, signature):
+def check_signature(user_pubkey, fingerprint, signature):
     """
     Raise exception on invalid signature.
     """
-    LOGGER.ERROR("can't check signature for %s on %s (%s)", user_pubkey, footprint, signature)
+    LOGGER.ERROR("can't check signature for %s on %s (%s)", user_pubkey, fingerprint, signature)
     raise NotImplementedError('Signature checking is not yet implemented.')
 
 
@@ -108,12 +108,12 @@ def check_and_fix_call(request, required_fields):
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
     if request.method == 'POST':
-        check_missing_fields(request.headers.keys(), ['Pubkey', 'Footprint', 'Signature'])
+        check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
     if not DEBUG:
         if '/debug/' in request.path:
-            raise FootprintMismatch("{} only accesible in debug mode".format(request.path))
-        check_footprint(request.headers['Footprint'], request.url, kwargs)
-        check_signature(kwargs['pubkey'], request.headers['Footprint'], request.headers['Signature'])
+            raise FingerprintMismatch("{} only accesible in debug mode".format(request.path))
+        check_fingerprint(request.headers['Fingerprint'], request.url, kwargs)
+        check_signature(kwargs['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
     if 'Pubkey' in request.headers:
         kwargs['user_pubkey'] = request.headers['Pubkey']
     return check_and_fix_values(kwargs)
@@ -151,7 +151,7 @@ def call(handler=None, required_fields=None):
             response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
         except InvalidField as exception:
             response = {'status': 400, 'error': str(exception)}
-        except FootprintMismatch as exception:
+        except FingerprintMismatch as exception:
             response = {'status': 403, 'error': str(exception)}
         except (db.UnknownUser, db.UnknownPaket, paket.stellar_base.utils.AccountNotExistError) as exception:
             response = {'status': 404, 'error': str(exception)}

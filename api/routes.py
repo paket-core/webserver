@@ -18,6 +18,7 @@ SWAGGER_CONFIG = {
         'title': 'The PaKeT http server API',
         'description': """
 Web API Server for The PaKeT Project
+
 What is this?
 =============
 This page is used as both documentation of our server API and as a sandbox to
@@ -42,10 +43,10 @@ Security
 --------
 
 The API
-==
+=======
 
 Walkthrough sample
---
+------------------
 
 another line
 """,
@@ -85,7 +86,7 @@ def submit_transaction_handler(user_pubkey, transaction):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/balance,1521650747
         schema:
@@ -126,7 +127,7 @@ def bul_account_handler(user_pubkey):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/balance,1521650747
         schema:
@@ -171,7 +172,7 @@ def send_buls_handler(user_pubkey, to_pubkey, amount_buls):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/send_buls,to_pubkey=pubkey,amount_buls=amount,1521650747
         schema:
@@ -220,7 +221,7 @@ def prepare_send_buls_handler(user_pubkey, to_pubkey, amount_buls):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/prepare_send_buls,to_pubkey=pubkey,amount_buls=amount,1521650747
         schema:
@@ -271,7 +272,7 @@ def launch_package_handler(
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/launch_package,recipient_pubkey=pubkey,deadline_timestamp=timestamp,courier_pubkey=pubkey,payment_buls=buls,collateral_buls=buls,1521650747
         schema:
@@ -350,7 +351,7 @@ def accept_package_handler(user_pubkey, paket_id, payment_transaction=None):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/accept_package,paket_id=id,1521650747
         schema:
@@ -398,7 +399,7 @@ def relay_package_handler(user_pubkey, paket_id, courier_pubkey, payment_buls):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/relay_package,paket_id=id,courier_pubkey=pubkey,payment_buls=buls,1521650747
         schema:
@@ -461,7 +462,7 @@ def refund_package_handler(user_pubkey, paket_id, refund_transaction):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/refund_package,paket_id=id,refund_transaction=transaction,1521650747
         schema:
@@ -518,7 +519,7 @@ def my_packages_handler(user_pubkey, show_inactive=False, from_date=None, role_i
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/my_packages,1521650747
         schema:
@@ -611,7 +612,7 @@ def package_handler(user_pubkey, paket_id):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/package,paket_id=id,1521650747
         schema:
@@ -716,7 +717,7 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/register_user,full_name=name,phone_number=number,paket_user=user,1521650747
         schema:
@@ -782,7 +783,7 @@ def recover_user_handler(user_pubkey):
         schema:
             type: string
             format: string
-      - name: Footprint
+      - name: Fingerprint
         in: header
         default: NOT NEEDED YET http://localhost:5000/v1/recover_user,1521650747
         schema:

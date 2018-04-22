@@ -73,7 +73,7 @@ class TestAPI(unittest.TestCase):
         """Post data to API server."""
         response = self.app.post("/v{}/{}".format(api.routes.VERSION, path), headers={
             'Pubkey': pubkey,
-            'Footprint': '',
+            'Fingerprint': '',
             'Signature': ''
         }, data=kwargs)
         response = dict(status_code=response.status_code, **json.loads(response.data.decode()))
