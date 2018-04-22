@@ -66,15 +66,10 @@ def submit(builder):
 
 def add_memo(builder, memo):
     """Add a memo with limited length."""
-    memo = bytearray(memo, encoding='utf-8')
     if len(memo) > 28:
         LOGGER.warning("memo length too long: %s>28. Memo truncated!", len(memo))
         memo = memo[:28]
-    else:
-        LOGGER.warning("memo ok: " + len(memo))
-
-    LOGGER.info("memo is: %s    len:%d", memo, len(memo))
-    builder.add_text_memo(str(memo))
+    builder.add_text_memo(memo)
 
 
 def submit_transaction_envelope(from_address, envelope):
@@ -128,7 +123,6 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
         'BUL', ISSUER.address().decode(),
         escrow.address().decode())
     add_memo(builder, "refund minTime: {} maxTime: 0".format(deadline))
-    builder.add_text_memo("refund {}BULs minTime:{}".format(payment + collateral, deadline))
     refund_envelope = builder.gen_te()
 
     # Create payment transaction.
