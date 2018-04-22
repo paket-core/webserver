@@ -71,8 +71,8 @@ Your call should return a status of 200 and include the newly created user's bal
 a list of the signers on the account (should be only the user's pubkey), 
 a list of thresholds (should all be 0) and a sequence number (should be a large integer).
 
-* send_buls: In a production environment, you should use the keypair of a BUL holding account you control for the headers. 
-On the debug environment, you should use the value 'ISSUER', which has access to an unlimited supply of BULs, 
+* send_buls: In a production environment, you should use the keypair of a BUL holding account you control for the 
+headers. On the debug environment, you should use the value 'ISSUER', which has access to an unlimited supply of BULs, 
 for the Pubkey header. Use the pubkey from before as value for the to_pubkey field, and send yourself 222 BULs. 
 Your call should return with a status of 201, and include the transaction details. 
 Of these, copy the value of ['transaction']['hash'] and use the form on the following page to fetch and examine it:
@@ -133,8 +133,9 @@ The API
 @api.validation.call(['transaction'])
 def submit_transaction_handler(user_pubkey, transaction):
     """
-    Get the details of your BUL account
-    Use this call to get the balance and details of your account.
+    Submit a signed transaction.
+    Use this call to submit a signed transaction.
+    A signed transaction is returned from /prepare_send_buls function.
     ---
     tags:
     - wallet
@@ -268,7 +269,12 @@ def prepare_send_buls_handler(user_pubkey, to_pubkey, amount_buls):
     # pylint: disable=line-too-long
     """
     Transfer BULs to another pubkey.
-    Use this call to send part of your balance to another user.
+    Use this call to prepare a transaction that sends part of your balance to another user. This function will return an unsigned transaction.
+    You can use the [laboratory](https://www.stellar.org/laboratory/#txsigner?network=test) to sign the transaction with your private key.
+    You can use the /recover_user call to find out your seed.
+    Than, you can either submit the signed transaction in the laboratory,
+    or use the /submit_transaction call to send the signed transaction for submission.
+
     The to_pubkey can be either a user id, or a wallet pubkey.
     ---
     tags:
