@@ -94,6 +94,7 @@ def send_buls(from_address, to_address, amount):
     source = get_keypair(db.get_user(from_address)['seed'])
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=source.seed())
     builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
+    add_memo(builder, "send {} BULs".format(amount))
     builder.sign()
     return submit(builder)
 
@@ -102,6 +103,7 @@ def prepare_send_buls(from_address, to_address, amount):
     """Transfer BULs."""
     builder = stellar_base.builder.Builder(horizon=HORIZON, address=from_address)
     builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
+    add_memo(builder, "2 phase payment")
     return builder.gen_te().xdr().decode()
 
 
@@ -110,6 +112,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
     escrow = get_keypair()
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=db.get_user(launcher)['seed'])
     builder.append_create_account_op(destination=escrow.address().decode(), starting_balance=5)
+    add_memo("launch {} / {}".format(payment, collateral))
     builder.sign()
     submit(builder)
     trust(escrow)
@@ -185,6 +188,7 @@ def refund(paket_id, refund_envelope):
     now = time.time()
     builder = stellar_base.builder.Builder(horizon=HORIZON, address=paket_id)
     builder.import_from_xdr(refund_envelope)
+    add_memo(builder, "refund")
     for time_bound in builder.time_bounds:
         if time_bound.minTime > 0 and time_bound.minTime > now:
             raise StellarTransactionFailed(
