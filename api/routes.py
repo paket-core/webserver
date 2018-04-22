@@ -49,9 +49,10 @@ Walkthrough sample
 You can follow the following steps one by one. 
 They are ordered in a way that demonstrates the main functionality of the API.
 
-users
------
+Register a user
+---------------
 
+First, register a new user:
 * register_user: if you are in debug mode make sure to use the value 'debug' as the Pubkey header. In such a case, 
 a keypair will be generated and held on your behalf by the system. 
 Your call should return with status code 201 and a JSON with the new user's details. 
@@ -61,9 +62,10 @@ On the debug environment this will include the generated secret seed of the keyp
 Your call should return with a status of 200 and all the details of the user 
 (including the secret seed on the debug environment, as above).
 
-wallet
-------
+Funding with wallet functions
+-----------------------------
 
+Verify a zero balance, and than fund the account.
 * get_bul_account: use the same pubkey as before. 
 Your call should return a status of 200 and include the newly created user's balance in BULs (should be 0), 
 a list of the signers on the account (should be only the user's pubkey), 
@@ -84,8 +86,10 @@ to ensure that your balance reflects the latest transaction.
 Your call should return a status of 200 with the same details as the previous call, 
 excepting that the balance should now be 222.
 
-packages
---------
+Create a package
+----------------
+
+Create (launch) a new package.  
 
 * launch_package: use the new user's pubkey in the header. 
 Use the recipient's pubkey for the recipient_pubkey field and the courier's pubkey for the courier_pubkey field 
