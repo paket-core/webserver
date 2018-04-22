@@ -773,6 +773,8 @@ def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
 def recover_user_handler(user_pubkey):
     """
     Recover user details.
+
+    TODO about the seed
     ---
     tags:
     - users
