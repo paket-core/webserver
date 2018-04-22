@@ -25,7 +25,7 @@ def get_keypair(seed=None):
     keypair = stellar_base.keypair.Keypair.from_seed(
         seed if seed else stellar_base.keypair.Keypair.random().seed())
     keypair.__class__ = type('DisplayKeypair', (stellar_base.keypair.Keypair,), {
-        '__repr__': lambda self: "KeyPair ({})".format(self.address().decode())})
+        '__repr__': lambda self: "KeyPair ({})".format(self.address())})
     return keypair
 
 
