@@ -216,8 +216,6 @@ def package_handler(user_pubkey, paket_id):
 @swag_from("swagfiles/register_user.yml")
 @api.validation.call(['full_name', 'phone_number', 'paket_user'])
 def register_user_handler(user_pubkey, full_name, phone_number, paket_user):
-    # pylint: disable=line-too-long
-    # pylint: enable=line-too-long
     try:
         paket.stellar_base.keypair.Keypair.from_address(str(user_pubkey))
         db.create_user(user_pubkey, paket_user)
