@@ -103,7 +103,7 @@ class TestAPI(unittest.TestCase):
         self.test_register()
         start_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
         amount = 123
-        self.post('send_buls', 200, 'can not send buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
+        self.post('send_buls', 201, 'can not send buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
         end_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
         self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')
 
