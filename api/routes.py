@@ -49,9 +49,10 @@ Walkthrough sample
 You can follow the following steps one by one. 
 They are ordered in a way that demonstrates the main functionality of the API.
 
-users
------
+Register a user
+---------------
 
+First, register a new user:
 * register_user: if you are in debug mode make sure to use the value 'debug' as the Pubkey header. In such a case, 
 a keypair will be generated and held on your behalf by the system. 
 Your call should return with status code 201 and a JSON with the new user's details. 
@@ -61,16 +62,17 @@ On the debug environment this will include the generated secret seed of the keyp
 Your call should return with a status of 200 and all the details of the user 
 (including the secret seed on the debug environment, as above).
 
-wallet
-------
+Funding with wallet functions
+-----------------------------
 
+Verify a zero balance, and than fund the account.
 * get_bul_account: use the same pubkey as before. 
 Your call should return a status of 200 and include the newly created user's balance in BULs (should be 0), 
 a list of the signers on the account (should be only the user's pubkey), 
 a list of thresholds (should all be 0) and a sequence number (should be a large integer).
 
-* send_buls: In a production environment, you should use the keypair of a BUL holding account you control for the headers. 
-On the debug environment, you should use the value 'ISSUER', which has access to an unlimited supply of BULs, 
+* send_buls: In a production environment, you should use the keypair of a BUL holding account you control for the 
+headers. On the debug environment, you should use the value 'ISSUER', which has access to an unlimited supply of BULs, 
 for the Pubkey header. Use the pubkey from before as value for the to_pubkey field, and send yourself 222 BULs. 
 Your call should return with a status of 201, and include the transaction details. 
 Of these, copy the value of ['transaction']['hash'] and use the form on the following page to fetch and examine it:
@@ -84,8 +86,10 @@ to ensure that your balance reflects the latest transaction.
 Your call should return a status of 200 with the same details as the previous call, 
 excepting that the balance should now be 222.
 
-packages
---------
+Create a package
+----------------
+
+Create (launch) a new package.  
 
 * launch_package: use the new user's pubkey in the header. 
 Use the recipient's pubkey for the recipient_pubkey field and the courier's pubkey for the courier_pubkey field 
@@ -129,8 +133,9 @@ The API
 @api.validation.call(['transaction'])
 def submit_transaction_handler(user_pubkey, transaction):
     """
-    Get the details of your BUL account
-    Use this call to get the balance and details of your account.
+    Submit a signed transaction.
+    Use this call to submit a signed transaction.
+    A signed transaction is returned from /prepare_send_buls function.
     ---
     tags:
     - wallet
@@ -264,7 +269,12 @@ def prepare_send_buls_handler(user_pubkey, to_pubkey, amount_buls):
     # pylint: disable=line-too-long
     """
     Transfer BULs to another pubkey.
-    Use this call to send part of your balance to another user.
+    Use this call to prepare a transaction that sends part of your balance to another user. This function will return an unsigned transaction.
+    You can use the [laboratory](https://www.stellar.org/laboratory/#txsigner?network=test) to sign the transaction with your private key.
+    You can use the /recover_user call to find out your seed.
+    Than, you can either submit the signed transaction in the laboratory,
+    or use the /submit_transaction call to send the signed transaction for submission.
+
     The to_pubkey can be either a user id, or a wallet pubkey.
     ---
     tags:
