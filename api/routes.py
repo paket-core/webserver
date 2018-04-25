@@ -46,55 +46,55 @@ Some explanation on keypairs and signatures and how to use them.
 Walkthrough sample
 ==================
 
-You can follow the following steps one by one. 
+You can follow the following steps one by one.
 They are ordered in a way that demonstrates the main functionality of the API.
 
 Register a user
 ---------------
 
 First, register a new user:
-* register_user: if you are in debug mode make sure to use the value 'debug' as the Pubkey header. In such a case, 
-a keypair will be generated and held on your behalf by the system. 
-Your call should return with status code 201 and a JSON with the new user's details. 
+* register_user: if you are in debug mode make sure to use the value 'debug' as the Pubkey header. In such a case,
+a keypair will be generated and held on your behalf by the system.
+Your call should return with status code 201 and a JSON with the new user's details.
 On the debug environment this will include the generated secret seed of the keypair.
 
-* recover_user: use the pubkey from the previous step. 
-Your call should return with a status of 200 and all the details of the user 
+* recover_user: use the pubkey from the previous step.
+Your call should return with a status of 200 and all the details of the user
 (including the secret seed on the debug environment, as above).
 
 Funding with wallet functions
 -----------------------------
 
 Verify a zero balance, and than fund the account.
-* get_bul_account: use the same pubkey as before. 
-Your call should return a status of 200 and include the newly created user's balance in BULs (should be 0), 
-a list of the signers on the account (should be only the user's pubkey), 
+* get_bul_account: use the same pubkey as before.
+Your call should return a status of 200 and include the newly created user's balance in BULs (should be 0),
+a list of the signers on the account (should be only the user's pubkey),
 a list of thresholds (should all be 0) and a sequence number (should be a large integer).
 
-* send_buls: In a production environment, you should use the keypair of a BUL holding account you control for the 
-headers. On the debug environment, you should use the value 'ISSUER', which has access to an unlimited supply of BULs, 
-for the Pubkey header. Use the pubkey from before as value for the to_pubkey field, and send yourself 222 BULs. 
-Your call should return with a status of 201, and include the transaction details. 
+* send_buls: In a production environment, you should use the keypair of a BUL holding account you control for the
+headers. On the debug environment, you should use the value 'ISSUER', which has access to an unlimited supply of BULs,
+for the Pubkey header. Use the pubkey from before as value for the to_pubkey field, and send yourself 222 BULs.
+Your call should return with a status of 201, and include the transaction details.
 Of these, copy the value of ['transaction']['hash'] and use the form on the following page to fetch and examine it:
 https://www.stellar.org/laboratory/#explorer?resource=transactions&endpoint=single&network=test
 
-Specifically, if you click the envelope_xdr that you will receive it will open in the XDR viewer where you can 
+Specifically, if you click the envelope_xdr that you will receive it will open in the XDR viewer where you can
 view the payment operation, and if you click the result_xdr you can check that the payment operation has succeeded.
 
-* get_bul_account: use this call again, with the new user's pubkey, 
-to ensure that your balance reflects the latest transaction. 
-Your call should return a status of 200 with the same details as the previous call, 
+* get_bul_account: use this call again, with the new user's pubkey,
+to ensure that your balance reflects the latest transaction.
+Your call should return a status of 200 with the same details as the previous call,
 excepting that the balance should now be 222.
 
 Create a package
 ----------------
 
-Create (launch) a new package.  
+Create (launch) a new package.
 
-* launch_package: use the new user's pubkey in the header. 
-Use the recipient's pubkey for the recipient_pubkey field and the courier's pubkey for the courier_pubkey field 
-(in the debug environment you can use the strings 'RECIPIENT' and 'COURIER' for the built-in pre-funded accounts). 
-Set the deadline for the delivery in Unix time (https://en.wikipedia.org/wiki/Unix_time), 
+* launch_package: use the new user's pubkey in the header.
+Use the recipient's pubkey for the recipient_pubkey field and the courier's pubkey for the courier_pubkey field
+(in the debug environment you can use the strings 'RECIPIENT' and 'COURIER' for the built-in pre-funded accounts).
+Set the deadline for the delivery in Unix time (https://en.wikipedia.org/wiki/Unix_time),
 with 22 BULs as payment_buls and 50 BULs as collateral_buls.
 
 test in the future
