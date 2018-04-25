@@ -193,7 +193,7 @@ def refund(paket_id, refund_envelope):
         if time_bound.minTime > 0 and time_bound.minTime > now:
             raise StellarTransactionFailed(
                 "transaction can't be sent before {} and it's {}".format(time_bound.minTime, now))
-        if time_bound.maxTime > 0 and time_bound.maxTime < now:
+        if 0 < time_bound.maxTime < now:
             raise StellarTransactionFailed(
                 "transaction can't be sent after {} and it's {}".format(time_bound.maxTime, now))
     return submit(builder)
