@@ -1,0 +1,14 @@
+Get list of packages - for debug only.
+---
+tags:
+- debug
+responses:
+  200:
+    description: list of packages
+    schema:
+      properties:
+        packages:
+          type: array
+          items:
+            $ref: '#/definitions/Package-info'
+

@@ -1,0 +1,34 @@
+Get the details of your BUL account
+Use this call to get the balance and details of your account.
+---
+tags:
+- wallet
+parameters:
+  - name: Pubkey
+    in: header
+    default: COURIER
+    schema:
+        type: string
+        format: string
+  - name: Fingerprint
+    in: header
+    default: NOT NEEDED YET http://localhost:5000/v1/balance,1521650747
+    schema:
+        type: string
+        format: string
+  - name: Signature
+    in: header
+    default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
+    schema:
+        type: string
+        format: string
+responses:
+  200:
+    description: balance in BULs
+    schema:
+      properties:
+        available_buls:
+          type: integer
+          format: int32
+          minimum: 0
+          description: funds available for usage in buls
