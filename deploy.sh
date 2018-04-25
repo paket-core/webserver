@@ -74,7 +74,12 @@ fi
 [ "$fund_stellar" ] && export PAKET_FUND_STELLAR=1
 python -c "import api.server; api.server.init_sandbox()"
 
-[ "$_test" ] && python -m unittest api.test
+if [ "$_test" ]; then
+    python -m unittest api.test
+    which pycodestyle && pycodestyle --max-line-length=120 api/ *.py
+    which pylint && pylint api/ *.py
+
+fi
 
 [ "$shell" ] && python -ic 'import logger; logger.setup(); import db; import paket; p = paket'
 
