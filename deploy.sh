@@ -61,8 +61,12 @@ fi
 # Make sure horizon server is reachable.
 if ! curl -m 2 "$PAKET_HORIZON_SERVER"; then
     echo "Can't connect to horizon server $PAKET_HORIZON_SERVER"
-    return 1 2>/dev/null
-    exit 1
+    read -n 1 -p 'Continue anyway? [y|N] ' c
+    if ! [ y = "$c" ]; then
+        return 1 2>/dev/null
+        exit 1
+    fi
+    echo
 fi
 
 [ "$create_db" ] && export PAKET_CREATE_DB=1 && rm paket.db
