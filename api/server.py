@@ -61,6 +61,7 @@ def create_stellar_account(pubkey, keypair):
         LOGGER.warning("address %s already exists", pubkey)
     paket.trust(keypair)
 
+
 def fund_stellar_account(pubkey):
     """Fund a stellar account."""
     if pubkey == paket.ISSUER.address().decode():
