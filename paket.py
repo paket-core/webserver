@@ -112,7 +112,7 @@ def launch_paket(launcher, recipient, courier, deadline, payment, collateral):
     escrow = get_keypair()
     builder = stellar_base.builder.Builder(horizon=HORIZON, secret=db.get_user(launcher)['seed'])
     builder.append_create_account_op(destination=escrow.address().decode(), starting_balance=5)
-    add_memo("launch {} / {}".format(payment, collateral))
+    add_memo(builder, "launch {} / {}".format(payment, collateral))
     builder.sign()
     submit(builder)
     trust(escrow)
