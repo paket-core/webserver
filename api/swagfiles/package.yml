@@ -1,0 +1,76 @@
+
+Get a full info about a single package.
+---
+tags:
+- packages
+parameters:
+  - name: Pubkey
+    in: header
+    default: COURIER
+    schema:
+        type: string
+        format: string
+  - name: Fingerprint
+    in: header
+    default: NOT NEEDED YET http://localhost:5000/v1/package,paket_id=id,1521650747
+    schema:
+        type: string
+        format: string
+  - name: Signature
+    in: header
+    default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
+    schema:
+        type: string
+        format: string
+  - name: paket_id
+    in: formData
+    description: PKT id
+    required: true
+    type: string
+    default: 0
+definitions:
+  Event:
+    type: object
+    properties:
+      event-type:
+        type: string
+      timestamp:
+        type: integer
+      paket_user:
+        type: string
+      GPS:
+        type: string
+  Package-info:
+    type: object
+    properties:
+      PKT-id:
+        type: string
+      blockchain-url:
+        type: string
+      collateral:
+        type: integer
+      custodian-id:
+        type: string
+      deadline-timestamp:
+        type: integer
+      my-role:
+        type: string
+      paket-url:
+        type: string
+      payment:
+        type: integer
+      recipient-id:
+        type: string
+      send-timestamp:
+        type: integer
+      status:
+        type: string
+      events:
+        type: array
+        items:
+          $ref: '#/definitions/Event'
+responses:
+  200:
+    description: a single packages
+    schema:
+      $ref: '#/definitions/Package-info'
