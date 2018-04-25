@@ -69,12 +69,12 @@ def init_sandbox(create_db=None, create_stellar=None, fund_stellar=None):
             except db.DuplicateUser:
                 LOGGER.debug("User %s already exists", paket_user)
         if create_stellar:
-            LOGGER.debug("Creating account %s", pubkey)
+            LOGGER.debug("Creating account %s", pubkey)  # TODO pubkey may be undefined
             try:
                 paket.new_account(pubkey)
             except paket.StellarTransactionFailed:
                 LOGGER.warning("address %s already exists", pubkey)
-            paket.trust(keypair)
+            paket.trust(keypair)  # TODO keypair may be undefined
         if fund_stellar:
             if pubkey == paket.ISSUER.address().decode():
                 continue
