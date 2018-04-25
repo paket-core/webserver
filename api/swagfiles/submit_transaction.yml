@@ -1,6 +1,5 @@
 Submit a signed transaction.
 Use this call to submit a signed transaction.
-A signed transaction is returned from /prepare_send_buls function.
 ---
 tags:
 - wallet
