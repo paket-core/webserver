@@ -42,6 +42,39 @@ def ratelimit_handler(error):
     return flask.make_response(flask.jsonify({'code': 429, 'error': msg}), 429)
 
 
+def create_db_user(paket_user, pubkey, seed):
+    """Create a new user in the DB."""
+    LOGGER.debug("Creating user %s", paket_user)
+    try:
+        db.create_user(pubkey, paket_user, seed)
+        db.update_user_details(pubkey, paket_user, '123-456')
+    except db.DuplicateUser:
+        LOGGER.debug("User %s already exists", paket_user)
+
+
+def create_stellar_account(pubkey, keypair):
+    """Create a stellar account."""
+    LOGGER.debug("Creating account %s", pubkey)
+    try:
+        paket.new_account(pubkey)
+    except paket.StellarTransactionFailed:
+        LOGGER.warning("address %s already exists", pubkey)
+    paket.trust(keypair)
+
+def fund_stellar_account(pubkey):
+    """Fund a stellar account."""
+    if pubkey == paket.ISSUER.address().decode():
+        return
+    try:
+        balance = paket.get_bul_account(pubkey)['balance']
+    except paket.stellar_base.utils.AccountNotExistError:
+        LOGGER.error("address %s does not exist", pubkey)
+        return
+    if balance < 100:
+        LOGGER.warning("address %s has only %s BUL", pubkey, balance)
+        paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)
+
+
 def init_sandbox(create_db=None, create_stellar=None, fund_stellar=None):
     """Initialize database with debug values and fund users. For debug only."""
     if create_db is None and bool(os.environ.get('PAKET_CREATE_DB')):
@@ -53,36 +86,16 @@ def init_sandbox(create_db=None, create_stellar=None, fund_stellar=None):
 
     if create_db:
         db.init_db()
-
     for paket_user, seed in [
             (key.split('PAKET_USER_', 1)[1], value)
             for key, value in os.environ.items()
             if key.startswith('PAKET_USER_')
     ]:
+        keypair = paket.get_keypair(seed)
+        pubkey, seed = keypair.address().decode(), keypair.seed().decode()
         if create_db:
-            LOGGER.debug("Creating user %s", paket_user)
-            keypair = paket.get_keypair(seed)
-            pubkey, seed = keypair.address().decode(), keypair.seed().decode()
-            try:
-                db.create_user(pubkey, paket_user, seed)
-                db.update_user_details(pubkey, paket_user, '123-456')
-            except db.DuplicateUser:
-                LOGGER.debug("User %s already exists", paket_user)
+            create_db_user(paket_user, pubkey, seed)
         if create_stellar:
-            LOGGER.debug("Creating account %s", pubkey)
-            try:
-                paket.new_account(pubkey)
-            except paket.StellarTransactionFailed:
-                LOGGER.warning("address %s already exists", pubkey)
-            paket.trust(keypair)
+            create_stellar_account(pubkey, keypair)
         if fund_stellar:
-            if pubkey == paket.ISSUER.address().decode():
-                continue
-            try:
-                balance = paket.get_bul_account(pubkey)['balance']
-            except paket.stellar_base.utils.AccountNotExistError:
-                LOGGER.error("address %s does not exist", pubkey)
-                continue
-            if balance < 100:
-                LOGGER.warning("user %s has only %s BUL", paket_user, balance)
-                paket.send_buls(paket.ISSUER.address().decode(), pubkey, 1000 - balance)
+            fund_stellar_account(pubkey)
