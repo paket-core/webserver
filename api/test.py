@@ -123,7 +123,7 @@ class TestAPI(unittest.TestCase):
             'get', 'bul_account', 200, 'can not get balance', queried_pubkey=target['pubkey'])['balance']
         amount = 123
         unsigned_tx = self.call(
-            'get', 'prepare_send_buls', 200, 'can not prepare send', source['pubkey'],
+            'get', 'prepare_send_buls', 200, 'can not prepare send', from_pubkey=source['pubkey'],
             to_pubkey=target['pubkey'], amount_buls=amount)['transaction']
         builder = paket.stellar_base.builder.Builder(horizon=paket.HORIZON, secret=source['seed'])
         builder.import_from_xdr(unsigned_tx)
