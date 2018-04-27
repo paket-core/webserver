@@ -69,13 +69,17 @@ class TestAPI(unittest.TestCase):
     def tearDown(self):
         os.unlink(db.DB_NAME)
 
-    def post(self, path, expected_code=None, fail_message=None, pubkey='', **kwargs):
+    def call(self, call_type, path, expected_code=None, fail_message=None, pubkey=None, **kwargs):
         """Post data to API server."""
-        response = self.app.post("/v{}/{}".format(api.routes.VERSION, path), headers={
-            'Pubkey': pubkey,
-            'Fingerprint': '',
-            'Signature': ''
-        }, data=kwargs)
+        if call_type == 'post':
+            call_func = self.app.post
+        elif call_type == 'get':
+            call_func = self.app.get
+        if pubkey:
+            headers = {'Pubkey': pubkey, 'Fingerprint': '', 'Signature': ''}
+        else:
+            headers = None
+        response = call_func("/v{}/{}".format(api.routes.VERSION, path), headers=headers, data=kwargs)
         response = dict(status_code=response.status_code, **json.loads(response.data.decode()))
         if expected_code:
             self.assertEqual(response['status_code'], expected_code, "{} ({})".format(
@@ -90,21 +94,22 @@ class TestAPI(unittest.TestCase):
     def test_register(self):
         """Register a new user and recover it."""
         phone_number = str(os.urandom(8))
-        self.post(
-            'register_user', 201, 'user creation failed', pubkey='debug',
+        self.call(
+            'post', 'register_user', 201, 'user creation failed', pubkey='stam',
             full_name='First Last', phone_number=phone_number, paket_user='stam')
         self.assertEqual(
-            self.post('recover_user', 200, 'can not recover user', 'stam')['user_details']['phone_number'],
+            self.call('post', 'recover_user', 200, 'can not recover user', 'stam')['user_details']['phone_number'],
             phone_number, 'user phone_number does not match')
 
     def test_send_buls(self):
         """Send BULs and check balance."""
         api.server.init_sandbox(True, False, False)
         self.test_register()
-        start_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
+
+        start_balance = self.call('get', 'bul_account', 200, 'can not get balance', queried_pubkey='stam')['balance']
         amount = 123
-        self.post('send_buls', 201, 'can not send buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
-        end_balance = self.post('bul_account', 200, 'can not get balance', 'stam')['balance']
+        self.call('post', 'send_buls', 201, 'can not send buls', 'ISSUER', to_pubkey='stam', amount_buls=amount)
+        end_balance = self.call('get', 'bul_account', 200, 'can not get balance', queried_pubkey='stam')['balance']
         self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')
 
     def test_two_stage_send_buls(self):
@@ -114,17 +119,19 @@ class TestAPI(unittest.TestCase):
         api.server.init_sandbox(True, False, False)
         source = db.get_user(db.get_pubkey_from_paket_user('ISSUER'))
         target = db.get_user(db.get_pubkey_from_paket_user('RECIPIENT'))
-        start_balance = self.post('bul_account', 200, 'can not get balance', target['pubkey'])['balance']
+        start_balance = self.call(
+            'get', 'bul_account', 200, 'can not get balance', queried_pubkey=target['pubkey'])['balance']
         amount = 123
-        unsigned_tx = self.post(
-            'prepare_send_buls', 200, 'can not prepare send', source['pubkey'],
+        unsigned_tx = self.call(
+            'get', 'prepare_send_buls', 200, 'can not prepare send', source['pubkey'],
             to_pubkey=target['pubkey'], amount_buls=amount)['transaction']
         builder = paket.stellar_base.builder.Builder(horizon=paket.HORIZON, secret=source['seed'])
         builder.import_from_xdr(unsigned_tx)
         builder.sign()
         signed_tx = builder.gen_te().xdr().decode()
-        self.post(
-            'submit_transaction', 200, 'submit transaction failed',
+        self.call(
+            'post', 'submit_transaction', 200, 'submit transaction failed',
             source['pubkey'], transaction=signed_tx)
-        end_balance = self.post('bul_account', 200, 'can not get balance', target['pubkey'])['balance']
+        end_balance = self.call(
+            'get', 'bul_account', 200, 'can not get balance', queried_pubkey=target['pubkey'])['balance']
         return self.assertEqual(end_balance - start_balance, amount, 'balance does not add up after send')
