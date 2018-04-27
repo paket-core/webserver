@@ -34,7 +34,7 @@ def check_missing_fields(fields, required_fields):
         required_fields = set()
     missing_fields = set(required_fields) - set(fields)
     if missing_fields:
-        raise MissingFields(', '.join(missing_fields))
+        raise MissingFields("Request does not contain field(s): {}".format(', '.join(missing_fields)))
 
 
 def check_fingerprint(fingerprint, url, kwargs):
@@ -103,19 +103,28 @@ def check_and_fix_values(kwargs):
     return kwargs
 
 
-def check_and_fix_call(request, required_fields):
+def check_and_fix_call(request, required_fields, require_auth):
     """Check call and extract kwargs."""
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
-    if request.method == 'POST':
-        check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
+
     if not DEBUG:
         if '/debug/' in request.path:
             raise FingerprintMismatch("{} only accesible in debug mode".format(request.path))
-        check_fingerprint(request.headers['Fingerprint'], request.url, kwargs)
-        check_signature(kwargs['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
+
+        if require_auth:
+            check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
+            check_fingerprint(request.headers['Fingerprint'], request.url, kwargs)
+            check_signature(request.headers['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
+
     if 'Pubkey' in request.headers:
         kwargs['user_pubkey'] = request.headers['Pubkey']
+
+        # Special case for registering users that do not yet exists.
+        if '/register_user' in request.path:
+            kwargs['pubkey'] = kwargs['user_pubkey']
+            del kwargs['user_pubkey']
+
     return check_and_fix_values(kwargs)
 
 
@@ -133,7 +142,7 @@ def optional_arg_decorator(decorator):
 # Since this is a decorator the handler argument will never be None, it is
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
-def call(handler=None, required_fields=None):
+def call(handler=None, required_fields=None, require_auth=None):
     """
     A decorator to handle all API calls: extracts arguments, validates them,
     fixes them, handles authentication, and then passes them to the handler,
@@ -145,11 +154,9 @@ def call(handler=None, required_fields=None):
         # If anything fails, we want to catch it here.
         response = {'status': 500, 'error': 'Internal server error'}
         try:
-            kwargs = check_and_fix_call(flask.request, required_fields)
+            kwargs = check_and_fix_call(flask.request, required_fields, require_auth or False)
             response = handler(**kwargs)
-        except MissingFields as exception:
-            response = {'status': 400, 'error': "Request does not contain field(s): {}".format(exception)}
-        except InvalidField as exception:
+        except (MissingFields, InvalidField) as exception:
             response = {'status': 400, 'error': str(exception)}
         except FingerprintMismatch as exception:
             response = {'status': 403, 'error': str(exception)}

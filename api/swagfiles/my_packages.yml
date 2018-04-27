@@ -26,13 +26,13 @@ parameters:
         type: string
         format: string
   - name: show_inactive
-    in: formData
+    in: query
     description: include inactive packages in response
     required: false
     type: boolean
     default: false
   - name: from_date
-    in: formData
+    in: query
     description: show only packages from this date forward
     required: false
     type: string

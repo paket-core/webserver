@@ -10,18 +10,6 @@ parameters:
     schema:
         type: string
         format: string
-  - name: Fingerprint
-    in: header
-    default: NOT NEEDED YET http://localhost:5000/v1/balance,1521650747
-    schema:
-        type: string
-        format: string
-  - name: Signature
-    in: header
-    default: NOT NEEDED YET 0xa7d77cf679a2456325bbba3b92d994f5987b68c147bad18e24e6b66f5dc
-    schema:
-        type: string
-        format: string
   - name: transaction
     in: formData
     description: Transaction to submit
