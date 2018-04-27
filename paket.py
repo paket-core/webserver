@@ -103,7 +103,6 @@ def prepare_send_buls(from_address, to_address, amount):
     """Transfer BULs."""
     builder = stellar_base.builder.Builder(horizon=HORIZON, address=from_address)
     builder.append_payment_op(to_address, amount, 'BUL', ISSUER.address().decode())
-    add_memo(builder, "2 phase payment")
     return builder.gen_te().xdr().decode()
 
 
