@@ -130,7 +130,7 @@ def get_user(pubkey):
         sql.execute("""
             SELECT * FROM users
             JOIN nonces on users.pubkey = nonces.pubkey
-            JOIN keys on users.pubkey = keys.pubkey
+            LEFT JOIN keys on users.pubkey = keys.pubkey
             WHERE users.pubkey = ?""", (pubkey,))
         user = sql.fetchone()
         if user is None:
