@@ -96,7 +96,7 @@ def check_and_fix_values(kwargs):
                 if DEBUG:
                     if value is None:
                         continue
-                    LOGGER.warning("Attempting conversion of user ID %s to pubkey", value)
+                    LOGGER.warning("Attempting conversion of %s %s to pubkey", key, value)
                     kwargs[key] = db.get_pubkey_from_paket_user(value)
                 else:
                     raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
