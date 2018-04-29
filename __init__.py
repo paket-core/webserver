@@ -4,6 +4,10 @@ import os
 import flask
 import flask_limiter.util
 
+# pylint: disable=wildcard-import
+from validation import *
+# pylint: enable=wildcard-import
+
 try:
     import logger
     logger.setup()
