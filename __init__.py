@@ -5,7 +5,7 @@ import flask
 import flask_limiter.util
 
 # pylint: disable=wildcard-import
-from validation import *
+from webserver.validation import *
 # pylint: enable=wildcard-import
 
 try:
