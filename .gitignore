@@ -1,7 +1,6 @@
-*.pyc
+*$py.class
+*.log
+*.py[cod]
 .idea
-env
-paket.db
-paket.env
-paket.log
+__pycache__/
 venv
