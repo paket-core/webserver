@@ -4,10 +4,14 @@ import os
 import flask
 import flask_limiter.util
 
-import logger
+try:
+    import logger
+    logger.setup()
+    LOGGER = logger.logging.getLogger('pkt.web')
+except ModuleNotFoundError:
+    import logging
+    LOGGER = logging.getLogger('pkt.web')
 
-LOGGER = logger.logging.getLogger('pkt.web')
-logger.setup()
 
 # Initialize flask app.
 APP = flask.Flask('PaKeT')
