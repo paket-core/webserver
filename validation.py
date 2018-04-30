@@ -40,7 +40,7 @@ class UnknownUser(Exception):
 def sql_connection():
     """Context manager for querying the database."""
     try:
-        connection = sqlite3.connect('nonces')
+        connection = sqlite3.connect('nonces.db')
         connection.row_factory = sqlite3.Row
         yield connection.cursor()
         connection.commit()
