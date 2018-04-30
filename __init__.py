@@ -5,19 +5,13 @@ import flasgger
 import flask
 import flask_limiter.util
 
+import logger
+
 import webserver.validation
 
-try:
-    import logger
-    logger.setup()
-    LOGGER = logger.logging
-except ModuleNotFoundError:
-    import logging
-    LOGGER = logging
-LOGGER = LOGGER.getLogger('pkt.web')
+logger.setup()
+LOGGER = logger.logging.getLogger('pkt.web')
 
-
-# Initialize flask app.
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']
