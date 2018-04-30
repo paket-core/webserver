@@ -5,6 +5,8 @@ import flasgger
 import flask
 import flask_limiter.util
 
+import webserver.validation
+
 try:
     import logger
     logger.setup()
@@ -23,7 +25,7 @@ DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
 
-def run(blueprint=None, swagger_config=None, debug=None):
+def run(blueprint=None, swagger_config=None):
     """Register blueprint, initialize flasgger, register catchall, and run."""
     if blueprint:
         APP.register_blueprint(blueprint)
@@ -31,9 +33,9 @@ def run(blueprint=None, swagger_config=None, debug=None):
         APP.config['SWAGGER'] = swagger_config
         flasgger.Swagger(APP)
 
-
     @APP.route('/')
     @APP.route('/<path:path>', methods=['GET', 'POST'])
+    # pylint: disable=unused-variable
     def catch_all_handler(path='index.html'):
         """All undefined endpoints try to serve from the static directories."""
         for directory in STATIC_DIRS:
@@ -41,8 +43,7 @@ def run(blueprint=None, swagger_config=None, debug=None):
                 return flask.send_from_directory(directory, path)
         return flask.jsonify({'status': 403, 'error': "Forbidden path: {}".format(path)}), 403
 
-
-    APP.run('0.0.0.0', 5000, debug)
+    APP.run('0.0.0.0', 5000, webserver.validation.DEBUG)
 
 
 @APP.errorhandler(429)

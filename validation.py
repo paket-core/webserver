@@ -88,6 +88,7 @@ def get_pubkey_from_user_name(user_name):
         except TypeError:
             raise UnknownUser("unknown user {}".format(user_name))
 
+
 def check_missing_fields(fields, required_fields):
     """Raise exception if there are missing fields."""
     if required_fields is None:

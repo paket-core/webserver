@@ -35,8 +35,6 @@ SWAGGER_CONFIG = {
     'specs': [{
         'endpoint': '/',
         'route': '/apispec.json',
-        'rule_filter': lambda rule: True,  # all in
-        'model_filter': lambda tag: True,  # all in
     }],
     'description': 'Not much here.'
 }
@@ -94,4 +92,4 @@ def test_handler():
     return {'status': 200, 'message': 'success!'}
 
 
-webserver.run(BLUEPRINT, SWAGGER_CONFIG, True)
+webserver.run(BLUEPRINT, SWAGGER_CONFIG)
