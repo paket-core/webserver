@@ -1,20 +1,18 @@
 """PaKeT Web Server."""
 import os
 
+import flasgger
 import flask
 import flask_limiter.util
-
-# pylint: disable=wildcard-import
-from webserver.validation import *
-# pylint: enable=wildcard-import
 
 try:
     import logger
     logger.setup()
-    LOGGER = logger.logging.getLogger('pkt.web')
+    LOGGER = logger
 except ModuleNotFoundError:
     import logging
-    LOGGER = logging.getLogger('pkt.web')
+    LOGGER = logging
+LOGGER = LOGGER.getLogger('pkt.web')
 
 
 # Initialize flask app.
@@ -25,14 +23,26 @@ DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
 
-@APP.route('/')
-@APP.route('/<path:path>', methods=['GET', 'POST'])
-def catch_all_handler(path='index.html'):
-    """All undefined endpoints try to serve from the static directories."""
-    for directory in STATIC_DIRS:
-        if os.path.isfile(os.path.join(directory, path)):
-            return flask.send_from_directory(directory, path)
-    return flask.jsonify({'status': 403, 'error': "Forbidden path: {}".format(path)}), 403
+def run(blueprint=None, swagger_config=None, debug=None):
+    """Register blueprint, initialize flasgger, register catchall, and run."""
+    if blueprint:
+        APP.register_blueprint(blueprint)
+    if swagger_config:
+        APP.config['SWAGGER'] = swagger_config
+        flasgger.Swagger(APP)
+
+
+    @APP.route('/')
+    @APP.route('/<path:path>', methods=['GET', 'POST'])
+    def catch_all_handler(path='index.html'):
+        """All undefined endpoints try to serve from the static directories."""
+        for directory in STATIC_DIRS:
+            if os.path.isfile(os.path.join(directory, path)):
+                return flask.send_from_directory(directory, path)
+        return flask.jsonify({'status': 403, 'error': "Forbidden path: {}".format(path)}), 403
+
+
+    APP.run('0.0.0.0', 5000, debug)
 
 
 @APP.errorhandler(429)
