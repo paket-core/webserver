@@ -8,7 +8,7 @@ import flask_limiter.util
 try:
     import logger
     logger.setup()
-    LOGGER = logger
+    LOGGER = logger.logging
 except ModuleNotFoundError:
     import logging
     LOGGER = logging
