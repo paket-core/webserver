@@ -6,6 +6,7 @@ import os
 import sqlite3
 
 import flask
+import stellar_base
 
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
@@ -23,15 +24,23 @@ class FingerprintMismatch(Exception):
     """Fingerprint does not match call."""
 
 
+class InvalidNonce(Exception):
+    """Invalid nonce."""
+
+
 class InvalidSignature(Exception):
     """Invalid signature."""
+
+
+class UnknownUser(Exception):
+    """Unknown user."""
 
 
 @contextlib.contextmanager
 def sql_connection():
     """Context manager for querying the database."""
     try:
-        connection = sqlite3.connect(DB_NAME)
+        connection = sqlite3.connect('nonces')
         connection.row_factory = sqlite3.Row
         yield connection.cursor()
         connection.commit()
@@ -151,8 +160,8 @@ def check_and_fix_values(kwargs):
             if DEBUG and value == 'debug':
                 continue
             try:
-                paket.stellar_base.keypair.Keypair.from_address(value)
-            except (TypeError, paket.stellar_base.utils.DecodeError):
+                stellar_base.keypair.Keypair.from_address(value)
+            except (TypeError, stellar_base.utils.DecodeError):
                 if DEBUG:
                     if value is None:
                         continue
@@ -220,10 +229,8 @@ def call(handler=None, required_fields=None, require_auth=None):
             response = {'status': 400, 'error': str(exception)}
         except FingerprintMismatch as exception:
             response = {'status': 403, 'error': str(exception)}
-        except (UnknownUser, UnknownPaket, paket.stellar_base.utils.AccountNotExistError) as exception:
+        except UnknownUser as exception:
             response = {'status': 404, 'error': str(exception)}
-        except DuplicateUser as exception:
-            response = {'status': 409, 'error': str(exception)}
         except NotImplementedError as exception:
             response = {'status': 501, 'error': str(exception)}
         except Exception as exception:
