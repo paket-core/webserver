@@ -6,7 +6,8 @@ import os
 import sqlite3
 
 import flask
-import stellar_base
+import stellar_base.keypair
+import stellar_base.utils
 
 NONCES_DB_NAME = 'nonces.db'
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
