@@ -85,20 +85,6 @@ def update_nonce(pubkey, new_nonce, user_name=None):
             sql.execute("UPDATE nonces SET user_name = ? WHERE pubkey = ?", (user_name, pubkey))
 
 
-def get_pubkey_from_user_name(user_name):
-    """
-    Get the pubkey associated with a user_name. Raise exception if user_name is unknown.
-    For debug only.
-    """
-    LOGGER.warning("getting key for %s", user_name)
-    with sql_connection() as sql:
-        sql.execute('SELECT pubkey FROM nonces WHERE user_name = ?', (user_name,))
-        try:
-            return sql.fetchone()[0]
-        except TypeError:
-            raise UnknownUser("unknown user {}".format(user_name))
-
-
 def check_missing_fields(fields, required_fields):
     """Raise exception if there are missing fields."""
     if required_fields is None:
@@ -145,7 +131,7 @@ def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
     "_buls" and "_timestamp" fields must be valid integers.
-    "_pubkey" fields must be valid addresses (or user_name in debug mode).
+    "_pubkey" fields must be valid addresses.
     """
     for key, value in kwargs.items():
         if key.endswith('_buls') or key.endswith('_timestamp'):
@@ -158,18 +144,10 @@ def check_and_fix_values(kwargs):
                 raise InvalidField("the value of {}({}) is less than zero".format(key, value))
             kwargs[key] = int_val
         elif key.endswith('_pubkey'):
-            if DEBUG and value == 'debug':
-                continue
             try:
                 stellar_base.keypair.Keypair.from_address(value)
             except (TypeError, stellar_base.utils.DecodeError):
-                if DEBUG:
-                    if value is None:
-                        continue
-                    LOGGER.warning("Attempting conversion of %s %s to pubkey", key, value)
-                    kwargs[key] = get_pubkey_from_user_name(value)
-                else:
-                    raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
+                raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
     return kwargs
 
 
