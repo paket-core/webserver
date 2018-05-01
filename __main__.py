@@ -5,9 +5,9 @@ import os.path
 import flasgger
 import flask
 
+# Python imports are silly.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 # pylint: disable=wrong-import-position
-# Python imports are silly.
 import webserver
 import webserver.validation
 # pylint: enable=wrong-import-position
