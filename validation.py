@@ -98,7 +98,7 @@ def check_signature(user_pubkey, fingerprint, signature):
     """
     Raise exception on invalid signature.
     """
-    LOGGER.ERROR("can't check signature for %s on %s (%s)", user_pubkey, fingerprint, signature)
+    LOGGER.error("can't check signature for %s on %s (%s)", user_pubkey, fingerprint, signature)
     raise NotImplementedError('Signature checking is not yet implemented.')
 
 
