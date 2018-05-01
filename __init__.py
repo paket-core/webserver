@@ -19,8 +19,8 @@ DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
 
 
-def run(blueprint=None, swagger_config=None):
-    """Register blueprint, initialize flasgger, register catchall, and run."""
+def setup(blueprint=None, swagger_config=None):
+    """Register blueprint, flasgger, and catchall."""
     if blueprint:
         APP.register_blueprint(blueprint)
     if swagger_config:
@@ -37,7 +37,12 @@ def run(blueprint=None, swagger_config=None):
                 return flask.send_from_directory(directory, path)
         return flask.jsonify({'status': 403, 'error': "Forbidden path: {}".format(path)}), 403
 
-    APP.run('0.0.0.0', 5000, webserver.validation.DEBUG)
+    return APP
+
+
+def run(blueprint=None, swagger_config=None):
+    """Register blueprint, initialize flasgger, register catchall, and run."""
+    setup(blueprint, swagger_config).run('0.0.0.0', 5000, webserver.validation.DEBUG)
 
 
 @APP.errorhandler(429)
