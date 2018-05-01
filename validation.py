@@ -8,6 +8,7 @@ import sqlite3
 import flask
 import stellar_base
 
+NONCES_DB_NAME = 'nonces.db'
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
 
@@ -40,7 +41,7 @@ class UnknownUser(Exception):
 def sql_connection():
     """Context manager for querying the database."""
     try:
-        connection = sqlite3.connect('nonces.db')
+        connection = sqlite3.connect(NONCES_DB_NAME)
         connection.row_factory = sqlite3.Row
         yield connection.cursor()
         connection.commit()
