@@ -211,6 +211,8 @@ def call(handler=None, required_fields=None, require_auth=None):
             response = {'status': 403, 'error': str(exception)}
         except UnknownUser as exception:
             response = {'status': 404, 'error': str(exception)}
+        except AssertionError as exception:
+            response = {'status': 409, 'error': str(exception)}
         except NotImplementedError as exception:
             response = {'status': 501, 'error': str(exception)}
         except Exception as exception:
