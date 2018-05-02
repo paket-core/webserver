@@ -16,7 +16,7 @@ VERSION = 1
 BLUEPRINT = flask.Blueprint('test', __name__)
 SWAGGER_CONFIG = {
     'title': 'Webserver demo',
-    'uiversion': 3,
+    'uiversion': 2,
     'specs_route': '/',
     'info': {
         'title': 'Just a demo',
@@ -38,58 +38,83 @@ SWAGGER_CONFIG = {
     }],
     'description': 'Not much here.'
 }
-TEST_SWAGGER = {
-    "parameters": [
+
+SIGN = {
+    'parameters': [
         {
-            "name": "palette",
-            "in": "path",
-            "type": "string",
-            "enum": [
-                "all",
-                "rgb",
-                "cmyk"
-                ],
-            "required": "true",
-            "default": "all"
-        }
-    ],
-    "definitions": {
-        "Palette": {
-            "type": "object",
-            "properties": {
-                "palette_name": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Color"
-                    }
-                }
+            'name': 'seed',
+            'in': 'formData',
+            'schema': {
+                'type': 'string',
+                'format': 'string'
             }
         },
-        "Color": {"type": "string"}
-    },
-    "responses": {
-        "200": {
-            "description": "A list of colors (may be filtered by palette)",
-            "schema": {
-                "$ref": "#/definitions/Palette"},
-            "examples": {
-                "rgb": [
-                    "red",
-                    "green",
-                    "blue"
-                ]
+        {
+            'name': 'fingerprint',
+            'in': 'formData',
+            'schema': {
+                'type': 'string',
+                'format': 'string'
             }
+        },
+    ],
+    'responses': {
+        '201': {
+            'description': 'Base64 encoded signature.'
         }
     }
 }
 
 
-@BLUEPRINT.route("/v{}/test".format(VERSION), methods=['GET', 'POST'])
-@flasgger.swag_from(TEST_SWAGGER)
-@webserver.validation.call(['transaction'])
-def test_handler():
-    """Just a test."""
-    return {'status': 200, 'message': 'success!'}
+CHECK_SIGNATURE = {
+    'parameters': [
+        {
+            'name': 'Pubkey',
+            'in': 'header',
+            'schema': {
+                'type': 'string',
+                'format': 'string'
+            }
+        },
+        {
+            'name': 'Fingerprint',
+            'in': 'header',
+            'schema': {
+                'type': 'string',
+                'format': 'string'
+            }
+        },
+        {
+            'name': 'Signature',
+            'in': 'header',
+            'schema': {
+                'type': 'string',
+                'format': 'string'
+            }
+        },
+    ],
+    'responses': {
+        '200': {
+            'description': 'Signature verified.'
+        }
+    }
+}
+
+
+@BLUEPRINT.route("/v{}/sign".format(VERSION), methods=['POST'])
+@flasgger.swag_from(SIGN)
+@webserver.validation.call(['seed', 'fingerprint'])
+def sign_handler(fingerprint, seed):
+    """Sign a fingerprint."""
+    return {'status': 201, 'signature': webserver.validation.sign_fingerprint(fingerprint, seed)}
+
+
+@BLUEPRINT.route("/v{}/check_signature".format(VERSION), methods=['GET'])
+@flasgger.swag_from(CHECK_SIGNATURE)
+@webserver.validation.call(require_auth=True)
+def check_signature_handler(user_pubkey):
+    """Check a signature."""
+    return {'status': 200, 'message': "signature verified for {}".format(user_pubkey)}
 
 
 webserver.run(BLUEPRINT, SWAGGER_CONFIG)

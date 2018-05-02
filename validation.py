@@ -1,4 +1,5 @@
 """Validations for API calls."""
+import base64
 import contextlib
 import functools
 import logging
@@ -80,7 +81,7 @@ def update_nonce(pubkey, new_nonce, user_name=None):
         except TypeError:
             sql.execute("INSERT INTO nonces (pubkey) VALUES (?)", (pubkey,))
         except ValueError:
-            raise InvalidNonce("nonce {} is not an integer".format(new_nonce))
+            raise InvalidNonce("fingerprint does not end with an integer nonce ({})".format(new_nonce))
         sql.execute("UPDATE nonces SET nonce = ? WHERE pubkey = ?", (new_nonce, pubkey))
         if user_name:
             sql.execute("UPDATE nonces SET user_name = ? WHERE pubkey = ?", (user_name, pubkey))
@@ -95,15 +96,26 @@ def check_missing_fields(fields, required_fields):
         raise MissingFields("Request does not contain field(s): {}".format(', '.join(missing_fields)))
 
 
+def sign_fingerprint(fingerprint, seed):
+    """Helper signing function for debug purposes."""
+    fingerprint = bytes(fingerprint, 'utf-8')
+    signature = stellar_base.keypair.Keypair.from_seed(seed).sign(fingerprint)
+    return base64.b64encode(signature).decode()
+
+
 def check_signature(user_pubkey, fingerprint, signature):
     """
     Raise exception on invalid signature.
     """
-    LOGGER.error("can't check signature for %s on %s (%s)", user_pubkey, fingerprint, signature)
-    raise NotImplementedError('Signature checking is not yet implemented.')
+    signature = base64.b64decode(signature)
+    fingerprint = bytes(fingerprint, 'utf-8')
+    try:
+        stellar_base.keypair.Keypair.from_address(user_pubkey).verify(fingerprint, signature)
+    except:
+        raise InvalidSignature("Signature does not match pubkey {} and data {}".format(user_pubkey, fingerprint))
 
 
-def check_fingerprint(fingerprint, url, kwargs):
+def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
     """
     Raise exception on invalid fingerprint.
     """
@@ -113,7 +125,7 @@ def check_fingerprint(fingerprint, url, kwargs):
     if url != fingerprint[0]:
         raise FingerprintMismatch("fingerprint {} does not match call to {}".format(fingerprint[0], url))
     try:
-        update_nonce(kwargs['user_pubkey'], fingerprint[-1])
+        update_nonce(user_pubkey, fingerprint[-1])
     except InvalidNonce as exception:
         raise FingerprintMismatch(str(exception))
     for key, val in [keyval.split('=') for keyval in fingerprint[1:-1]]:
@@ -164,7 +176,7 @@ def check_and_fix_call(request, required_fields, require_auth):
         if require_auth:
             check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
             check_signature(request.headers['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
-            check_fingerprint(request.headers['Fingerprint'], request.url, kwargs)
+            check_fingerprint(request.headers['pubkey'], request.headers['Fingerprint'], request.url, kwargs)
 
     if 'Pubkey' in request.headers:
         kwargs['user_pubkey'] = request.headers['Pubkey']
@@ -207,7 +219,7 @@ def call(handler=None, required_fields=None, require_auth=None):
             response = handler(**kwargs)
         except (MissingFields, InvalidField) as exception:
             response = {'status': 400, 'error': str(exception)}
-        except FingerprintMismatch as exception:
+        except (FingerprintMismatch, InvalidSignature) as exception:
             response = {'status': 403, 'error': str(exception)}
         except UnknownUser as exception:
             response = {'status': 404, 'error': str(exception)}
