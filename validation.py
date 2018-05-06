@@ -110,10 +110,13 @@ def check_signature(user_pubkey, fingerprint, signature):
     """
     signature = base64.b64decode(signature)
     fingerprint = bytes(fingerprint, 'utf-8')
+    # pylint: disable=broad-except
+    # If anything fails, we want to raise our own exception.
     try:
         stellar_base.keypair.Keypair.from_address(user_pubkey).verify(fingerprint, signature)
-    except:
+    except Exception:
         raise InvalidSignature("Signature does not match pubkey {} and data {}".format(user_pubkey, fingerprint))
+    # pylint: enable=broad-except
 
 
 def generate_fingerprint(uri, kwargs=None):
@@ -238,6 +241,7 @@ def call(handler=None, required_fields=None, require_auth=None):
             LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
             if DEBUG:
                 response['debug'] = str(exception)
+        # pylint: enable=broad-except
         if 'error' in response:
             LOGGER.error(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
