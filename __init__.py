@@ -40,9 +40,9 @@ def setup(blueprint=None, swagger_config=None):
     return APP
 
 
-def run(blueprint=None, swagger_config=None):
+def run(blueprint=None, swagger_config=None, port=5000):
     """Register blueprint, initialize flasgger, register catchall, and run."""
-    setup(blueprint, swagger_config).run('0.0.0.0', 5000, webserver.validation.DEBUG)
+    setup(blueprint, swagger_config).run('0.0.0.0', port, webserver.validation.DEBUG)
 
 
 @APP.errorhandler(429)
