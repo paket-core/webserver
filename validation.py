@@ -119,7 +119,7 @@ def check_signature(user_pubkey, fingerprint, signature):
 def generate_fingerprint(uri, kwargs=None):
     """Helper function creating fingerprints for debug purposes."""
     kwargstring = ','.join([''] + ["{}={}".format(key, val) for key, val in kwargs.items()]) if kwargs else ''
-    return "{}{},{}".format(uri, kwargstring, int(time.time()) * 1000)
+    return "{}{},{}".format(uri, kwargstring, int(time.time() * 1000.0))
 
 
 def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
