@@ -5,6 +5,7 @@ import functools
 import logging
 import os
 import sqlite3
+import time
 
 import flask
 import stellar_base.keypair
@@ -113,6 +114,12 @@ def check_signature(user_pubkey, fingerprint, signature):
         stellar_base.keypair.Keypair.from_address(user_pubkey).verify(fingerprint, signature)
     except:
         raise InvalidSignature("Signature does not match pubkey {} and data {}".format(user_pubkey, fingerprint))
+
+
+def generate_fingerprint(uri, kwargs):
+    """Helper function creating fingerprints for debug purposes."""
+    return "{},{},{}".format(
+        uri, ','.join(["{}={}".format(key, val) for key, val in kwargs.items()]), int(time.time() * 1000))
 
 
 def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
