@@ -183,10 +183,10 @@ def check_and_fix_call(request, required_fields, require_auth):
     check_missing_fields(kwargs.keys(), required_fields)
     if require_auth:
         check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
-        kwargs['user_pubkey'] = request.headers['Pubkey']
         if not DEBUG:
-            check_fingerprint(kwargs['user_pubkey'], request.headers['Fingerprint'], request.url, kwargs)
-            check_signature(kwargs['user_pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
+            check_fingerprint(request.headers['pubkey'], request.headers['Fingerprint'], request.url, kwargs)
+            check_signature(request.headers['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
+        kwargs['user_pubkey'] = request.headers['Pubkey']
     return check_and_fix_values(kwargs)
 
 
