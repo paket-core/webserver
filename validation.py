@@ -97,28 +97,6 @@ def check_missing_fields(fields, required_fields):
         raise MissingFields("Request does not contain field(s): {}".format(', '.join(missing_fields)))
 
 
-def sign_fingerprint(fingerprint, seed):
-    """Helper signing function for debug purposes."""
-    fingerprint = bytes(fingerprint, 'utf-8')
-    signature = stellar_base.keypair.Keypair.from_seed(seed).sign(fingerprint)
-    return base64.b64encode(signature).decode()
-
-
-def check_signature(user_pubkey, fingerprint, signature):
-    """
-    Raise exception on invalid signature.
-    """
-    signature = base64.b64decode(signature)
-    fingerprint = bytes(fingerprint, 'utf-8')
-    # pylint: disable=broad-except
-    # If anything fails, we want to raise our own exception.
-    try:
-        stellar_base.keypair.Keypair.from_address(user_pubkey).verify(fingerprint, signature)
-    except Exception:
-        raise InvalidSignature("Signature does not match pubkey {} and data {}".format(user_pubkey, fingerprint))
-    # pylint: enable=broad-except
-
-
 def generate_fingerprint(uri, kwargs=None):
     """Helper function creating fingerprints for debug purposes."""
     kwargstring = ','.join([''] + ["{}={}".format(key, val) for key, val in kwargs.items()]) if kwargs else ''
@@ -150,6 +128,28 @@ def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
     return
 
 
+def sign_fingerprint(fingerprint, seed):
+    """Helper signing function for debug purposes."""
+    fingerprint = bytes(fingerprint, 'utf-8')
+    signature = stellar_base.keypair.Keypair.from_seed(seed).sign(fingerprint)
+    return base64.b64encode(signature).decode()
+
+
+def check_signature(user_pubkey, fingerprint, signature):
+    """
+    Raise exception on invalid signature.
+    """
+    signature = base64.b64decode(signature)
+    fingerprint = bytes(fingerprint, 'utf-8')
+    # pylint: disable=broad-except
+    # If anything fails, we want to raise our own exception.
+    try:
+        stellar_base.keypair.Keypair.from_address(user_pubkey).verify(fingerprint, signature)
+    except Exception:
+        raise InvalidSignature("Signature does not match pubkey {} and data {}".format(user_pubkey, fingerprint))
+    # pylint: enable=broad-except
+
+
 def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
@@ -170,32 +170,23 @@ def check_and_fix_values(kwargs):
             try:
                 stellar_base.keypair.Keypair.from_address(value)
             except (TypeError, stellar_base.utils.DecodeError):
-                raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
+                if not DEBUG:
+                    raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
     return kwargs
 
 
 def check_and_fix_call(request, required_fields, require_auth):
-    """Check call and extract kwargs."""
+    """Extract kwargs and validate call."""
+    if not DEBUG and '/debug/' in request.path:
+        raise FingerprintMismatch("{} only accesible in debug mode".format(request.path))
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
-
-    if not DEBUG:
-        if '/debug/' in request.path:
-            raise FingerprintMismatch("{} only accesible in debug mode".format(request.path))
-
-        if require_auth:
-            check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
-            check_signature(request.headers['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
-            check_fingerprint(request.headers['pubkey'], request.headers['Fingerprint'], request.url, kwargs)
-
-    if 'Pubkey' in request.headers:
+    if require_auth:
+        check_missing_fields(request.headers.keys(), ['Pubkey', 'Fingerprint', 'Signature'])
         kwargs['user_pubkey'] = request.headers['Pubkey']
-
-        # Special case for registering users that do not yet exists.
-        if '/register_user' in request.path:
-            kwargs['pubkey'] = kwargs['user_pubkey']
-            del kwargs['user_pubkey']
-
+        if not DEBUG:
+            check_fingerprint(kwargs['user_pubkey'], request.headers['Fingerprint'], request.url, kwargs)
+            check_signature(kwargs['user_pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
     return check_and_fix_values(kwargs)
 
 
