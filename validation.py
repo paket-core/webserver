@@ -157,7 +157,7 @@ def check_and_fix_values(kwargs):
     "_pubkey" fields must be valid addresses.
     """
     for key, value in kwargs.items():
-        if key.endswith('_buls') or key.endswith('_timestamp') or key.endswith['_number']:
+        if key.endswith('_buls') or key.endswith('_timestamp') or key.endswith('_num'):
             try:
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
