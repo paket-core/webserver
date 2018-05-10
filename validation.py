@@ -153,11 +153,11 @@ def check_signature(user_pubkey, fingerprint, signature):
 def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
-    "_buls" and "_timestamp" fields must be valid integers.
+    "_buls", "_timestamp", and "_number" fields must be valid integers.
     "_pubkey" fields must be valid addresses.
     """
     for key, value in kwargs.items():
-        if key.endswith('_buls') or key.endswith('_timestamp'):
+        if key.endswith('_buls') or key.endswith('_timestamp') or key.endswith['_number']:
             try:
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
