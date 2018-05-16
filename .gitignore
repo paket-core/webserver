@@ -1,11 +1,11 @@
 *$py.class
 *.db
+*.egg-info
 *.log
 *.py[cod]
-*.egg-info
 .eggs
 .idea
+__pycache__/
 build
 dist
-__pycache__/
 venv
