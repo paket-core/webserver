@@ -1,9 +1,9 @@
 """Tests for webserver package."""
-from unittest import TestCase
-from multiprocessing import Process
-from time import sleep
+import unittest
+import multiprocessing
+import time
 
-from requests import Session, RequestException
+import requests
 import flask
 
 import webserver
@@ -13,7 +13,7 @@ HOST = '127.0.0.1'
 PORT = 5000
 
 
-class TestLogger(TestCase):
+class TestWebserver(unittest.TestCase):
     """Testing webserver."""
 
     @classmethod
@@ -29,12 +29,13 @@ class TestLogger(TestCase):
 
         webserver.APP.register_blueprint(blueprint)
 
-        cls._webserver_process = Process(target=lambda: webserver.APP.run(host=HOST, port=PORT, debug=True))
+        cls._webserver_process = multiprocessing.Process(
+            target=lambda: webserver.APP.run(host=HOST, port=PORT, debug=True))
         cls._webserver_process.start()
 
-        cls._session = Session()
+        cls._session = requests.Session()
         # It is necessary in case when the test is run before the web server finishes its launch
-        sleep(7)
+        time.sleep(7)
 
     def test_server_accessibility(self):
         """Tests server accessibility"""
