@@ -1,16 +1,7 @@
 """Tests for webserver package."""
 import unittest
-import multiprocessing
-import time
-
-import requests
 import flask
-
 import webserver
-import webserver.validation
-
-HOST = '127.0.0.1'
-PORT = 5000
 
 
 class TestWebserver(unittest.TestCase):
@@ -18,7 +9,7 @@ class TestWebserver(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Register blueprint with single endpoint and runs web server in separate process"""
+        """Register blueprint with single endpoint and prepare test client"""
         blueprint = flask.Blueprint('test', __name__)
 
         @blueprint.route('/ping', methods=['GET'])
@@ -28,24 +19,14 @@ class TestWebserver(unittest.TestCase):
             return 'pong'
 
         webserver.APP.register_blueprint(blueprint)
-
-        cls._webserver_process = multiprocessing.Process(
-            target=lambda: webserver.APP.run(host=HOST, port=PORT, debug=True))
-        cls._webserver_process.start()
-
-        cls._session = requests.Session()
-        # It is necessary in case when the test is run before the web server finishes its launch
-        time.sleep(7)
+        cls._client = webserver.APP.test_client()
 
     def test_server_accessibility(self):
         """Tests server accessibility"""
-        response = self._session.get(url='http://{host}:{port}/ping'.format(host=HOST, port=PORT))
-        self.assertEqual(response.text, 'pong')
+        response = self._client.get('/ping')
+        self.assertEqual(response.data, b'pong')
 
     @classmethod
     def tearDownClass(cls):
         """Terminates web server process"""
-        cls._webserver_process.terminate()
-        cls._webserver_process.join()
-        del cls._webserver_process
-        del cls._session
+        del cls._client

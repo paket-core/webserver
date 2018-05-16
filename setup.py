@@ -13,8 +13,5 @@ setup(name='webserver',
           'Flask-Limiter==1.0.1',
           'stellar-base==0.1.8.1',
       ],
-      tests_require=[
-          'requests'
-      ],
       test_suite='tests',
       zip_safe=False)
