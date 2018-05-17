@@ -7,7 +7,7 @@ setup(name='webserver',
       license='GNU GPL',
       packages=['webserver'],
       install_requires=[
-          'coloredlogs==9.3.1',
+          'coloredlogs==10.0',
           'flasgger==0.8.3',
           'Flask==1.0.2',
           'Flask-Limiter==1.0.1',
