@@ -9,7 +9,7 @@ setup(name='webserver',
       install_requires=[
           'coloredlogs==9.3.1',
           'flasgger==0.8.3',
-          'Flask==1.0',
+          'Flask==1.0.2',
           'Flask-Limiter==1.0.1',
           'stellar-base==0.1.8.1',
       ],
