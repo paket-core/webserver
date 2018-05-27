@@ -1,3 +1,4 @@
+"""PaKeT logger."""
 from setuptools import setup
 
 setup(name='webserver',
