@@ -5,12 +5,12 @@ import flasgger
 import flask
 import flask_limiter.util
 
-import logger
+import util.logger
 
 import webserver.validation
 
-logger.setup()
-LOGGER = logger.logging.getLogger('pkt.web')
+util.logger.setup()
+LOGGER = util.logger.logging.getLogger('pkt.web')
 
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
