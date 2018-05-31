@@ -8,11 +8,9 @@ setup(name='webserver',
       license='GNU GPL',
       packages=['webserver'],
       install_requires=[
-          'coloredlogs==10.0',
           'flasgger==0.8.3',
           'Flask==1.0.2',
           'Flask-Limiter==1.0.1',
-          'stellar-base==0.1.8.1',
       ],
       test_suite='tests',
       zip_safe=False)
