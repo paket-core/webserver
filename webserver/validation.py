@@ -153,11 +153,15 @@ def check_signature(user_pubkey, fingerprint, signature):
 def check_and_fix_values(kwargs):
     """
     Raise exception for invalid values.
-    "_buls", "_xlms",  "_timestamp", and "_number" fields must be valid integers.
+    "_buls", "_xlms", "_cents",  "_timestamp", and "_number" fields must be valid integers.
     "_pubkey" fields must be valid addresses.
     """
     for key, value in kwargs.items():
-        if key.endswith('_buls') or key.endswith('_xlms') or key.endswith('_timestamp') or key.endswith('_num'):
+        if (
+                key.endswith('_buls') or key.endswith('_cents') or
+                key.endswith('_xlms') or key.endswith('_timestamp') or
+                key.endswith('_num')
+        ):
             try:
                 # Cast to str before casting to int to make sure floats fail.
                 int_val = int(str(value))
@@ -219,14 +223,12 @@ def call(handler=None, required_fields=None, require_auth=None):
         try:
             kwargs = check_and_fix_call(flask.request, required_fields, require_auth or False)
             response = handler(**kwargs)
-        except (MissingFields, InvalidField) as exception:
+        except (MissingFields, InvalidField, AssertionError) as exception:
             response = {'status': 400, 'error': str(exception)}
         except (FingerprintMismatch, InvalidSignature) as exception:
             response = {'status': 403, 'error': str(exception)}
         except UnknownUser as exception:
             response = {'status': 404, 'error': str(exception)}
-        except AssertionError as exception:
-            response = {'status': 409, 'error': str(exception)}
         except NotImplementedError as exception:
             response = {'status': 501, 'error': str(exception)}
         except Exception as exception:
