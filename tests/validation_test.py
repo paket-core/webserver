@@ -11,8 +11,6 @@ import webserver
 LOGGER = util.logger.logging.getLogger('pkt.webserver.test')
 util.logger.setup()
 
-# TODO Yarik, please add docstrings to all.
-# pylint: disable=empty-docstring
 
 def cleanup():
     """Remove db file"""
@@ -26,8 +24,8 @@ def cleanup():
 class TestCheckMissingFields(unittest.TestCase):
     """Tests for check_missing_fields function"""
 
-    def test_check_missing_fields(self):
-        """Test for missing fields."""
+    def test_sufficient_fields(self):
+        """Test for sufficient fields"""
         data_set = [
             {
                 'fields': ['key', 'value', 'repeat'],
@@ -48,8 +46,8 @@ class TestCheckMissingFields(unittest.TestCase):
                 result = webserver.validation.check_missing_fields(**args)
                 self.assertEqual(result, None)
 
-    def test_miss_fields(self):
-        """"""
+    def test_missed_fields(self):
+        """Test for missed fields"""
         fields = ['key', 'repeat']
         required_fields = ['key', 'value']
         self.assertRaises(webserver.validation.MissingFields, webserver.validation.check_missing_fields,
@@ -60,7 +58,7 @@ class TestGenerateFingerprint(unittest.TestCase):
     """Tests for generate_fingerprint function"""
 
     def test_generate_fingerprint(self):
-        """"""
+        """Test generating fingerprint"""
         data_set = [
             {
                 'uri': '/v3/package',
@@ -306,7 +304,7 @@ class TestCheckAndFix(unittest.TestCase):
                 self.assertEqual(checked_and_fixed, normal_kwargs)
 
     def test_invalid_integer(self):
-        """"""
+        """Test checking invalid integer"""
         kwargs_set = [
             {
                 'balance_buls': 100000.0,
@@ -338,7 +336,7 @@ class TestCheckAndFix(unittest.TestCase):
                 webserver.validation.check_and_fix_values(kwargs)
 
     def test_invalid_pubkey(self):
-        """"""
+        """Test checking invalid pubkey"""
         kwargs = {
             'balance_buls': 100000,
             'user_pubkey': 'GBDLcCJI2ZHC4SQGSWWGUSTIBPDCXWZWNR4KCDJFUBO2SRCHnQ3NMQJ'
