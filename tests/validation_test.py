@@ -3,13 +3,16 @@ import os
 import unittest
 
 import stellar_base.keypair
-import webserver
 import util.logger
+
+import webserver
 
 
 LOGGER = util.logger.logging.getLogger('pkt.webserver.test')
 util.logger.setup()
 
+# TODO Yarik, please add docstrings to all.
+# pylint: disable=empty-docstring
 
 def cleanup():
     """Remove db file"""
@@ -24,7 +27,7 @@ class TestCheckMissingFields(unittest.TestCase):
     """Tests for check_missing_fields function"""
 
     def test_check_missing_fields(self):
-        """"""
+        """Test for missing fields."""
         data_set = [
             {
                 'fields': ['key', 'value', 'repeat'],
@@ -41,6 +44,7 @@ class TestCheckMissingFields(unittest.TestCase):
         ]
         for args in data_set:
             with self.subTest(**args):
+                # The function always returns None and the assert will always succeed.
                 result = webserver.validation.check_missing_fields(**args)
                 self.assertEqual(result, None)
 
@@ -81,7 +85,7 @@ class TestGenerateFingerprint(unittest.TestCase):
                     self.assertIn("{}={}".format(key, value), fingerprint)
                 self.assertTrue(fingerprint.startswith(data['uri']))
                 # checking fingerprint match format <uri>,[arg1=value1,[arg2=value2,...]]<timestamp>
-                self.assertRegex(fingerprint, '^(\/[\w]+)+,([\w]+=[\w]+,)*([0-9]{13})$')
+                self.assertRegex(fingerprint, r'^(\/[\w]+)+,([\w]+=[\w]+,)*([0-9]{13})$')
 
 
 class TestCheckFingerprint(unittest.TestCase):
@@ -97,7 +101,7 @@ class TestCheckFingerprint(unittest.TestCase):
         cleanup()
 
     def test_check_fingerprint(self):
-        """"""
+        """Test the check_fingerprint function."""
         data_set = [
             {
                 'user_pubkey': 'GD6ESJTJQUIR3LTSSCP3PHF6GDSXJPUQ6D3NJHJ73ZTWYZIRYFU6PQIH',
@@ -133,11 +137,12 @@ class TestCheckFingerprint(unittest.TestCase):
         ]
         for data in data_set:
             with self.subTest(**data):
+                # The function always returns None and the assert will always succeed.
                 result = webserver.validation.check_fingerprint(**data)
                 self.assertEqual(result, None)
 
     def test_mismatch(self):
-        """"""
+        """Test fingerprint mismatch."""
         data_set = [
             {
                 'args': {
@@ -146,8 +151,8 @@ class TestCheckFingerprint(unittest.TestCase):
                     'url': '/v3/another/uri',
                     'kwargs': {
                         'arg': 'qwerty'
-                    }
-                 },
+                        }
+                    },
                 'exc_msg': 'fingerprint /v3/some/uri does not match call to /v3/another/uri'
             },
             {
@@ -198,12 +203,12 @@ class TestCheckFingerprint(unittest.TestCase):
             }
         ]
         for data in data_set:
-            with self.subTest(**data), self.assertRaises(webserver.validation.FingerprintMismatch) as cm:
+            with self.subTest(**data), self.assertRaises(webserver.validation.FingerprintMismatch) as execution_context:
                 webserver.validation.check_fingerprint(**data['args'])
-            self.assertEqual(str(cm.exception), data['exc_msg'])
+            self.assertEqual(str(execution_context.exception), data['exc_msg'])
 
     def test_invalid_nonce(self):
-        """"""
+        """Test invalid nonce."""
         user_pubkey = stellar_base.keypair.Keypair.random().address()
         escrow_pubkey = stellar_base.keypair.Keypair.random().address()
         fingerprint = "/v3/accept_package,escrow_pubkey={},1528265594985".format(escrow_pubkey)
@@ -212,16 +217,16 @@ class TestCheckFingerprint(unittest.TestCase):
             'escrow_pubkey': escrow_pubkey
         }
         webserver.validation.check_fingerprint(user_pubkey, fingerprint, url, kwargs)
-        with self.assertRaises(webserver.validation.FingerprintMismatch) as cm:
+        with self.assertRaises(webserver.validation.FingerprintMismatch) as execution_context:
             webserver.validation.check_fingerprint(user_pubkey, fingerprint, url, kwargs)
-        self.assertEqual(str(cm.exception), 'nonce 1528265594985 is not bigger than current nonce')
+        self.assertEqual(str(execution_context.exception), 'nonce 1528265594985 is not bigger than current nonce')
 
 
 class TestSignFingerprint(unittest.TestCase):
     """Tests for sign_fingerprint function"""
 
     def test_sign(self):
-        """"""
+        """Test signature generation."""
         fingerprint = '/some/uri,1528265594985'
         seed = 'SDZFK4IMXKBLCCGNWGFIVEPJLDAKMEL4MZBBMJ4P36UTCUOBX7T27WBG'
         signed = webserver.validation.sign_fingerprint(fingerprint, seed)
@@ -233,16 +238,17 @@ class TestCheckSignature(unittest.TestCase):
     """Tests for check_signature function"""
 
     def test_check_signature(self):
-        """"""
+        """Test signature checking."""
         pubkey = 'GAXPE5KLZEYRU2GPBQHS2HWNBG7I5EI7CSUP3DGDEZH7CJPYEM2I6ADQ'
         fingerprint = '/v3/some/uri,arg=qwerty,1528265594985'
         signature = 'GFQSrZc91ocbelD246doUpMkGbsTD8vO/hIV9P4oetHU4Kl4Xbb5AaEDarlHLYbxGKGl6cO6hriK+Zeox29pAg=='
+        # The function always returns None and the assert will always succeed.
         result = webserver.validation.check_signature(pubkey, fingerprint, signature)
         self.assertEqual(result, None)
 
     @unittest.expectedFailure
     def test_check_invalid_signature(self):
-        """"""
+        """Test invalid signature checking."""
         data_set = [
             {
                 'user_pubkey': 'GDD3ZR6FA6TYUS3RW5CLCIKEKNGG6BOPTOTJN6V3IETGIEGWCMXGURBG',
@@ -269,7 +275,7 @@ class TestCheckAndFix(unittest.TestCase):
     """Tests for check_and_fix_values function"""
 
     def test_check_and_fix(self):
-        """"""
+        """Test checking and fixing of kwargs."""
         normal_kwargs = {
             'balance_buls': 100000,
             'balance_xlms': 0,
