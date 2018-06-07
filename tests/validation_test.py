@@ -242,11 +242,8 @@ class TestCheckSignature(unittest.TestCase):
         pubkey = 'GAXPE5KLZEYRU2GPBQHS2HWNBG7I5EI7CSUP3DGDEZH7CJPYEM2I6ADQ'
         fingerprint = '/v3/some/uri,arg=qwerty,1528265594985'
         signature = 'GFQSrZc91ocbelD246doUpMkGbsTD8vO/hIV9P4oetHU4Kl4Xbb5AaEDarlHLYbxGKGl6cO6hriK+Zeox29pAg=='
-        # The function always returns None and the assert will always succeed.
-        result = webserver.validation.check_signature(pubkey, fingerprint, signature)
-        self.assertEqual(result, None)
+        self.assertEqual(webserver.validation.check_signature(pubkey, fingerprint, signature), None)
 
-    @unittest.expectedFailure
     def test_check_invalid_signature(self):
         """Test invalid signature checking."""
         data_set = [
