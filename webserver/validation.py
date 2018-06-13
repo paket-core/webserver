@@ -14,6 +14,7 @@ import stellar_base.utils
 NONCES_DB_NAME = 'nonces.db'
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
+KWARGS_CHECKERS_AND_FIXERS = {}
 
 
 class MissingFields(Exception):
@@ -150,32 +151,45 @@ def check_signature(user_pubkey, fingerprint, signature):
     # pylint: enable=broad-except
 
 
+def check_and_fix_natural(key, value):
+    """Raise exception if value is not an integer larger than zero."""
+    try:
+        # Cast to str before casting to int to make sure floats fail.
+        int_val = int(str(value))
+    except ValueError:
+        raise InvalidField("the value of {}({}) is not an integer".format(key, value))
+    if int_val < 0:
+        raise InvalidField("the value of {}({}) is less than zero".format(key, value))
+    return int_val
+
+
+KWARGS_CHECKERS_AND_FIXERS['_nat'] = check_and_fix_natural
+
+
+def check_pubkey(key, value):
+    """Raise exception if value is not a valid pubkey."""
+    try:
+        stellar_base.keypair.Keypair.from_address(value)
+    except (TypeError, stellar_base.utils.DecodeError):
+        warning = "the value of {}({}) is not a valid public key".format(key, value)
+        if DEBUG:
+            LOGGER.warning(warning)
+        else:
+            raise InvalidField(warning)
+    return value
+
+
+KWARGS_CHECKERS_AND_FIXERS['_pubkey'] = check_pubkey
+
+
 def check_and_fix_values(kwargs):
     """
-    Raise exception for invalid values.
-    "_buls", "_xlms", "_cents",  "_timestamp", and "_number" fields must be valid integers.
-    "_pubkey" fields must be valid addresses.
+    Run kwargs through appropriate checkers and fixers.
     """
     for key, value in kwargs.items():
-        if (
-                key.endswith('_buls') or key.endswith('_cents') or
-                key.endswith('_xlms') or key.endswith('_timestamp') or
-                key.endswith('_num')
-        ):
-            try:
-                # Cast to str before casting to int to make sure floats fail.
-                int_val = int(str(value))
-            except ValueError:
-                raise InvalidField("the value of {}({}) is not an integer".format(key, value))
-            if int_val < 0:
-                raise InvalidField("the value of {}({}) is less than zero".format(key, value))
-            kwargs[key] = int_val
-        elif key.endswith('_pubkey'):
-            try:
-                stellar_base.keypair.Keypair.from_address(value)
-            except (TypeError, stellar_base.utils.DecodeError):
-                if not DEBUG:
-                    raise InvalidField("the value of {}({}) is not a valid public key".format(key, value))
+        for suffix in KWARGS_CHECKERS_AND_FIXERS:
+            if key.endswith(suffix):
+                kwargs[key] = KWARGS_CHECKERS_AND_FIXERS[suffix](key, value)
     return kwargs
 
 

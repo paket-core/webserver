@@ -11,8 +11,6 @@ import webserver
 LOGGER = util.logger.logging.getLogger('pkt.webserver.test')
 util.logger.setup()
 
-# TODO Yarik, please add docstrings to all.
-# pylint: disable=empty-docstring
 
 def cleanup():
     """Remove db file"""
@@ -44,7 +42,7 @@ class TestCheckMissingFields(unittest.TestCase):
         ]
         for args in data_set:
             with self.subTest(**args):
-                # The function always returns None and the assert will always succeed.
+                # The function always returns None, there is no point in getting its retult.
                 result = webserver.validation.check_missing_fields(**args)
                 self.assertEqual(result, None)
 
@@ -137,7 +135,7 @@ class TestCheckFingerprint(unittest.TestCase):
         ]
         for data in data_set:
             with self.subTest(**data):
-                # The function always returns None and the assert will always succeed.
+                # The function always returns None, there is no point in getting its retult.
                 result = webserver.validation.check_fingerprint(**data)
                 self.assertEqual(result, None)
 
@@ -274,29 +272,23 @@ class TestCheckAndFix(unittest.TestCase):
     def test_check_and_fix(self):
         """Test checking and fixing of kwargs."""
         normal_kwargs = {
-            'balance_buls': 100000,
-            'balance_xlms': 0,
-            'balance_cents': 999999999999999999,
-            'deadline_timestamp': 1524386378,
-            'some_num': 144,
+            'balance_nat': 0,
+            'deadline_nat': 1524386378,
+            'some_nat': 144,
             'user_pubkey': 'GBDLXCJI2ZHCSQGSWWGUSTIBLPDCXWZWNR4KCDJFUBO2SRCHU6Q3NMQJ'
 
         }
         kwargs_set = [
             {
-                'balance_buls': 100000,
-                'balance_xlms': 0,
-                'balance_cents': 999999999999999999,
-                'deadline_timestamp': 1524386378,
-                'some_num': 144,
+                'balance_nat': 0,
+                'deadline_nat': 1524386378,
+                'some_nat': 144,
                 'user_pubkey': 'GBDLXCJI2ZHCSQGSWWGUSTIBLPDCXWZWNR4KCDJFUBO2SRCHU6Q3NMQJ'
             },
             {
-                'balance_buls': '100000',
-                'balance_xlms': '0',
-                'balance_cents': '999999999999999999',
-                'deadline_timestamp': '1524386378',
-                'some_num': '144',
+                'balance_nat': '0',
+                'deadline_nat': '1524386378',
+                'some_nat': '144',
                 'user_pubkey': 'GBDLXCJI2ZHCSQGSWWGUSTIBLPDCXWZWNR4KCDJFUBO2SRCHU6Q3NMQJ'
             }
         ]
@@ -309,26 +301,18 @@ class TestCheckAndFix(unittest.TestCase):
         """"""
         kwargs_set = [
             {
-                'balance_buls': 100000.0,
-                'balance_xlms': 0,
-                'balance_cents': 999999999999999999,
-                'deadline_timestamp': 1524386378,
+                'balance_nat': 100000.0,
+                'deadline_nat': 1524386378,
                 'some_num': 144,
                 'user_pubkey': 'GBDLXCJI2ZHCSQGSWWGUSTIBLPDCXWZWNR4KCDJFUBO2SRCHU6Q3NMQJ'
             },
             {
-                'balance_buls': '100000',
-                'balance_xlms': '0',
-                'balance_cents': '999999999999999999',
-                'deadline_timestamp': '152438I378',
+                'deadline_nat': '152438I378',
                 'some_num': '144',
                 'user_pubkey': 'GBDLXCJI2ZHCSQGSWWGUSTIBLPDCXWZWNR4KCDJFUBO2SRCHU6Q3NMQJ'
             },
             {
-                'balance_buls': 100000,
-                'balance_xlms': -25,
-                'balance_cents': 999999999999999999,
-                'deadline_timestamp': 1524386378,
+                'balance_nat': -25,
                 'some_num': '144',
                 'user_pubkey': 'GBDLXCJI2ZHCSQGSWWGUSTIBLPDCXWZWNR4KCDJFUBO2SRCHU6Q3NMQJ'
             }
