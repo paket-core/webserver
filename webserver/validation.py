@@ -15,6 +15,7 @@ NONCES_DB_NAME = 'nonces.db'
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
 KWARGS_CHECKERS_AND_FIXERS = {}
+CUSTOM_EXCEPTION_STATUSES = {}
 
 
 class MissingFields(Exception):
@@ -220,6 +221,14 @@ def optional_arg_decorator(decorator):
     return wrapped_decorator
 
 
+CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400
+CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
+CUSTOM_EXCEPTION_STATUSES[AssertionError] = 400
+CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403
+CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
+CUSTOM_EXCEPTION_STATUSES[UnknownUser] = 404
+CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
+
 # Since this is a decorator the handler argument will never be None, it is
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
@@ -233,22 +242,18 @@ def call(handler=None, required_fields=None, require_auth=None):
     def _call(*_, **__):
         # pylint: disable=broad-except
         # If anything fails, we want to catch it here.
-        response = {'status': 500, 'error': 'Internal server error'}
         try:
             kwargs = check_and_fix_call(flask.request, required_fields, require_auth or False)
             response = handler(**kwargs)
-        except (MissingFields, InvalidField, AssertionError) as exception:
-            response = {'status': 400, 'error': str(exception)}
-        except (FingerprintMismatch, InvalidSignature) as exception:
-            response = {'status': 403, 'error': str(exception)}
-        except UnknownUser as exception:
-            response = {'status': 404, 'error': str(exception)}
-        except NotImplementedError as exception:
-            response = {'status': 501, 'error': str(exception)}
         except Exception as exception:
-            LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
-            if DEBUG:
-                response['debug'] = str(exception)
+            response = {'status': CUSTOM_EXCEPTION_STATUSES.get(type(exception), 500)}
+            if response['status'] == 500:
+                LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
+                response['error'] = 'Internal server error'
+                if DEBUG:
+                    response['debug'] = str(exception)
+            else:
+                response['error'] = str(exception)
         # pylint: enable=broad-except
         if 'error' in response:
             LOGGER.error(response['error'])
