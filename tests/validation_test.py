@@ -42,9 +42,7 @@ class TestCheckMissingFields(unittest.TestCase):
         ]
         for args in data_set:
             with self.subTest(**args):
-                # The function always returns None and the assert will always succeed.
-                result = webserver.validation.check_missing_fields(**args)
-                self.assertEqual(result, None)
+                webserver.validation.check_missing_fields(**args)
 
     def test_missed_fields(self):
         """Test for missed fields"""
@@ -135,9 +133,7 @@ class TestCheckFingerprint(unittest.TestCase):
         ]
         for data in data_set:
             with self.subTest(**data):
-                # The function always returns None and the assert will always succeed.
-                result = webserver.validation.check_fingerprint(**data)
-                self.assertEqual(result, None)
+                webserver.validation.check_fingerprint(**data)
 
     def test_mismatch(self):
         """Test fingerprint mismatch."""
