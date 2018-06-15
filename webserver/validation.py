@@ -229,6 +229,7 @@ CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
 CUSTOM_EXCEPTION_STATUSES[UnknownUser] = 404
 CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
 
+
 # Since this is a decorator the handler argument will never be None, it is
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
