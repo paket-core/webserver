@@ -1,21 +1,22 @@
 """Validations for API calls."""
 import base64
-import contextlib
 import functools
 import logging
 import os
-import sqlite3
 import time
 
 import flask
 import stellar_base.keypair
 import stellar_base.utils
 
-NONCES_DB_NAME = 'nonces.db'
+import util.db
+
+NONCES_DB_NAME = 'nonces'
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
 KWARGS_CHECKERS_AND_FIXERS = {}
 CUSTOM_EXCEPTION_STATUSES = {}
+SQL_CONNECTION = util.db.custom_sql_connection('localhost', 3306, 'root', 'pass', NONCES_DB_NAME)
 
 
 class MissingFields(Exception):
@@ -42,33 +43,17 @@ class UnknownUser(Exception):
     """Unknown user."""
 
 
-@contextlib.contextmanager
-def sql_connection():
-    """Context manager for querying the database."""
-    try:
-        connection = sqlite3.connect(NONCES_DB_NAME)
-        connection.row_factory = sqlite3.Row
-        yield connection.cursor()
-        connection.commit()
-    except sqlite3.Error as db_exception:
-        raise db_exception
-    finally:
-        if 'connection' in locals():
-            # noinspection PyUnboundLocalVariable
-            connection.close()
-
-
 def init_nonce_db():
     """Initialize the nonces database."""
-    with sql_connection() as sql:
+    with SQL_CONNECTION() as sql:
         # Not using IF EXISTS here in case we want different handling.
-        sql.execute('SELECT name FROM sqlite_master WHERE type = "table" AND name = "nonces"')
+        sql.execute("SELECT table_name FROM information_schema.tables where table_name = 'nonces'")
         if len(sql.fetchall()) == 1:
             LOGGER.debug('database already exists')
             return
         sql.execute('''
             CREATE TABLE nonces(
-                pubkey VARCHAR(42) PRIMARY KEY,
+                pubkey VARCHAR(56) PRIMARY KEY,
                 user_name VARCHAR(32) UNIQUE,
                 nonce INTEGER NOT NULL DEFAULT 0)''')
         LOGGER.debug('nonces table created')
@@ -76,18 +61,18 @@ def init_nonce_db():
 
 def update_nonce(pubkey, new_nonce, user_name=None):
     """Update a user's nonce (or create it)."""
-    with sql_connection() as sql:
-        sql.execute("SELECT nonce FROM nonces WHERE pubkey = ?", (pubkey,))
+    with SQL_CONNECTION() as sql:
+        sql.execute("SELECT nonce FROM nonces WHERE pubkey = %s", (pubkey,))
         try:
             if int(new_nonce) <= sql.fetchone()['nonce']:
                 raise InvalidNonce("nonce {} is not bigger than current nonce".format(new_nonce))
         except TypeError:
-            sql.execute("INSERT INTO nonces (pubkey) VALUES (?)", (pubkey,))
+            sql.execute("INSERT INTO nonces (pubkey) VALUES (%s)", (pubkey,))
         except ValueError:
             raise InvalidNonce("fingerprint does not end with an integer nonce ({})".format(new_nonce))
-        sql.execute("UPDATE nonces SET nonce = ? WHERE pubkey = ?", (new_nonce, pubkey))
+        sql.execute("UPDATE nonces SET nonce = %s WHERE pubkey = %s", (new_nonce, pubkey))
         if user_name:
-            sql.execute("UPDATE nonces SET user_name = ? WHERE pubkey = ?", (user_name, pubkey))
+            sql.execute("UPDATE nonces SET user_name = %s WHERE pubkey = %s", (user_name, pubkey))
 
 
 def check_missing_fields(fields, required_fields):
@@ -114,10 +99,6 @@ def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
     fingerprint = fingerprint.split(',')
     if url != fingerprint[0]:
         raise FingerprintMismatch("fingerprint {} does not match call to {}".format(fingerprint[0], url))
-    try:
-        update_nonce(user_pubkey, fingerprint[-1])
-    except InvalidNonce as exception:
-        raise FingerprintMismatch(str(exception))
     for key, val in [keyval.split('=') for keyval in fingerprint[1:-1]]:
         try:
             call_val = str(kwargs.pop(key))
@@ -127,6 +108,10 @@ def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
             raise FingerprintMismatch("fingerprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
     if kwargs:
         raise FingerprintMismatch("fingerprint is missing a value for {}".format(', '.join((kwargs.keys()))))
+    try:
+        update_nonce(user_pubkey, fingerprint[-1])
+    except InvalidNonce as exception:
+        raise FingerprintMismatch(str(exception))
     return
 
 
@@ -141,7 +126,10 @@ def check_signature(user_pubkey, fingerprint, signature):
     """
     Raise exception on invalid signature.
     """
-    signature = base64.b64decode(signature)
+    try:
+        signature = base64.b64decode(signature)
+    except base64.binascii.Error:
+        raise InvalidSignature('Signature is not base64 encoded')
     fingerprint = bytes(fingerprint, 'utf-8')
     # pylint: disable=broad-except
     # If anything fails, we want to raise our own exception.
@@ -204,8 +192,8 @@ def check_and_fix_call(request, required_fields, require_auth):
         check_missing_fields(request.headers.keys(), ['Pubkey'])
         if not DEBUG:
             check_missing_fields(request.headers.keys(), ['Fingerprint', 'Signature'])
-            check_fingerprint(request.headers['pubkey'], request.headers['Fingerprint'], request.url, kwargs)
             check_signature(request.headers['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
+            check_fingerprint(request.headers['pubkey'], request.headers['Fingerprint'], request.url, kwargs)
         kwargs['user_pubkey'] = request.headers['Pubkey']
     return check_and_fix_values(kwargs)
 
