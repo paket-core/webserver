@@ -1,6 +1,6 @@
 """Tests for webserver.validation module."""
-import os
 import unittest
+import time
 
 import stellar_base.keypair
 import util.logger
@@ -10,15 +10,6 @@ import webserver
 
 LOGGER = util.logger.logging.getLogger('pkt.webserver.test')
 util.logger.setup()
-
-
-def cleanup():
-    """Remove db file"""
-    try:
-        os.unlink(webserver.validation.NONCES_DB_NAME)
-    except FileNotFoundError:
-        pass
-    assert not os.path.isfile(webserver.validation.NONCES_DB_NAME)
 
 
 class TestCheckMissingFields(unittest.TestCase):
@@ -87,22 +78,14 @@ class TestGenerateFingerprint(unittest.TestCase):
 class TestCheckFingerprint(unittest.TestCase):
     """Tests for check_fingerprint function"""
 
-    def setUp(self):
-        """Setting up the test fixture"""
-        cleanup()
-        webserver.validation.init_nonce_db()
-
-    def tearDown(self):
-        """Deconstructing the test fixture"""
-        cleanup()
-
     def test_check_fingerprint(self):
         """Test the check_fingerprint function."""
         data_set = [
             {
                 'user_pubkey': 'GD6ESJTJQUIR3LTSSCP3PHF6GDSXJPUQ6D3NJHJ73ZTWYZIRYFU6PQIH',
                 'fingerprint': '/v3/accept_package,'
-                               'escrow_pubkey=GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG,1528265594985',
+                               'escrow_pubkey=GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG,'
+                               "{:.0f}".format(time.time() * 1000),
                 'url': '/v3/accept_package',
                 'kwargs': {
                     'escrow_pubkey': 'GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG'
@@ -113,7 +96,7 @@ class TestCheckFingerprint(unittest.TestCase):
                 'fingerprint': '/v3/prepare_send_buls,'
                                'from_pubkey=GA6WNY4R4XS5EYKXXD2HLA7FICWOGFSFRUCPP7TPUSD4GVD2P4LABAUX,'
                                'to_pubkey=GB5JYX5SICATFI6JPXEI7MISKJZGEUGOVO4TKCF4N5UQCKZGOHMO5GGQ,amount_buls=10,'
-                               '1528265595917',
+                               "{:.0f}".format(time.time() * 1000),
                 'url': '/v3/prepare_send_buls',
                 'kwargs': {
                     'from_pubkey': 'GA6WNY4R4XS5EYKXXD2HLA7FICWOGFSFRUCPP7TPUSD4GVD2P4LABAUX',
@@ -124,7 +107,8 @@ class TestCheckFingerprint(unittest.TestCase):
             {
                 'user_pubkey': 'GC47CNBNNNQKYXPKZ7B5Q2MLEVASYVLJINH2QSYZ7XW2TFOL4MFS7NT3',
                 'fingerprint': '/v3/bul_account,'
-                               'queried_pubkey=GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG,1528265794271',
+                               'queried_pubkey=GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG,'
+                               "{:.0f}".format(time.time() * 1000),
                 'url': '/v3/bul_account',
                 'kwargs': {
                     'queried_pubkey': 'GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG'
@@ -141,7 +125,8 @@ class TestCheckFingerprint(unittest.TestCase):
             {
                 'args': {
                     'user_pubkey': stellar_base.keypair.Keypair.random().address(),
-                    'fingerprint': '/v3/some/uri,arg=qwerty,1528265594985',
+                    'fingerprint': '/v3/some/uri,arg=qwerty,'
+                                   "{:.0f}".format(time.time() * 1000),
                     'url': '/v3/another/uri',
                     'kwargs': {
                         'arg': 'qwerty'
@@ -163,7 +148,8 @@ class TestCheckFingerprint(unittest.TestCase):
             {
                 'args': {
                     'user_pubkey': stellar_base.keypair.Keypair.random().address(),
-                    'fingerprint': '/v3/some/uri,arg=qwerty,another_arg=another_value,1528265594985',
+                    'fingerprint': '/v3/some/uri,arg=qwerty,another_arg=another_value,'
+                                   "{:.0f}".format(time.time() * 1000),
                     'url': '/v3/some/uri',
                     'kwargs': {
                         'arg': 'qwerty'
@@ -174,7 +160,8 @@ class TestCheckFingerprint(unittest.TestCase):
             {
                 'args': {
                     'user_pubkey': stellar_base.keypair.Keypair.random().address(),
-                    'fingerprint': '/v3/some/uri,arg=qwerty,another_arg=another_value,1528265594985',
+                    'fingerprint': '/v3/some/uri,arg=qwerty,another_arg=another_value,'
+                                   "{:.0f}".format(time.time() * 1000),
                     'url': '/v3/some/uri',
                     'kwargs': {
                         'arg': 'qwerty',
@@ -186,7 +173,8 @@ class TestCheckFingerprint(unittest.TestCase):
             {
                 'args': {
                     'user_pubkey': stellar_base.keypair.Keypair.random().address(),
-                    'fingerprint': '/v3/some/uri,arg=qwerty,1528265594985',
+                    'fingerprint': '/v3/some/uri,arg=qwerty,'
+                                   "{:.0f}".format(time.time() * 1000),
                     'url': '/v3/some/uri',
                     'kwargs': {
                         'arg': 'qwerty',
@@ -205,7 +193,7 @@ class TestCheckFingerprint(unittest.TestCase):
         """Test invalid nonce."""
         user_pubkey = stellar_base.keypair.Keypair.random().address()
         escrow_pubkey = stellar_base.keypair.Keypair.random().address()
-        fingerprint = "/v3/accept_package,escrow_pubkey={},1528265594985".format(escrow_pubkey)
+        fingerprint = "/v3/accept_package,escrow_pubkey={},{:.0f}".format(escrow_pubkey, 0)
         url = '/v3/accept_package'
         kwargs = {
             'escrow_pubkey': escrow_pubkey
@@ -213,7 +201,7 @@ class TestCheckFingerprint(unittest.TestCase):
         webserver.validation.check_fingerprint(user_pubkey, fingerprint, url, kwargs)
         with self.assertRaises(webserver.validation.FingerprintMismatch) as execution_context:
             webserver.validation.check_fingerprint(user_pubkey, fingerprint, url, kwargs)
-        self.assertEqual(str(execution_context.exception), 'nonce 1528265594985 is not bigger than current nonce')
+        self.assertTrue(str(execution_context.exception).endswith('is not bigger than current nonce'))
 
 
 class TestSignFingerprint(unittest.TestCase):
@@ -243,17 +231,17 @@ class TestCheckSignature(unittest.TestCase):
         data_set = [
             {
                 'user_pubkey': 'GDD3ZR6FA6TYUS3RW5CLCIKEKNGG6BOPTOTJN6V3IETGIEGWCMXGURBG',
-                'fingerprint': '/v3/some/uri,arg=qwerty,1528265594985',
+                'fingerprint': "/v3/some/uri,arg=qwerty,{:.0f}".format(time.time() * 1000),
                 'signature': 'GFQSrZc91ocbelD246doUpMkGbsTD8vO/hIV9P4oetHU4Kl4Xbb5AaEDarlHLYbxGKGl6cO6hriK+Zeox29pAg=='
             },
             {
                 'user_pubkey': 'GAXPE5KLZEYRU2GPBQHS2HWNBG7I5EI7CSUP3DGDEZH7CJPYEM2I6ADQ',
-                'fingerprint': '/v3/some/uri,arg=qwerty,1528265594986',
+                'fingerprint': "/v3/some/uri,arg=qwerty,{:.0f}".format(time.time() * 1000),
                 'signature': 'GFQSrZc91ocbelD246doUpMkGbsTD8vO/hIV9P4oetHU4Kl4Xbb5AaEDarlHLYbxGKGl6cO6hriK+Zeox29pAg=='
             },
             {
                 'user_pubkey': 'GAXPE5KLZEYRU2GPBQHS2HWNBG7I5EI7CSUP3DGDEZH7CJPYEM2I6ADQ',
-                'fingerprint': '/v3/some/uri,arg=qwerty,1528265594985',
+                'fingerprint': "/v3/some/uri,arg=qwerty,{:.0f}".format(time.time() * 1000),
                 'signature': 'GFDSrZc91ocbelo246doUpMkGbsTD8vO/hIV9P4oetHo4Kl4Xbb5AaEDarlHLYbxGKGl6cO6hriK+Zeox29pAg=='
             }
         ]

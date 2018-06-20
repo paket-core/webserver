@@ -11,12 +11,16 @@ import stellar_base.utils
 
 import util.db
 
-NONCES_DB_NAME = 'nonces'
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
 KWARGS_CHECKERS_AND_FIXERS = {}
 CUSTOM_EXCEPTION_STATUSES = {}
-SQL_CONNECTION = util.db.custom_sql_connection('localhost', 3306, 'root', 'pass', NONCES_DB_NAME)
+DB_HOST = os.environ.get('PAKET_DB_HOST', '127.0.0.1')
+DB_PORT = int(os.environ.get('PAKET_DB_PORT', 3306))
+DB_USER = os.environ.get('PAKET_DB_USER', 'root')
+DB_PASSWORD = os.environ.get('PAKET_DB_PASSWORD')
+DB_NAME = os.environ.get('PAKET_DB_NAME', 'paket')
+SQL_CONNECTION = util.db.custom_sql_connection(DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
 
 
 class MissingFields(Exception):
@@ -47,15 +51,18 @@ def init_nonce_db():
     """Initialize the nonces database."""
     with SQL_CONNECTION() as sql:
         # Not using IF EXISTS here in case we want different handling.
-        sql.execute("SELECT table_name FROM information_schema.tables where table_name = 'nonces'")
+        sql.execute("""
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = %s
+            AND table_name = 'nonces'""", (DB_NAME,))
         if len(sql.fetchall()) == 1:
-            LOGGER.debug('database already exists')
+            LOGGER.debug('table already exists')
             return
         sql.execute('''
             CREATE TABLE nonces(
                 pubkey VARCHAR(56) PRIMARY KEY,
                 user_name VARCHAR(32) UNIQUE,
-                nonce INTEGER NOT NULL DEFAULT 0)''')
+                nonce BIGINT NOT NULL DEFAULT 0)''')
         LOGGER.debug('nonces table created')
 
 
