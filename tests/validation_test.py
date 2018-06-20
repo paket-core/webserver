@@ -89,7 +89,7 @@ class TestCheckFingerprint(unittest.TestCase):
                 'kwargs': {
                     'from_pubkey': 'GA6WNY4R4XS5EYKXXD2HLA7FICWOGFSFRUCPP7TPUSD4GVD2P4LABAUX',
                     'to_pubkey': 'GB5JYX5SICATFI6JPXEI7MISKJZGEUGOVO4TKCF4N5UQCKZGOHMO5GGQ',
-                    'amount_buls': 1000}
+                    'amount_buls': 10}
             },
             {
                 'user_pubkey': 'GC47CNBNNNQKYXPKZ7B5Q2MLEVASYVLJINH2QSYZ7XW2TFOL4MFS7NT3',
@@ -293,7 +293,7 @@ class TestCheckAndFix(unittest.TestCase):
     def test_invalid_pubkey(self):
         """Test checking invalid pubkey"""
         kwargs = {
-            'balance_buls': 100000,
+            'balance_nat': 100000,
             'user_pubkey': 'GBDLcCJI2ZHC4SQGSWWGUSTIBPDCXWZWNR4KCDJFUBO2SRCHnQ3NMQJ'
         }
         with self.assertRaises(webserver.validation.InvalidField):
