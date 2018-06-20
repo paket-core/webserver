@@ -18,18 +18,9 @@ class TestCheckMissingFields(unittest.TestCase):
     def test_sufficient_fields(self):
         """Test for sufficient fields"""
         data_set = [
-            {
-                'fields': ['key', 'value', 'repeat'],
-                'required_fields': None
-            },
-            {
-                'fields': ['key', 'value', 'repeat'],
-                'required_fields': ['key', 'value']
-            },
-            {
-                'fields': [],
-                'required_fields': None
-            }
+            {'fields': ['key', 'value', 'repeat'], 'required_fields': None},
+            {'fields': ['key', 'value', 'repeat'], 'required_fields': ['key', 'value']},
+            {'fields': [], 'required_fields': None}
         ]
         for args in data_set:
             with self.subTest(**args):
@@ -61,8 +52,7 @@ class TestGenerateFingerprint(unittest.TestCase):
                 'uri': '/v3/prepare_trust',
                 'kwargs': {
                     'from_pubkey': str(stellar_base.keypair.Keypair.random().address().decode()),
-                    'limit': 1000
-                }
+                    'limit': 1000}
             }
         ]
         for data in data_set:
@@ -87,9 +77,7 @@ class TestCheckFingerprint(unittest.TestCase):
                                'escrow_pubkey=GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG,'
                                "{:.0f}".format(time.time() * 1000),
                 'url': '/v3/accept_package',
-                'kwargs': {
-                    'escrow_pubkey': 'GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG'
-                }
+                'kwargs': {'escrow_pubkey': 'GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG'}
             },
             {
                 'user_pubkey': 'GBAVMZAX35P2S7L3ZVLX35GPFRQ5JYJTW5UYCH4GBW2RPSRWGAAOOPST',
@@ -101,8 +89,7 @@ class TestCheckFingerprint(unittest.TestCase):
                 'kwargs': {
                     'from_pubkey': 'GA6WNY4R4XS5EYKXXD2HLA7FICWOGFSFRUCPP7TPUSD4GVD2P4LABAUX',
                     'to_pubkey': 'GB5JYX5SICATFI6JPXEI7MISKJZGEUGOVO4TKCF4N5UQCKZGOHMO5GGQ',
-                    'amount_buls': 10
-                }
+                    'amount_buls': 1000}
             },
             {
                 'user_pubkey': 'GC47CNBNNNQKYXPKZ7B5Q2MLEVASYVLJINH2QSYZ7XW2TFOL4MFS7NT3',
@@ -110,9 +97,7 @@ class TestCheckFingerprint(unittest.TestCase):
                                'queried_pubkey=GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG,'
                                "{:.0f}".format(time.time() * 1000),
                 'url': '/v3/bul_account',
-                'kwargs': {
-                    'queried_pubkey': 'GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG'
-                }
+                'kwargs': {'queried_pubkey': 'GAM7BELNXMX5I3CQRGQAFAYF73FMT7CV2RJHUPEYAIINT5YJ726UY2GG'}
             }
         ]
         for data in data_set:
