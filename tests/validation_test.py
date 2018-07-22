@@ -7,9 +7,7 @@ import util.logger
 
 import webserver
 
-
 LOGGER = util.logger.logging.getLogger('pkt.webserver.test')
-util.logger.setup()
 
 
 class TestCheckMissingFields(unittest.TestCase):

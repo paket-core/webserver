@@ -9,9 +9,7 @@ import util.logger
 
 import webserver.validation
 
-util.logger.setup()
 LOGGER = util.logger.logging.getLogger('pkt.web')
-
 APP = flask.Flask('PaKeT')
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']

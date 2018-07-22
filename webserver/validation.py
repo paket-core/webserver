@@ -11,8 +11,8 @@ import stellar_base.utils
 
 import util.db
 
-DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 LOGGER = logging.getLogger('pkt.api.validation')
+DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 KWARGS_CHECKERS_AND_FIXERS = {}
 CUSTOM_EXCEPTION_STATUSES = {}
 DB_HOST = os.environ.get('PAKET_DB_HOST', '127.0.0.1')
