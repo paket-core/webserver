@@ -119,7 +119,6 @@ def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
         update_nonce(user_pubkey, fingerprint[-1])
     except InvalidNonce as exception:
         raise FingerprintMismatch(str(exception))
-    return
 
 
 def sign_fingerprint(fingerprint, seed):
