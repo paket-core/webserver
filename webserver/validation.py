@@ -60,7 +60,7 @@ def init_nonce_db():
             WHERE table_schema = %s
             AND table_name = 'nonces'""", (DB_NAME,))
         if len(sql.fetchall()) == 1:
-            LOGGER.debug('table already exists')
+            LOGGER.debug('nonces table already exists')
             return
         sql.execute('''
             CREATE TABLE nonces(
