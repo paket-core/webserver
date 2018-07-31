@@ -23,16 +23,16 @@ DB_NAME = os.environ.get('PAKET_DB_NAME', 'paket')
 SQL_CONNECTION = util.db.custom_sql_connection(DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
 
 
-class MissingFields(Exception):
-    """Missing field in args."""
-
-
-class InvalidField(Exception):
-    """Invalid field."""
+class DebugOnly(Exception):
+    """Debug mode functionality called when not in debug mode."""
 
 
 class FingerprintMismatch(Exception):
     """Fingerprint does not match call."""
+
+
+class InvalidField(Exception):
+    """Invalid field."""
 
 
 class InvalidNonce(Exception):
@@ -41,6 +41,10 @@ class InvalidNonce(Exception):
 
 class InvalidSignature(Exception):
     """Invalid signature."""
+
+
+class MissingFields(Exception):
+    """Missing field in args."""
 
 
 class UnknownUser(Exception):
@@ -191,7 +195,7 @@ def check_and_fix_values(kwargs):
 def check_and_fix_call(request, required_fields, require_auth):
     """Extract kwargs and validate call."""
     if not DEBUG and '/debug/' in request.path:
-        raise FingerprintMismatch("{} only accesible in debug mode".format(request.path))
+        raise DebugOnly("{} only accesible in debug mode".format(request.path))
     kwargs = request.values.to_dict()
     check_missing_fields(kwargs.keys(), required_fields)
     if require_auth:
