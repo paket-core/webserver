@@ -248,11 +248,11 @@ def call(handler=None, required_fields=None, require_auth=None):
             response = {'status': CUSTOM_EXCEPTION_STATUSES.get(type(exception), 500)}
             if response['status'] == 500:
                 LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
-                response['error'] = 'Internal server error'
+                response['error'] = {'message': 'internal server error', 'error_code': response['status']}
                 if DEBUG:
-                    response['debug'] = str(exception)
+                    response['error']['debug'] = str(exception)
             else:
-                response['error'] = str(exception)
+                response['error'] = {'message': str(exception), 'error_code': response['status']}
         # pylint: enable=broad-except
         if 'error' in response:
             LOGGER.error(response['error'])
