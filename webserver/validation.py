@@ -181,6 +181,13 @@ def check_pubkey(key, value):
 KWARGS_CHECKERS_AND_FIXERS['_pubkey'] = check_pubkey
 
 
+def check_and_extract_files(request):
+    """
+    Check if request contains files and extract them.
+    """
+    return {arg_name: file.stream.read() for arg_name, file in request.files.items()}
+
+
 def check_and_fix_values(kwargs):
     """
     Run kwargs through appropriate checkers and fixers.
@@ -205,6 +212,7 @@ def check_and_fix_call(request, required_fields, require_auth):
             check_signature(request.headers['pubkey'], request.headers['Fingerprint'], request.headers['Signature'])
             check_fingerprint(request.headers['pubkey'], request.headers['Fingerprint'], request.url, kwargs)
         kwargs['user_pubkey'] = request.headers['Pubkey']
+    kwargs.update(check_and_extract_files(request))
     return check_and_fix_values(kwargs)
 
 
