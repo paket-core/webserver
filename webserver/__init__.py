@@ -3,6 +3,7 @@ import os
 
 import flasgger
 import flask
+import flask_cors
 import flask_limiter.util
 
 import util.logger
@@ -11,6 +12,7 @@ import webserver.validation
 
 LOGGER = util.logger.logging.getLogger('pkt.web')
 APP = flask.Flask('PaKeT')
+flask_cors.CORS(APP)
 APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
