@@ -1,4 +1,5 @@
 """PaKeT Web Server."""
+import datetime
 import os
 
 import flasgger
@@ -17,6 +18,20 @@ APP.config['SECRET_KEY'] = os.environ.get('PAKET_SESSIONS_KEY', os.urandom(24))
 STATIC_DIRS = ['static']
 DEFAULT_LIMIT = os.environ.get('PAKET_SERVER_LIMIT', '100 per minute')
 LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_address, default_limits=[DEFAULT_LIMIT])
+
+
+class PaketJSONEncoder(flask.json.JSONEncoder):
+    """Custom JSON encoder."""
+
+    def default(self, o):
+        """Serialize time in ISO 8601 format."""
+        if isinstance(o, datetime.datetime):
+            return int(o.timestamp())
+        else:
+            return flask.json.JSONEncoder.default(self, o)
+
+
+APP.json_encoder = PaketJSONEncoder
 
 
 def setup(blueprint=None, swagger_config=None):
