@@ -26,7 +26,7 @@ class PaketJSONEncoder(flask.json.JSONEncoder):
     def default(self, o):
         """Serialize time in ISO 8601 format."""
         if isinstance(o, datetime.datetime):
-            return o.isoformat()
+            return int(o.timestamp())
         else:
             return flask.json.JSONEncoder.default(self, o)
 
