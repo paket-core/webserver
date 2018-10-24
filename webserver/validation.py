@@ -47,10 +47,6 @@ class MissingFields(Exception):
     """Missing field in args."""
 
 
-class UnknownUser(Exception):
-    """Unknown user."""
-
-
 def init_nonce_db():
     """Initialize the nonces database."""
     with SQL_CONNECTION() as sql:
@@ -232,7 +228,6 @@ CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
 CUSTOM_EXCEPTION_STATUSES[AssertionError] = 400
 CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403
 CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
-CUSTOM_EXCEPTION_STATUSES[UnknownUser] = 404
 CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
 
 
