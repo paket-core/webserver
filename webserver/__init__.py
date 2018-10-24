@@ -23,12 +23,13 @@ LIMITER = flask_limiter.Limiter(APP, key_func=flask_limiter.util.get_remote_addr
 class PaketJSONEncoder(flask.json.JSONEncoder):
     """Custom JSON encoder."""
 
+    # pylint: disable=method-hidden
     def default(self, o):
         """Serialize time in ISO 8601 format."""
         if isinstance(o, datetime.datetime):
             return int(o.timestamp())
-        else:
-            return flask.json.JSONEncoder.default(self, o)
+        return flask.json.JSONEncoder.default(self, o)
+    # pylint: enable=wildcard-import
 
 
 APP.json_encoder = PaketJSONEncoder
