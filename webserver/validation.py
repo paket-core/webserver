@@ -15,6 +15,7 @@ LOGGER = logging.getLogger('pkt.api.validation')
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 KWARGS_CHECKERS_AND_FIXERS = {}
 CUSTOM_EXCEPTION_STATUSES = {}
+INTERNAL_ERROR_CODES = {}
 DB_HOST = os.environ.get('PAKET_DB_HOST', '127.0.0.1')
 DB_PORT = int(os.environ.get('PAKET_DB_PORT', 3306))
 DB_USER = os.environ.get('PAKET_DB_USER', 'root')
@@ -231,6 +232,14 @@ CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
 CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
 
 
+INTERNAL_ERROR_CODES[MissingFields] = 100
+INTERNAL_ERROR_CODES[InvalidField] = 101
+INTERNAL_ERROR_CODES[InvalidNonce] = 102
+INTERNAL_ERROR_CODES[InvalidSignature] = 103
+INTERNAL_ERROR_CODES[FingerprintMismatch] = 104
+INTERNAL_ERROR_CODES[DebugOnly] = 121
+
+
 # Since this is a decorator the handler argument will never be None, it is
 # defined as such only to comply with python's syntactic sugar.
 @optional_arg_decorator
@@ -255,7 +264,10 @@ def call(handler=None, required_fields=None, require_auth=None):
                 if DEBUG:
                     response['error']['debug'] = str(exception)
             else:
-                response['error'] = {'message': str(exception), 'error_code': response['status']}
+                response['error'] = {
+                    'message': str(exception),
+                    'error_code': response['status'],
+                    'internal_error_code': INTERNAL_ERROR_CODES.get(type(Exception), default=0)}
         # pylint: enable=broad-except
         if 'error' in response:
             LOGGER.error(response['error'])
