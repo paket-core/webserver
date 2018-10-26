@@ -267,7 +267,7 @@ def call(handler=None, required_fields=None, require_auth=None):
                 response['error'] = {
                     'message': str(exception),
                     'error_code': response['status'],
-                    'internal_error_code': INTERNAL_ERROR_CODES.get(type(Exception), default=0)}
+                    'internal_error_code': INTERNAL_ERROR_CODES.get(type(exception), 0)}
         # pylint: enable=broad-except
         if 'error' in response:
             LOGGER.error(response['error'])
