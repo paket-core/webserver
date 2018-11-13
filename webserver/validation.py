@@ -226,6 +226,7 @@ def optional_arg_decorator(decorator):
 
 CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400
 CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
+CUSTOM_EXCEPTION_STATUSES[util.db.DataTooBig] = 400
 CUSTOM_EXCEPTION_STATUSES[AssertionError] = 400
 CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403
 CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
@@ -237,6 +238,7 @@ INTERNAL_ERROR_CODES[InvalidField] = 101
 INTERNAL_ERROR_CODES[InvalidNonce] = 102
 INTERNAL_ERROR_CODES[InvalidSignature] = 103
 INTERNAL_ERROR_CODES[FingerprintMismatch] = 104
+INTERNAL_ERROR_CODES[util.db.DataTooBig] = 105
 INTERNAL_ERROR_CODES[DebugOnly] = 121
 
 
