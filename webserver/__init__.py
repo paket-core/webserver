@@ -1,4 +1,4 @@
-"""PaKeT Web Server."""
+"""PAKET Web Server."""
 import datetime
 import os
 

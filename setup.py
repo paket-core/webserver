@@ -1,8 +1,8 @@
-"""PaKeT logger."""
+"""PAKET logger."""
 from setuptools import setup
 
 setup(name='webserver',
-      description='Web server for PaKeT project',
+      description='Web server for PAKET project',
       version='1.0.0',
       url='https://github.com/paket-core/webserver',
       license='GNU GPL',

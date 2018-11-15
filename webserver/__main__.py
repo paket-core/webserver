@@ -21,7 +21,7 @@ SWAGGER_CONFIG = {
         'title': 'Just a demo',
         'description': 'webserver package at work',
         'contact': {
-            'name': 'The PaKeT Project',
+            'name': 'The PAKET Project',
             'email': 'israel@paket.global',
             'url': 'https://paket.global',
         },

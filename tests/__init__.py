@@ -1,4 +1,4 @@
-"""PaKeT webserver tests."""
+"""PAKET webserver tests."""
 import util.logger
 import webserver.validation
 util.logger.setup()
