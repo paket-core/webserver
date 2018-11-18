@@ -32,10 +32,6 @@ class FingerprintMismatch(Exception):
     """Fingerprint does not match call."""
 
 
-class InvalidField(Exception):
-    """Invalid field."""
-
-
 class InvalidNonce(Exception):
     """Invalid nonce."""
 
@@ -46,6 +42,14 @@ class InvalidSignature(Exception):
 
 class MissingFields(Exception):
     """Missing field in args."""
+
+
+class InvalidField(Exception):
+    """Invalid field."""
+
+
+class ExtraField(Exception):
+    """Unexpected fields in args"""
 
 
 def init_nonce_db():
@@ -226,6 +230,7 @@ def optional_arg_decorator(decorator):
 
 CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400
 CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
+CUSTOM_EXCEPTION_STATUSES[ExtraField] = 400
 CUSTOM_EXCEPTION_STATUSES[util.db.DataTooBig] = 400
 CUSTOM_EXCEPTION_STATUSES[AssertionError] = 400
 CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403
@@ -235,6 +240,7 @@ CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
 
 INTERNAL_ERROR_CODES[MissingFields] = 100
 INTERNAL_ERROR_CODES[InvalidField] = 101
+INTERNAL_ERROR_CODES[ExtraField] = 106
 INTERNAL_ERROR_CODES[InvalidNonce] = 102
 INTERNAL_ERROR_CODES[InvalidSignature] = 103
 INTERNAL_ERROR_CODES[FingerprintMismatch] = 104
@@ -257,7 +263,13 @@ def call(handler=None, required_fields=None, require_auth=None):
         # If anything fails, we want to catch it here.
         try:
             kwargs = check_and_fix_call(flask.request, required_fields, require_auth or False)
-            response = handler(**kwargs)
+            try:
+                response = handler(**kwargs)
+            except TypeError as exception:
+                extra_arg_name_position = str(exception).find('unexpected keyword argument ')
+                if extra_arg_name_position > -1:
+                    raise ExtraField("extra argument {}".format(str(exception)[extra_arg_name_position:]))
+                raise
         except Exception as exception:
             response = {'status': CUSTOM_EXCEPTION_STATUSES.get(type(exception), 500)}
             if response['status'] == 500:
