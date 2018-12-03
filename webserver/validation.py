@@ -8,6 +8,7 @@ import time
 import flask
 import stellar_base.keypair
 import stellar_base.utils
+import stellar_base.exceptions
 
 import util.db
 
@@ -246,6 +247,9 @@ INTERNAL_ERROR_CODES[InvalidSignature] = 103
 INTERNAL_ERROR_CODES[FingerprintMismatch] = 104
 INTERNAL_ERROR_CODES[util.db.DataTooBig] = 105
 INTERNAL_ERROR_CODES[DebugOnly] = 121
+INTERNAL_ERROR_CODES[stellar_base.exceptions.NoStellarSecretOrAddressError] = 205
+INTERNAL_ERROR_CODES[stellar_base.exceptions.StellarSecretInvalidError] = 206
+INTERNAL_ERROR_CODES[stellar_base.exceptions.StellarAddressInvalidError] = 207
 
 
 # Since this is a decorator the handler argument will never be None, it is
