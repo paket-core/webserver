@@ -229,11 +229,11 @@ def optional_arg_decorator(decorator):
     return wrapped_decorator
 
 
-CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400
-CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
-CUSTOM_EXCEPTION_STATUSES[ExtraField] = 400
-CUSTOM_EXCEPTION_STATUSES[util.db.DataTooBig] = 400
 CUSTOM_EXCEPTION_STATUSES[AssertionError] = 400
+CUSTOM_EXCEPTION_STATUSES[ExtraField] = 400
+CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
+CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400
+CUSTOM_EXCEPTION_STATUSES[util.db.DataTooBig] = 400
 CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403
 CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
 CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
@@ -241,11 +241,11 @@ CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
 
 INTERNAL_ERROR_CODES[MissingFields] = 100
 INTERNAL_ERROR_CODES[InvalidField] = 101
-INTERNAL_ERROR_CODES[ExtraField] = 106
 INTERNAL_ERROR_CODES[InvalidNonce] = 102
 INTERNAL_ERROR_CODES[InvalidSignature] = 103
 INTERNAL_ERROR_CODES[FingerprintMismatch] = 104
 INTERNAL_ERROR_CODES[util.db.DataTooBig] = 105
+INTERNAL_ERROR_CODES[ExtraField] = 106
 INTERNAL_ERROR_CODES[DebugOnly] = 121
 INTERNAL_ERROR_CODES[stellar_base.exceptions.NoStellarSecretOrAddressError] = 205
 INTERNAL_ERROR_CODES[stellar_base.exceptions.StellarSecretInvalidError] = 206
