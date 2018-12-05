@@ -116,4 +116,8 @@ def check_signature_handler(user_pubkey):
     return {'status': 200, 'message': "signature verified for {}".format(user_pubkey)}
 
 
-webserver.run(BLUEPRINT, SWAGGER_CONFIG)
+try:
+    PORT = int(sys.argv[1])
+except (IndexError, ValueError):
+    PORT = 5000
+webserver.setup(BLUEPRINT, SWAGGER_CONFIG).run('0.0.0.0', PORT, webserver.validation.DEBUG)
