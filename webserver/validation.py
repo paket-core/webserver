@@ -15,7 +15,6 @@ LOGGER = logging.getLogger('pkt.api.validation')
 DEBUG = bool(os.environ.get('PAKET_DEBUG'))
 KWARGS_CHECKERS_AND_FIXERS = {}
 CUSTOM_EXCEPTION_STATUSES = {}
-INTERNAL_ERROR_CODES = {}
 DB_HOST = os.environ.get('PAKET_DB_HOST', '127.0.0.1')
 DB_PORT = int(os.environ.get('PAKET_DB_PORT', 3306))
 DB_USER = os.environ.get('PAKET_DB_USER', 'root')
@@ -228,23 +227,17 @@ def optional_arg_decorator(decorator):
     return wrapped_decorator
 
 
-CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400
-CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400
-CUSTOM_EXCEPTION_STATUSES[ExtraField] = 400
-CUSTOM_EXCEPTION_STATUSES[util.db.DataTooBig] = 400
+CUSTOM_EXCEPTION_STATUSES[MissingFields] = 400, 100
+CUSTOM_EXCEPTION_STATUSES[InvalidField] = 400, 101
+CUSTOM_EXCEPTION_STATUSES[ExtraField] = 400, 106
+CUSTOM_EXCEPTION_STATUSES[util.db.DataTooBig] = 400, 105
 CUSTOM_EXCEPTION_STATUSES[AssertionError] = 400
-CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403
-CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403
+CUSTOM_EXCEPTION_STATUSES[FingerprintMismatch] = 403, 104
+CUSTOM_EXCEPTION_STATUSES[InvalidSignature] = 403, 103
 CUSTOM_EXCEPTION_STATUSES[NotImplementedError] = 501
 
 
-INTERNAL_ERROR_CODES[MissingFields] = 100
-INTERNAL_ERROR_CODES[InvalidField] = 101
-INTERNAL_ERROR_CODES[ExtraField] = 106
 INTERNAL_ERROR_CODES[InvalidNonce] = 102
-INTERNAL_ERROR_CODES[InvalidSignature] = 103
-INTERNAL_ERROR_CODES[FingerprintMismatch] = 104
-INTERNAL_ERROR_CODES[util.db.DataTooBig] = 105
 INTERNAL_ERROR_CODES[DebugOnly] = 121
 
 
@@ -272,18 +265,16 @@ def call(handler=None, required_fields=None, require_auth=None):
                 raise
         except Exception as exception:
             response = {'status': CUSTOM_EXCEPTION_STATUSES.get(type(exception), 500)}
+            response['error'] = {'internal_error_code': INTERNAL_ERROR_CODES.get(type(exception), 0)}
             if response['status'] == 500:
-                LOGGER.exception("Unknown validation exception. Headers: %s", flask.request.headers)
-                response['error'] = {'message': 'internal server error', 'error_code': response['status']}
+                response['error']['message'] = 'internal server error'
                 if DEBUG:
                     response['error']['debug'] = str(exception)
+                LOGGER.exception("Unknown validation exception.\nheaders:\n%s\nkwargs:\n%s\nresponse:\n%s\n",
+                    flask.request.headers, kwargs, response)
             else:
-                response['error'] = {
-                    'message': str(exception),
-                    'error_code': response['status'],
-                    'internal_error_code': INTERNAL_ERROR_CODES.get(type(exception), 0)}
+                response['error']['message'] = str(exception)
+                LOGGER.warning("server returned an error: %s", response)
         # pylint: enable=broad-except
-        if 'error' in response:
-            LOGGER.error(response['error'])
         return flask.make_response(flask.jsonify(response), response.get('status', 200))
     return _call
