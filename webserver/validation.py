@@ -117,7 +117,8 @@ def check_fingerprint(user_pubkey, fingerprint, url, kwargs):
         except KeyError:
             raise FingerprintMismatch("fingerprint has extra value {} = {}".format(key, val))
         if call_val != val:
-            raise FingerprintMismatch("fingerprint {} = {} does not match call {} = {}".format(key, val, key, call_val))
+            raise FingerprintMismatch("fingerprint {key} = {val} does not match call {key} = {call_val}".format(
+                key=key, val=val, call_val=call_val))
     if kwargs:
         raise FingerprintMismatch("fingerprint is missing a value for {}".format(', '.join((kwargs.keys()))))
     try:
